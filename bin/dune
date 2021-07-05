@@ -1,0 +1,4 @@
+(executable
+ (name api_watcher)
+ (public_name api-watcher)
+ (libraries cmdliner compiler-libs.common))
