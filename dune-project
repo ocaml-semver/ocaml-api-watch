@@ -1,7 +1,8 @@
-(lang dune 2.0)
+(lang dune 2.7)
 
 (name api-watch)
 
+(cram enable)
 (generate_opam_files true)
 
 (license ISC)
