@@ -8,9 +8,9 @@ homepage: "https://github.com/NathanReb/ocaml-api-watch"
 bug-reports: "https://github.com/NathanReb/ocaml-api-watch/issues"
 depends: [
   "dune" {>= "2.7"}
-  "ocaml" {= "4.12.0"}
+  "ocaml" {>= "4.12.0" & < "4.13.0"}
   "logs"
-  "cmdliner" {< "1.1.0"}
+  "cmdliner" {>= "1.1.0"}
   "odoc" {with-doc}
 ]
 build: [
