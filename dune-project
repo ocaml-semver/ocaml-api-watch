@@ -17,4 +17,4 @@
  (depends
   (ocaml (= 4.12.0))
   logs
-  (cmdliner (< 1.1.0))))
+  (cmdliner (>= 1.1.0))))
