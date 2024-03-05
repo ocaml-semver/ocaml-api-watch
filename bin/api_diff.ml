@@ -32,7 +32,5 @@ let info =
     ~doc:"List API changes between two versions of a library"
 
 let term = Cmdliner.Term.(const run $ ref_cmi $ current_cmi)
-
 let main = Cmdliner.Cmd.v info term
-
 let () = Stdlib.exit @@ Cmdliner.Cmd.eval main
