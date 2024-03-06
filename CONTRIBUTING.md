@@ -23,7 +23,7 @@ opam switch create ./ 4.12.1 --deps-only -t
 
 You should also install `ocamlformat` and `merlin` for a better dev experience
 ```
-opam install ocamlformat.0.18.0 merlin ocp-indent
+opam install ocamlformat.0.26.1 merlin ocp-indent
 ```
 
 From there you should be all set. You can run the following commands to build
