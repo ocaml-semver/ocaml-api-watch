@@ -44,6 +44,7 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi add_value.cmi
+  API changed!
 
 Removing a value:
 
@@ -57,6 +58,7 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi remove_value.cmi
+  API changed!
 
 Modifying a value:
 
@@ -72,3 +74,4 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi modify_value.cmi
+  API changed!
