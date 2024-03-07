@@ -2,15 +2,22 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
   let current = Cmi_format.read_cmi current in
   let reference = Cmi_format.read_cmi reference in
   let typing_env = Env.empty in
-  let coercion =
+  let coercion1 =
     try
       Includemod.signatures typing_env ~mark:Mark_both reference.cmi_sign
         current.cmi_sign
     with
     | Includemod.Error _ -> Tcoerce_none
   in
-  match coercion with
-  | Tcoerce_none -> Printf.printf "API unchanged!\n"
+  let coercion2 =
+    try
+      Includemod.signatures typing_env ~mark:Mark_both current.cmi_sign
+        reference.cmi_sign
+    with
+    | Includemod.Error _ -> Tcoerce_none
+  in
+  match (coercion1, coercion2) with
+  | (Tcoerce_none, Tcoerce_none) -> Printf.printf "API unchanged!\n"
   | _ -> Printf.printf "API changed!\n"
 
 let named f = Cmdliner.Term.(app (const f))
