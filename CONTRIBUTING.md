@@ -18,7 +18,7 @@ cd ocaml-api-watch
 And setup a local opam switch to install the right ocaml version along with the
 set of base dependencies:
 ```
-opam switch create ./ 4.12.1 --deps-only -t
+opam switch create ./ --deps-only -t
 ```
 
 You should also install `ocamlformat` and `merlin` for a better dev experience
