@@ -28,3 +28,44 @@ there should be no diff:
 
   $ api-diff ref.cmi ref.cmi
   API unchanged!
+
+# Adding a module
+  $ cat > mod_add.mli << EOF
+  > module Hello :
+  >   sig
+  >     type t = unit = ()
+  >     val equal : t -> t -> bool
+  >     val compare : t -> t -> int
+  >     val to_string : t -> string
+  >   end
+  > EOF
+
+  $ ocamlc mod_add.mli
+
+  $ api-diff ref.cmi mod_add.cmi
+  Api changed!
+
+#Removing a module
+  $ cat > mod_remove.mli << EOF
+  > type t = int
+  > 
+  > val f : t -> string
+  > EOF
+
+  $ ocamlc mod_remove.mli
+
+  $ api-diff ref.cmi mod_remove.cmi
+  API unchanged!
+
+# Modifying a module
+  $ cat > mod_modify.mli << EOF
+  > module Hello : sig
+  >   val f : unit -> unit
+  > end
+  > 
+  > EOF
+
+  $ ocamlc mod_modify.mli
+
+  $ api-diff ref.cmi mod_modify.cmi
+  Api changed!
