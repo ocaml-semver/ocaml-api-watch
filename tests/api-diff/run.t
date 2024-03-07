@@ -35,12 +35,12 @@ Here we generate a basic `.mli` files with two types and a function:
 
 ### A file with an additional type:
 
-  $ cat > add_type.mli << EOF
+  $ cat > add_type.mli <<EOF
   > type t = int
   > type added_t = float
   > val f : t -> string
-  > EOF 
-
+  > EOF
+ 
 We generate the .cmi file
 
   $ ocamlc add_type.mli
@@ -48,11 +48,14 @@ We generate the .cmi file
 Now we run api-watcher on the two cmi files, there should be a difference:
 
   $ api-diff ref.cmi add_type.cmi
-  API changed!
+  api-watcher: internal error, uncaught exception:
+               Includemod.Error(_)
+               
+  [125]
 
 ### A file with a removed type:
 
-  $ cat > remove_type.mli << EOF
+  $ cat > remove_type.mli <<EOF
   > EOF
 
 We generate the .cmi file
@@ -66,7 +69,7 @@ Now we run api-watcher on the two cmi files, there should be a difference:
 
 ### A file with a modified type:
 
-  $ cat > modify_type.mli << EOF
+  $ cat > modify_type.mli <<EOF
   > type t = float
   > val f : t -> string
   > EOF
@@ -78,4 +81,7 @@ We generate a .cmi file
 Now we run api-watcher on the two cmi files, there should be a difference:
 
   $ api-diff ref.cmi modify_type.cmi
-  API changed!
+  api-watcher: internal error, uncaught exception:
+               Includemod.Error(_)
+               
+  [125]
