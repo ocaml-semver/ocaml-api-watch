@@ -44,10 +44,7 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi add_value.cmi
-  api-watcher: internal error, uncaught exception:
-               Includemod.Error(_)
-               
-  [125]
+  API changed!
 
 Removing a value:
 
@@ -77,7 +74,4 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi modify_value.cmi
-  api-watcher: internal error, uncaught exception:
-               Includemod.Error(_)
-               
-  [125]
+  API changed!
