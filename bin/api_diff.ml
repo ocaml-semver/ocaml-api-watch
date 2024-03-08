@@ -2,7 +2,10 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
   let current = Cmi_format.read_cmi current in
   let reference = Cmi_format.read_cmi reference in
   let typing_env = Env.empty in
-  let coercion = fun () -> Includemod.signatures typing_env ~mark:Mark_both reference.cmi_sign current.cmi_sign in
+  let coercion () =
+    Includemod.signatures typing_env ~mark:Mark_both reference.cmi_sign
+      current.cmi_sign
+  in
   match coercion () with
   | Tcoerce_none -> Printf.printf "API unchanged!\n"
   | _ -> Printf.printf "API changed!\n"
