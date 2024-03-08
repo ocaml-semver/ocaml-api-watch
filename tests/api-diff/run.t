@@ -64,7 +64,8 @@ We generate the .cmi file
 
 Run api-watcher on the two cmi files, there should be a difference
 
-The api-diff tool fails to detect this particular change and should be fixed!
+TODO: The api-diff tool fails to detect this particular change and should be fixed!
+See https://github.com/NathanReb/ocaml-api-watch/issues/23
 
   $ api-diff ref.cmi remove_type.cmi
   API unchanged!
