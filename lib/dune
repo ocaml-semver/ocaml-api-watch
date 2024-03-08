@@ -1,4 +1,4 @@
 (library
- (name api_watch)
- (public_name api-watch)
- (libraries api_diff cmdliner ocaml-compiler-libs.commom))
+ (name api_watch_diff)
+ (public_name api-watch.diff)
+ (libraries api_diff cmdliner ocaml-compiler-libs.common))
