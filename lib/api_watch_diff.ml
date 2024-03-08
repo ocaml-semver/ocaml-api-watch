@@ -1,1 +1,1 @@
-let diff_interface ~reference ~current = false
+let diff_interface ~reference:_ ~current:_ = false
