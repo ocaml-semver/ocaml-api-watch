@@ -1,4 +1,5 @@
 let _ = Api_watch_diff.diff_interface ~reference:"reference" ~current:"current"
+
 let run (`Ref_cmi reference) (`Current_cmi current) =
   let current = Cmi_format.read_cmi current in
   let reference = Cmi_format.read_cmi reference in
