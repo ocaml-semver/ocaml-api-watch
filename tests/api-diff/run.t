@@ -29,9 +29,9 @@ there should be no diff:
   $ api-diff ref.cmi ref.cmi
   API unchanged!
 
-## Different .cmi files for type test:
+## Different .cmi files for type tests:
 
-Here we generate a basic `.mli` files with two types and a function:
+Generate a basic `.mli` files with two types and a function
 
 ### A file with an additional type:
 
@@ -46,13 +46,10 @@ We generate the .cmi file
 
   $ ocamlc add_type.mli
 
-Now we run api-watcher on the two cmi files, there should be a difference:
+Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi add_type.cmi
-  api-watcher: internal error, uncaught exception:
-               Includemod.Error(_)
-               
-  [125]
+  API changed!
 
 ### A file with a removed type:
 
@@ -65,13 +62,12 @@ We generate the .cmi file
 
   $ ocamlc remove_type.mli
 
-Now we run api-watcher on the two cmi files, there should be a difference:
+Run api-watcher on the two cmi files, there should be a difference
+
+The api-diff tool fails to detect this particular change and should be fixed!
 
   $ api-diff ref.cmi remove_type.cmi
-  api-watcher: internal error, uncaught exception:
-               Includemod.Error(_)
-               
-  [125]
+  API unchanged!
 
 ### A file with a modified type:
 
@@ -85,10 +81,57 @@ We generate a .cmi file
 
   $ ocamlc modify_type.mli
 
-Now we run api-watcher on the two cmi files, there should be a difference:
+Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi modify_type.cmi
-  api-watcher: internal error, uncaught exception:
-               Includemod.Error(_)
-               
-  [125]
+  API changed!
+
+## Different .cmi files for value tests:
+
+### Adding a value:
+
+Generate a new .mli file with an additional value
+  $ cat > add_value.mli << EOF
+  > type t = int
+  > type unused_type = string
+  > val f : t -> string
+  > val g : t -> t
+  > EOF
+
+Compile the new .mli file to a .cmi file
+  $ ocamlc add_value.mli
+
+Run api-diff and check the output
+  $ api-diff ref.cmi add_value.cmi
+  API changed!
+
+### Removing a value:
+
+Generate a new .mli file with the value removed
+  $ cat > remove_value.mli << EOF
+  > type t = int
+  > type unused_type = string
+  > EOF
+
+Compile the new .mli file to a .cmi file
+  $ ocamlc remove_value.mli
+
+Run api-diff and check the output
+  $ api-diff ref.cmi remove_value.cmi
+  API changed!
+
+### Modifying a value:
+
+Generate a new .mli file with the value modified
+  $ cat > modify_value.mli << EOF
+  > type t = int
+  > type unused_type = string
+  > val f : t -> t
+  > EOF
+
+Compile the new .mli file to a .cmi file
+  $ ocamlc modify_value.mli
+
+Run api-diff and check the output
+  $ api-diff ref.cmi modify_value.cmi
+  API changed!
