@@ -131,3 +131,73 @@ Compile the new .mli file to a .cmi file
 Run api-diff and check the output
   $ api-diff ref.cmi modify_value.cmi
   API changed!
+
+Here we generate a `.mli` file with a module:
+
+  $ cat > mod_ref.mli << EOF
+  > type t = int
+  > type unused_type = string
+  > val f : t -> string
+  > module M : sig val x : int end
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc mod_ref.mli
+
+And now we run api-watcher on that same cmi file as both arguments,
+there should be no diff:
+
+  $ api-diff mod_ref.cmi mod_ref.cmi
+  API unchanged!
+
+### Adding a module:
+
+Generate a new .mli file with an additional module
+  $ cat > add_module.mli << EOF
+  > type t = int
+  > type unused_type = string
+  > val f : t -> string
+  > module M : sig val x : int end
+  > module N : sig val y : float end
+  > EOF
+
+Compile the new .mli file to a .cmi file
+  $ ocamlc add_module.mli
+
+Run api-diff and check the output
+  $ api-diff mod_ref.cmi add_module.cmi
+  API changed!
+
+### Removing a module:
+
+Generate a new .mli file with the module removed
+  $ cat > remove_module.mli << EOF
+  > type t = int
+  > type unused_type = string
+  > val f : t -> string
+  > EOF
+
+Compile the new .mli file to a .cmi file
+  $ ocamlc remove_module.mli
+
+Run api-diff and check the output
+  $ api-diff mod_ref.cmi remove_module.cmi
+  API changed!
+
+### Modifying a module:
+
+Generate a new .mli file with the module modified
+  $ cat > modify_module.mli << EOF
+  > type t = int
+  > type unused_type = string
+  > val f : t -> string
+  > module M : sig val x : float end
+  > EOF
+
+Compile the new .mli file to a .cmi file
+  $ ocamlc modify_module.mli
+
+Run api-diff and check the output
+  $ api-diff mod_ref.cmi modify_module.cmi
+  API changed!
