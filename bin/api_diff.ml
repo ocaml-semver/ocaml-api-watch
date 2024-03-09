@@ -12,11 +12,10 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
     Includemod.signatures typing_env ~mark:Mark_both current.cmi_sign
       reference.cmi_sign
   in
-  try
-    match (coercion1 (), coercion2 ()) with
-    | Tcoerce_none, Tcoerce_none -> Printf.printf "API unchanged!\n"
-    | _, _ -> Printf.printf "API changed!\n"
-  with Includemod.Error _ -> Printf.printf "API changed!\n"
+  match (coercion1 (), coercion2 ()) with
+  | Tcoerce_none, Tcoerce_none -> Printf.printf "API unchanged!\n"
+  | _, _ -> Printf.printf "API changed!\n"
+  | exception Includemod.Error _ -> Printf.printf "API changed!\n"
 
 let named f = Cmdliner.Term.(app (const f))
 
