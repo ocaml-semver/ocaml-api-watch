@@ -4,14 +4,15 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
   let current = Cmi_format.read_cmi current in
   let reference = Cmi_format.read_cmi reference in
   let typing_env = Env.empty in
-  let coercion1 () = Api_watch_diff.diff_interface ~reference ~current in
-  let coercion2 () =
+  let coercion1 =
+    Api_watch_diff.diff_interface ~reference:reference ~current:current in
+  let coercion2 =
     Api_watch_diff.diff_interface ~reference:current ~current:reference
   in
-  match (coercion1 (), coercion2 ()) with
-  | Tcoerce_none, Tcoerce_none -> Printf.printf "API unchanged!\n"
-  | _, _ -> Printf.printf "API changed!\n"
-  | exception Includemod.Error _ -> Printf.printf "API changed!\n"
+  match (coercion1, coercion2) with
+  | Tcoerce_none, Tcoerce_none -> false
+  | _, _ -> true
+  | exception Includemod.Error _ -> true
 
 let named f = Cmdliner.Term.(app (const f))
 
