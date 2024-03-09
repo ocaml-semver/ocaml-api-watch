@@ -11,8 +11,6 @@ and simply generate a modified version of it.
 
 ## Identical .cmi files:
 
-Here we generate a basic `.mli` file with a type and a function:
-
   $ cat > ref.mli << EOF
   > type t = int
   > type unused_type = string
