@@ -4,13 +4,9 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
   let current = Cmi_format.read_cmi current in
   let reference = Cmi_format.read_cmi reference in
   let typing_env = Env.empty in
-  let coercion1 () =
-    Includemod.signatures typing_env ~mark:Mark_both reference.cmi_sign
-      current.cmi_sign
-  in
+  let coercion1 () = Api_watch_diff.diff_interface ~reference ~current in
   let coercion2 () =
-    Includemod.signatures typing_env ~mark:Mark_both current.cmi_sign
-      reference.cmi_sign
+    Api_watch_diff.diff_interface ~reference:current ~current:reference
   in
   match (coercion1 (), coercion2 ()) with
   | Tcoerce_none, Tcoerce_none -> Printf.printf "API unchanged!\n"
