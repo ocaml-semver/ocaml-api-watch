@@ -29,8 +29,6 @@ there should be no diff:
 
 ## Different .cmi files for type tests:
 
-Generate a basic `.mli` files with two types and a function
-
 ### A file with an additional type:
 
   $ cat > add_type.mli <<EOF
