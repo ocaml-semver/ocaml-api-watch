@@ -135,10 +135,8 @@ Run api-diff and check the output
 Here we generate a `.mli` file with a module:
 
   $ cat > mod_ref.mli << EOF
-  > type t = int
-  > type unused_type = string
-  > val f : t -> string
   > module M : sig val x : int end
+  > 
   > EOF
 
 We generate the .cmi file
@@ -155,11 +153,9 @@ there should be no diff:
 
 Generate a new .mli file with an additional module
   $ cat > add_module.mli << EOF
-  > type t = int
-  > type unused_type = string
-  > val f : t -> string
   > module M : sig val x : int end
   > module N : sig val y : float end
+  > 
   > EOF
 
 Compile the new .mli file to a .cmi file
@@ -173,9 +169,7 @@ Run api-diff and check the output
 
 Generate a new .mli file with the module removed
   $ cat > remove_module.mli << EOF
-  > type t = int
-  > type unused_type = string
-  > val f : t -> string
+  > 
   > EOF
 
 Compile the new .mli file to a .cmi file
@@ -189,10 +183,8 @@ Run api-diff and check the output
 
 Generate a new .mli file with the module modified
   $ cat > modify_module.mli << EOF
-  > type t = int
-  > type unused_type = string
-  > val f : t -> string
   > module M : sig val x : float end
+  > 
   > EOF
 
 Compile the new .mli file to a .cmi file
