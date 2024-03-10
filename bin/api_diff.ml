@@ -1,5 +1,3 @@
-let _ = Api_watch_diff.diff_interface ~reference:"reference" ~current:"current"
-
 let run (`Ref_cmi reference) (`Current_cmi current) =
   let coercion = Api_watch_diff.diff_interface ~reference:reference ~current:current
   in match (coercion) with
