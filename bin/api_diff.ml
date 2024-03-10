@@ -1,6 +1,6 @@
 let run (`Ref_cmi reference) (`Current_cmi current) =
-  let coercion = Api_watch_diff.diff_interface ~reference:reference ~current:current
-  in match (coercion) with
+  let coercion = Api_watch_diff.diff_interface ~reference ~current in
+  match coercion with
   | false -> Printf.printf "API unchanged!\n"
   | true -> Printf.printf "API changed!\n"
 
