@@ -1,13 +1,12 @@
 let run (`Ref_cmi reference) (`Current_cmi current) =
   let current = Cmi_format.read_cmi current in
   let reference = Cmi_format.read_cmi reference in
-  let coercion =
+  let differs =
     Api_watch_diff.diff_interface ~reference:reference.cmi_sign
       ~current:current.cmi_sign
   in
-  match coercion with
-  | false -> Printf.printf "API unchanged!\n"
-  | true -> Printf.printf "API changed!\n"
+  if differs then Printf.printf "API changed!\n"
+  else Printf.printf "API unchanged!\n"
 
 let named f = Cmdliner.Term.(app (const f))
 
