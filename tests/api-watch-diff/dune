@@ -1,5 +1,5 @@
 (library
- (name foo)
+ (name ppx_expect_test)
  (inline_tests)
  (preprocess
   (pps ppx_expect))
