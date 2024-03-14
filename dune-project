@@ -16,5 +16,6 @@
  (synopsis "Libraries and tools to keep watch on your OCaml lib's API changes")
  (depends
   (ocaml (and (>= 4.14.0) (< 5.0.0)))
+  (ppx_expect :with-test)
   logs
   (cmdliner (>= 1.1.0))))
