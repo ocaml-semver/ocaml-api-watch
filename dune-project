@@ -15,6 +15,6 @@
  (name api-watch)
  (synopsis "Libraries and tools to keep watch on your OCaml lib's API changes")
  (depends
-  (ocaml (and (>= 4.14.0) (< 5.1.0)))
+  (ocaml (and (>= 4.14.0) (< 5.2.0)))
   logs
   (cmdliner (>= 1.1.0))))
