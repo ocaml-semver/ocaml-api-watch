@@ -9,23 +9,23 @@ let%expect_test "api-diff ref.cmi ref.cmi" =
   let signature1 =
     [
       Sig_type
-        ( Global "t",
+        ( Ident.create_persistent "t",
           {
             type_params = [];
             type_arity = 0;
             type_kind = Type_abstract;
             type_private = Public;
             type_manifest =
-              Some
-                (Btype.newgenty
-                   (Tconstr (Path.Pident (Ident.create "int"), [], ref Mnil)));
+              Some { desc = Tvar (Some "int"); level = -1; scope = -1; id = -1 };
             type_variance = [];
+            type_separability = [];
             type_is_newtype = false;
-            type_expansion = None;
+            type_expansion_scope = -1;
             type_loc = Location.none;
             type_attributes = [];
             type_immediate = Unknown;
-            type_unboxed = Default_unboxed;
+            type_unboxed_default = false;
+            type_uid = Uid.internal_not_actually_unique;
           },
           Trec_not,
           Exported );
