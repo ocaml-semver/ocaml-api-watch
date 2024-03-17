@@ -35,6 +35,8 @@ let%expect_test "api-diff ref.cmi ref.cmi" =
     ]
   in
   let signature2 = signature1 in
-  let result = Api_watch_diff.diff_interface ~reference:signature1 ~current:signature2 in
+  let result =
+    Api_watch_diff.diff_interface ~reference:signature1 ~current:signature2
+  in
   Format.printf "%b" result;
   [%expect {|false|}]
