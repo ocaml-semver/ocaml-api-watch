@@ -16,7 +16,10 @@ let%expect_test "api-diff ref.cmi ref.cmi" =
             type_kind = Type_abstract;
             type_private = Public;
             type_manifest =
-              Some { desc = Tvar (Some "int"); level = -1; scope = -1; id = -1 };
+              Some
+                (Transient_expr.type_expr
+                   (Transient_expr.create (Tvar (Some "int")) ~level:(-1)
+                      ~scope:(-1) ~id:(-1)));
             type_variance = [];
             type_separability = [];
             type_is_newtype = false;
@@ -32,5 +35,6 @@ let%expect_test "api-diff ref.cmi ref.cmi" =
     ]
   in
   let signature2 = signature1 in
-  Api_watch_diff.diff_interface signature1 signature2;
-  [%expect {| API unchanged! |}]
+  let result = Api_watch_diff.diff_interface ~reference:signature1 ~current:signature2 in
+  Format.printf "%b" result;
+  [%expect {|false|}]
