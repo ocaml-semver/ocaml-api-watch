@@ -5,98 +5,193 @@ let%expect_test "test_diff_interface" =
 
 open Types
 
-let%expect_test "adding_value_test" =
+(* Signature for type t:
+     > type t = int *)
 
-  let signature1=
-  [
-    Sig_type(
-      Ident.create_persistent "t",
+let t_sig =
+  Sig_type
+    ( Ident.create_persistent "t",
       {
-        type_params = []; 
-        type_arity = 0;  
-        type_kind = Type_abstract ;  
-        type_private = Public;  
-        type_manifest = Some {
-                  desc = Tconstr (Path.Pident "int", [], ref []);
-                  level = 0;
-                  scope =0;
-                  id = 1;
-                };
-        type_variance = [];    
-        type_separability= [];
-        type_is_newtype= false;
-        type_expansion_scope= 0;
-        type_loc= Location.none;
-        type_attributes= [];
-        type_immediate= Unknown;
-        type_unboxed_default= false;
-        type_uid= Uid.create();
+        type_params = [];
+        type_arity = 0;
+        type_kind = Type_abstract;
+        type_private = Public;
+        type_manifest =
+          Some
+            (Transient_expr.type_expr
+               (Transient_expr.create (Tvar (Some "int")) ~level:0 ~scope:0
+                  ~id:0));
+        type_variance = [];
+        type_separability = [];
+        type_is_newtype = false;
+        type_expansion_scope = 0;
+        type_loc = Location.none;
+        type_attributes = [];
+        type_immediate = Unknown;
+        type_unboxed_default = false;
+        type_uid = Uid.internal_not_actually_unique;
       },
       Trec_not,
-      Exported
-    );
-    Sig_type(
-      Ident.create_persistent "unused_type",
+      Exported )
+
+(* Signature for type t:
+     > type unused_type = string *)
+
+let unused_type_sig =
+  Sig_type
+    ( Ident.create_persistent "unused_type",
       {
-        type_params = []; 
-        type_arity = 0;  
-        type_kind = Type_abstract;  
-        type_private = Public;  
-        type_manifest =      
-        type_variance = [];    
-        type_separability= [];
-        type_is_newtype= false;
-        type_expansion_scope= 0;
-        type_loc= Location.none;
-        type_attributes= [];
-        type_immediate= Unknown;
-        type_unboxed_default= false;
-        type_uid= Uid.create();
+        type_params = [];
+        type_arity = 0;
+        type_kind = Type_abstract;
+        type_private = Public;
+        type_manifest =
+          Some
+            (Transient_expr.type_expr
+               (Transient_expr.create (Tvar (Some "string")) ~level:0 ~scope:0
+                  ~id:1));
+        type_variance = [];
+        type_separability = [];
+        type_is_newtype = false;
+        type_expansion_scope = 0;
+        type_loc = Location.none;
+        type_attributes = [];
+        type_immediate = Unknown;
+        type_unboxed_default = false;
+        type_uid = Uid.internal_not_actually_unique;
       },
       Trec_not,
-      Exported
-    ); 
-    Sig_value(
-      Ident.create_persistent "f",
+      Exported )
+
+(* Signature for value f:
+    > val f : t -> string *)
+
+let val_f_sig =
+  Sig_value
+    ( Ident.create_persistent "f",
       {
-        val_type= Tarrow (Nolabel, {
-                  desc = Tvar None
-                }, {
-        desc = Tconstr (Path.Pident "int", [], ref []);
-        level = 0;
-        scope = 0;
-        id = 3
-      }, Cok);               
-        val_kind= Reg_val;
-        val_loc= Location.none;
-        val_attributes=[];
-        val_uid= Uid.create();
+        val_type =
+          Transient_expr.type_expr
+            (Transient_expr.create
+               (Tarrow
+                  ( Nolabel,
+                    Transient_expr.type_expr
+                      (Transient_expr.create (Tvar (Some "t")) ~level:0 ~scope:0
+                         ~id:2),
+                    Transient_expr.type_expr
+                      (Transient_expr.create (Tvar (Some "string")) ~level:0
+                         ~scope:0 ~id:3),
+                    commu_ok ))
+               ~level:0 ~scope:0 ~id:4);
+        val_kind = Val_reg;
+        val_loc = Location.none;
+        val_attributes = [];
+        val_uid = Uid.internal_not_actually_unique;
       },
-      Exported
-    );
-    Sig_value(
-      Ident.create_persistent "g",
+      Exported )
+
+(* Signature for value g:
+    > val g : t -> t *)
+
+let val_g_sig =
+  Sig_value
+    ( Ident.create_persistent "g",
       {
-        val_type=Tarrow (Nolabel, {
-                 desc = Tconstr (Path.Pident "int", [], ref []);
-        level = 0;
-        scope = 0;
-        id = 3
-                }, {
-        desc = Tconstr (Path.Pident "int", [], ref []);
-        level = 0;
-        scope = 0;
-        id = 3
-      }, Cok);                   
-        val_kind= Reg_val;
-        val_loc= Location.none;
-        val_attributes=[];
-        val_uid= Uid.create();
+        val_type =
+          Transient_expr.type_expr
+            (Transient_expr.create
+               (Tarrow
+                  ( Nolabel,
+                    Transient_expr.type_expr
+                      (Transient_expr.create (Tvar (Some "t")) ~level:0 ~scope:0
+                         ~id:5),
+                    Transient_expr.type_expr
+                      (Transient_expr.create (Tvar (Some "t")) ~level:0 ~scope:0
+                         ~id:6),
+                    commu_ok ))
+               ~level:0 ~scope:0 ~id:7);
+        val_kind = Val_reg;
+        val_loc = Location.none;
+        val_attributes = [];
+        val_uid = Uid.internal_not_actually_unique;
       },
-      Exported
-    ); 
-  ] in
-  let signature2=signature1 in
-let differs=Api_watch_diff.diff_interface ~reference:signature1 ~current:signature2 in 
-  Format.printf "%b" differs;
-  [%expect {|false|}]
+      Exported )
+
+(* Signature for file ref.mli:
+      > type t = int
+      > type unused_type = string
+      > val f : t -> string *)
+
+let ref_signature = [ t_sig; unused_type_sig; val_f_sig ]
+
+(* Signature for add_value.mli:
+     > type t = int
+     > type unused_type = string
+     > val f : t -> string
+     > val g : t -> t *)
+
+let add_value_signature = [ t_sig; unused_type_sig; val_f_sig; val_g_sig ]
+
+let%expect_test "adding_a_value_test" =
+  let result =
+    Api_watch_diff.diff_interface ~reference:ref_signature
+      ~current:add_value_signature
+  in
+  Format.printf "%b" result;
+  [%expect {|true|}]
+
+(* Signature for remove_value.mli:
+     > type t = int
+     > type unused_type = string *)
+
+let remove_value_signature = [ t_sig; unused_type_sig ]
+
+let%expect_test "removing_a_value_test" =
+  let result =
+    Api_watch_diff.diff_interface ~reference:ref_signature
+      ~current:remove_value_signature
+  in
+  Format.printf "%b" result;
+  [%expect {|true|}]
+
+(* Signature for value f:
+    > val f : t -> t *)
+
+let modified_val_f_sig =
+  Sig_value
+    ( Ident.create_persistent "f",
+      {
+        val_type =
+          Transient_expr.type_expr
+            (Transient_expr.create
+               (Tarrow
+                  ( Nolabel,
+                    Transient_expr.type_expr
+                      (Transient_expr.create (Tvar (Some "t")) ~level:0 ~scope:0
+                         ~id:8),
+                    Transient_expr.type_expr
+                      (Transient_expr.create (Tvar (Some "t")) ~level:0 ~scope:0
+                         ~id:9),
+                    commu_ok ))
+               ~level:0 ~scope:0 ~id:10);
+        val_kind = Val_reg;
+        val_loc = Location.none;
+        val_attributes = [];
+        val_uid = Uid.internal_not_actually_unique;
+      },
+      Exported )
+
+(* Signature for modify_value.mli:
+     > type t = int
+     > type unused_type = string
+     > val f : t -> t *)
+
+let modify_value_signature = [ t_sig; unused_type_sig; modified_val_f_sig ]
+
+let%expect_test "removing_a_value_test" =
+  let result =
+    Api_watch_diff.diff_interface ~reference:ref_signature
+      ~current:modify_value_signature
+  in
+  Format.printf "%b" result;
+  [%expect {|true|}]
