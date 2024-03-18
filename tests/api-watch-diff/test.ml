@@ -7,30 +7,41 @@ let%expect_test "test_diff_interface" =
 open Types
 
 let%expect_test "Initial module signature test" =
-  let module_identifier = Ident.create_persistent "M" in
-  let value_identifier = Ident.create_persistent "int" in
-  let int_type_expr =
-    Tconstr (Path.Pident (value_identifier), [], ref Mnil)
-  in
-  let value_description :value_description =
-    { val_type = int_type_expr;
-      val_kind = Val_reg
-      val_attributes = [];
-      val_loc = Location.none;
-      val_uid = Uid.create ()
-    }
-  in
-  let module_type =
-    Mty_signature [Sig_value (value_identifier, value_description, Public)]
-  in
   let mod_ref_signature : signature =
-    [Sig_module (module_identifier,
-                       Mp_present,
-                       module_type,
-                       Nonrecursive,
-                       Public)]
+    [ Sig_module (
+        Ident.create_persistent "M",
+        Mp_present,
+        {
+          md_type = Mty_signature [
+            Sig_value (
+              Ident.create_persistent "x",
+              {
+                val_type =
+                  Transient_expr.type_expr
+                    (Transient_expr.create (
+                      Tconstr (Path.Pident (Ident.create_persistent "int"), [], ref Mnil))
+                        ~level:0 ~scope:0 ~id:0
+                    );
+                val_kind = Val_reg;
+                val_attributes = [];
+                val_loc = Location.none;
+                val_uid = Uid.internal_not_actually_unique;
+              },
+              Exported
+            )
+          ];
+          md_attributes = [];
+          md_loc = Location.none;
+          md_uid = Uid.internal_not_actually_unique;
+        },
+        Trec_not,
+        Exported
+      )
+    ]
   in
-  let diff_result = Api_watch_diff.diff_interface [mod_ref_signature] in
+  let result =
+    Api_watch_diff.diff_interface ~reference:mod_ref_signature ~current:mod_ref_signature
+  in
+  Format.printf "%b" result;
+  [%expect {|false|}]
 
-  Format.printf "%b" diff_result;
-  [%expect {| API unchanged! |}]
