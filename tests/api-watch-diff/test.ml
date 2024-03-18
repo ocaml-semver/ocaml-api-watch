@@ -8,7 +8,8 @@ let%expect_test "test_diff_interface" =
 let ref_signature =
   (* Signature for ref.mli:
      > type t = int
-     > type unused_type = string *)
+     > type unused_type = string
+     > val f t-> string *)
   [
     Sig_type
       ( Ident.create_persistent "t",
@@ -58,36 +59,36 @@ let ref_signature =
         },
         Trec_not,
         Exported );
-    (* signature of val f t-> string yet to add
-       Sig_value
-         ( Ident.create_persistent "f",
-           {
-             val_type =
-               Transient_expr.type_expr
-                 (Transient_expr.create
-                    (Tarrow
-                       ( Nolabel,
-                         Transient_expr.type_expr
-                           (Transient_expr.create (Tvar (Some "t")) ~level:(0)
-                              ~scope:(0) ~id:(0)),
-                         Transient_expr.type_expr
-                           (Transient_expr.create (Tvar (Some "string"))
-                              ~level:(0) ~scope:(0) ~id:(0)),
-                         Cok ))
-                    ~level:(0) ~scope:(0) ~id:(0));
-             val_kind = Val_reg;
-             val_loc = Location.none;
-             val_attributes = [];
-             val_uid = Uid.internal_not_actually_unique;
-           },
-           Exported ); *)
+    Sig_value
+      ( Ident.create_persistent "f",
+        {
+          val_type =
+            Transient_expr.type_expr
+              (Transient_expr.create
+                 (Tarrow
+                    ( Nolabel,
+                      Transient_expr.type_expr
+                        (Transient_expr.create (Tvar (Some "t")) ~level:0
+                           ~scope:0 ~id:0),
+                      Transient_expr.type_expr
+                        (Transient_expr.create (Tvar (Some "string")) ~level:0
+                           ~scope:0 ~id:0),
+                      commu_ok ))
+                 ~level:0 ~scope:0 ~id:0);
+          val_kind = Val_reg;
+          val_loc = Location.none;
+          val_attributes = [];
+          val_uid = Uid.internal_not_actually_unique;
+        },
+        Exported );
   ]
 
 let%expect_test "Testing API watch on the same signature" =
   let curr_signature =
     (* Signature for curr.mli:
        > type t = int
-       > type unused_type = string *)
+       > type unused_type = string
+       > val f t-> string *)
     [
       Sig_type
         ( Ident.create_persistent "t",
@@ -137,6 +138,28 @@ let%expect_test "Testing API watch on the same signature" =
           },
           Trec_not,
           Exported );
+      Sig_value
+        ( Ident.create_persistent "f",
+          {
+            val_type =
+              Transient_expr.type_expr
+                (Transient_expr.create
+                   (Tarrow
+                      ( Nolabel,
+                        Transient_expr.type_expr
+                          (Transient_expr.create (Tvar (Some "t")) ~level:0
+                             ~scope:0 ~id:0),
+                        Transient_expr.type_expr
+                          (Transient_expr.create (Tvar (Some "string")) ~level:0
+                             ~scope:0 ~id:0),
+                        commu_ok ))
+                   ~level:0 ~scope:0 ~id:0);
+            val_kind = Val_reg;
+            val_loc = Location.none;
+            val_attributes = [];
+            val_uid = Uid.internal_not_actually_unique;
+          },
+          Exported );
     ]
   in
   let result =
@@ -151,7 +174,8 @@ let%expect_test "Testing API watch on adding a type" =
     (* Signature for curr.mli:
        > type t = int
        > type unused_type = string
-       > type added_type = float *)
+       > type added_type = float
+       > val f t-> string *)
     [
       Sig_type
         ( Ident.create_persistent "t",
@@ -225,6 +249,28 @@ let%expect_test "Testing API watch on adding a type" =
           },
           Trec_not,
           Exported );
+      Sig_value
+        ( Ident.create_persistent "f",
+          {
+            val_type =
+              Transient_expr.type_expr
+                (Transient_expr.create
+                   (Tarrow
+                      ( Nolabel,
+                        Transient_expr.type_expr
+                          (Transient_expr.create (Tvar (Some "t")) ~level:0
+                             ~scope:0 ~id:0),
+                        Transient_expr.type_expr
+                          (Transient_expr.create (Tvar (Some "string")) ~level:0
+                             ~scope:0 ~id:0),
+                        commu_ok ))
+                   ~level:0 ~scope:0 ~id:0);
+            val_kind = Val_reg;
+            val_loc = Location.none;
+            val_attributes = [];
+            val_uid = Uid.internal_not_actually_unique;
+          },
+          Exported );
     ]
   in
   let result =
@@ -237,7 +283,8 @@ let%expect_test "Testing API watch on adding a type" =
 let%expect_test "Testing API watch on removing a type" =
   let curr_signature =
     (* Signature for curr.mli:
-       > type t = int *)
+       > type t = int
+       > val f t-> string *)
     [
       Sig_type
         ( Ident.create_persistent "t",
@@ -263,6 +310,28 @@ let%expect_test "Testing API watch on removing a type" =
           },
           Trec_not,
           Exported );
+      Sig_value
+        ( Ident.create_persistent "f",
+          {
+            val_type =
+              Transient_expr.type_expr
+                (Transient_expr.create
+                   (Tarrow
+                      ( Nolabel,
+                        Transient_expr.type_expr
+                          (Transient_expr.create (Tvar (Some "t")) ~level:0
+                             ~scope:0 ~id:0),
+                        Transient_expr.type_expr
+                          (Transient_expr.create (Tvar (Some "string")) ~level:0
+                             ~scope:0 ~id:0),
+                        commu_ok ))
+                   ~level:0 ~scope:0 ~id:0);
+            val_kind = Val_reg;
+            val_loc = Location.none;
+            val_attributes = [];
+            val_uid = Uid.internal_not_actually_unique;
+          },
+          Exported );
     ]
   in
   let result =
@@ -276,7 +345,8 @@ let%expect_test "Testing API watch on modifying a type" =
   let curr_signature =
     (* Signature for curr.mli:
        > type t = float
-       > type unused_type = string *)
+       > type unused_type = string
+       > val f t-> string *)
     [
       Sig_type
         ( Ident.create_persistent "t",
@@ -325,6 +395,28 @@ let%expect_test "Testing API watch on modifying a type" =
             type_uid = Uid.internal_not_actually_unique;
           },
           Trec_not,
+          Exported );
+      Sig_value
+        ( Ident.create_persistent "f",
+          {
+            val_type =
+              Transient_expr.type_expr
+                (Transient_expr.create
+                   (Tarrow
+                      ( Nolabel,
+                        Transient_expr.type_expr
+                          (Transient_expr.create (Tvar (Some "t")) ~level:0
+                             ~scope:0 ~id:0),
+                        Transient_expr.type_expr
+                          (Transient_expr.create (Tvar (Some "string")) ~level:0
+                             ~scope:0 ~id:0),
+                        commu_ok ))
+                   ~level:0 ~scope:0 ~id:0);
+            val_kind = Val_reg;
+            val_loc = Location.none;
+            val_attributes = [];
+            val_uid = Uid.internal_not_actually_unique;
+          },
           Exported );
     ]
   in
