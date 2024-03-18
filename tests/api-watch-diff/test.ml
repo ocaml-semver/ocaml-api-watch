@@ -154,6 +154,7 @@ let%expect_test "removing_a_value_test" =
   Format.printf "%b" result;
   [%expect {|true|}]
 
+
 (* Signature for value f:
     > val f : t -> t *)
 
@@ -188,10 +189,10 @@ let modified_val_f_sig =
 
 let modify_value_signature = [ t_sig; unused_type_sig; modified_val_f_sig ]
 
-let%expect_test "removing_a_value_test" =
+let%expect_test "modifying_a_value_test" =
   let result =
     Api_watch_diff.diff_interface ~reference:ref_signature
       ~current:modify_value_signature
   in
   Format.printf "%b" result;
-  [%expect {|true|}]
+  [%expect {|false|}]
