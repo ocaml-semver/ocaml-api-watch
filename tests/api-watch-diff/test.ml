@@ -198,7 +198,7 @@ let%expect_test "Modify a module in the interface" =
   Called from Includemod.signatures.pair_components in file "typing/includemod.ml", line 653, characters 10-134
   Called from Includemod.signatures in file "typing/includemod.ml", line 1206, characters 8-111
   Called from Api_watch_diff.diff_interface.coercion2 in file "lib/api_watch_diff.ml", line 7, characters 4-70
-  Called from Test__Testt.(fun) in file "tests/api-watch-diff/testt.ml", line 176, characters 4-98
+  Called from Test.(fun) in file "tests/api-watch-diff/test.ml", line 176, characters 4-98
   Called from Expect_test_collector.Make.Instance_io.exec in file "collector/expect_test_collector.ml", line 234, characters 12-19
 
   Trailing output
