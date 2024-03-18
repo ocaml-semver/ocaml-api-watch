@@ -85,9 +85,9 @@ let ref_signature =
 
 let%expect_test "Testing API watch on the same signature" =
   let curr_signature =
-   (* Signature for curr.mli:
-      > type t = int
-      > type unused_type = string *)
+    (* Signature for curr.mli:
+       > type t = int
+       > type unused_type = string *)
     [
       Sig_type
         ( Ident.create_persistent "t",
@@ -148,10 +148,10 @@ let%expect_test "Testing API watch on the same signature" =
 
 let%expect_test "Testing API watch on adding a type" =
   let curr_signature =
-   (* Signature for curr.mli:
-      > type t = int
-      > type unused_type = string 
-      > type added_type = float *)
+    (* Signature for curr.mli:
+       > type t = int
+       > type unused_type = string
+       > type added_type = float *)
     [
       Sig_type
         ( Ident.create_persistent "t",
@@ -236,8 +236,8 @@ let%expect_test "Testing API watch on adding a type" =
 
 let%expect_test "Testing API watch on removing a type" =
   let curr_signature =
-   (* Signature for curr.mli:
-      > type t = int *)
+    (* Signature for curr.mli:
+       > type t = int *)
     [
       Sig_type
         ( Ident.create_persistent "t",
@@ -274,9 +274,9 @@ let%expect_test "Testing API watch on removing a type" =
 
 let%expect_test "Testing API watch on modifying a type" =
   let curr_signature =
-   (* Signature for curr.mli:
-      > type t = float
-      > type unused_type = string *)
+    (* Signature for curr.mli:
+       > type t = float
+       > type unused_type = string *)
     [
       Sig_type
         ( Ident.create_persistent "t",
