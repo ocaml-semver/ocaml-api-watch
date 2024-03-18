@@ -154,7 +154,6 @@ let%expect_test "removing_a_value_test" =
   Format.printf "%b" result;
   [%expect {|true|}]
 
-
 (* Signature for value f:
     > val f : t -> t *)
 
