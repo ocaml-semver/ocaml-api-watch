@@ -19,8 +19,10 @@ let t_sig =
         type_manifest =
           Some
             (Transient_expr.type_expr
-               (Transient_expr.create (Tvar (Some "int")) ~level:0 ~scope:0
-                  ~id:0));
+               (Transient_expr.create
+                  (Tconstr
+                     (Path.Pident (Ident.create_predef "int"), [], ref Mnil))
+                  ~level:0 ~scope:0 ~id:0));
         type_variance = [];
         type_separability = [];
         type_is_newtype = false;
@@ -48,8 +50,10 @@ let unused_type_sig =
         type_manifest =
           Some
             (Transient_expr.type_expr
-               (Transient_expr.create (Tvar (Some "string")) ~level:0 ~scope:0
-                  ~id:1));
+               (Transient_expr.create
+                  (Tconstr
+                     (Path.Pident (Ident.create_predef "string"), [], ref Mnil))
+                  ~level:0 ~scope:0 ~id:1));
         type_variance = [];
         type_separability = [];
         type_is_newtype = false;
@@ -76,11 +80,17 @@ let val_f_sig =
                (Tarrow
                   ( Nolabel,
                     Transient_expr.type_expr
-                      (Transient_expr.create (Tvar (Some "t")) ~level:0 ~scope:0
-                         ~id:2),
+                      (Transient_expr.create
+                         (Tconstr
+                            (Path.Pident (Ident.create_predef "t"), [], ref Mnil))
+                         ~level:0 ~scope:0 ~id:2),
                     Transient_expr.type_expr
-                      (Transient_expr.create (Tvar (Some "string")) ~level:0
-                         ~scope:0 ~id:3),
+                      (Transient_expr.create
+                         (Tconstr
+                            ( Path.Pident (Ident.create_predef "string"),
+                              [],
+                              ref Mnil ))
+                         ~level:0 ~scope:0 ~id:3),
                     commu_ok ))
                ~level:0 ~scope:0 ~id:4);
         val_kind = Val_reg;
@@ -103,11 +113,15 @@ let val_g_sig =
                (Tarrow
                   ( Nolabel,
                     Transient_expr.type_expr
-                      (Transient_expr.create (Tvar (Some "t")) ~level:0 ~scope:0
-                         ~id:5),
+                      (Transient_expr.create
+                         (Tconstr
+                            (Path.Pident (Ident.create_predef "t"), [], ref Mnil))
+                         ~level:0 ~scope:0 ~id:5),
                     Transient_expr.type_expr
-                      (Transient_expr.create (Tvar (Some "t")) ~level:0 ~scope:0
-                         ~id:6),
+                      (Transient_expr.create
+                         (Tconstr
+                            (Path.Pident (Ident.create_predef "t"), [], ref Mnil))
+                         ~level:0 ~scope:0 ~id:6),
                     commu_ok ))
                ~level:0 ~scope:0 ~id:7);
         val_kind = Val_reg;
@@ -167,11 +181,15 @@ let modified_val_f_sig =
                (Tarrow
                   ( Nolabel,
                     Transient_expr.type_expr
-                      (Transient_expr.create (Tvar (Some "t")) ~level:0 ~scope:0
-                         ~id:8),
+                      (Transient_expr.create
+                         (Tconstr
+                            (Path.Pident (Ident.create_predef "t"), [], ref Mnil))
+                         ~level:0 ~scope:0 ~id:8),
                     Transient_expr.type_expr
-                      (Transient_expr.create (Tvar (Some "t")) ~level:0 ~scope:0
-                         ~id:9),
+                      (Transient_expr.create
+                         (Tconstr
+                            (Path.Pident (Ident.create_predef "t"), [], ref Mnil))
+                         ~level:0 ~scope:0 ~id:9),
                     commu_ok ))
                ~level:0 ~scope:0 ~id:10);
         val_kind = Val_reg;
@@ -194,4 +212,4 @@ let%expect_test "modifying_a_value_test" =
       ~current:modify_value_signature
   in
   Format.printf "%b" result;
-  [%expect {|false|}]
+  [%expect {|true|}]
