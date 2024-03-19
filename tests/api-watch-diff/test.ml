@@ -63,7 +63,7 @@ let ref_signature =
                       Transient_expr.type_expr
                         (Transient_expr.create
                            (Tconstr
-                              ( Path.Pident (Ident.create_predef "t"),
+                              ( Path.Pident (Ident.create_persistent "t"),
                                 [],
                                 ref Mnil ))
                            ~level:0 ~scope:0 ~id:0),
@@ -136,7 +136,7 @@ let%expect_test "Testing API watch on the same signature" =
                         Transient_expr.type_expr
                           (Transient_expr.create
                              (Tconstr
-                                ( Path.Pident (Ident.create_predef "t"),
+                                ( Path.Pident (Ident.create_persistent "t"),
                                   [],
                                   ref Mnil ))
                              ~level:0 ~scope:0 ~id:0),
