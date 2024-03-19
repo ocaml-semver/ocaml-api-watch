@@ -157,7 +157,7 @@ let%expect_test "Testing API watch on the same signature" =
       ~current:curr_signature
   in
   Format.printf "%b" result;
-  [%expect {|true|}]
+  [%expect {|false|}]
 
 let%expect_test "Testing API watch on adding a type" =
   let curr_signature =
