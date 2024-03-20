@@ -18,11 +18,9 @@ let t_sig =
         type_private = Public;
         type_manifest =
           Some
-            (Transient_expr.type_expr
-               (Transient_expr.create
-                  (Tconstr
-                     (Path.Pident (Ident.create_predef "int"), [], ref Mnil))
-                  ~level:0 ~scope:0 ~id:0));
+            (create_expr
+               (Tconstr (Predef.path_int, [], ref Mnil))
+               ~level:0 ~scope:0 ~id:0);
         type_variance = [];
         type_separability = [];
         type_is_newtype = false;
@@ -49,11 +47,9 @@ let unused_type_sig =
         type_private = Public;
         type_manifest =
           Some
-            (Transient_expr.type_expr
-               (Transient_expr.create
-                  (Tconstr
-                     (Path.Pident (Ident.create_predef "string"), [], ref Mnil))
-                  ~level:0 ~scope:0 ~id:1));
+            (create_expr
+               (Tconstr (Predef.path_string, [], ref Mnil))
+               ~level:0 ~scope:0 ~id:1);
         type_variance = [];
         type_separability = [];
         type_is_newtype = false;
@@ -75,24 +71,18 @@ let val_f_sig =
     ( Ident.create_persistent "f",
       {
         val_type =
-          Transient_expr.type_expr
-            (Transient_expr.create
-               (Tarrow
-                  ( Nolabel,
-                    Transient_expr.type_expr
-                      (Transient_expr.create
-                         (Tconstr
-                            (Path.Pident (Ident.create_predef "t"), [], ref Mnil))
-                         ~level:0 ~scope:0 ~id:2),
-                    Transient_expr.type_expr
-                      (Transient_expr.create
-                         (Tconstr
-                            ( Path.Pident (Ident.create_predef "string"),
-                              [],
-                              ref Mnil ))
-                         ~level:0 ~scope:0 ~id:3),
-                    commu_ok ))
-               ~level:0 ~scope:0 ~id:4);
+          create_expr
+            (Tarrow
+               ( Nolabel,
+                 create_expr
+                   (Tconstr
+                      (Path.Pident (Ident.create_persistent "t"), [], ref Mnil))
+                   ~level:0 ~scope:0 ~id:2,
+                 create_expr
+                   (Tconstr (Predef.path_string, [], ref Mnil))
+                   ~level:0 ~scope:0 ~id:3,
+                 commu_ok ))
+            ~level:0 ~scope:0 ~id:4;
         val_kind = Val_reg;
         val_loc = Location.none;
         val_attributes = [];
@@ -108,22 +98,19 @@ let val_g_sig =
     ( Ident.create_persistent "g",
       {
         val_type =
-          Transient_expr.type_expr
-            (Transient_expr.create
-               (Tarrow
-                  ( Nolabel,
-                    Transient_expr.type_expr
-                      (Transient_expr.create
-                         (Tconstr
-                            (Path.Pident (Ident.create_predef "t"), [], ref Mnil))
-                         ~level:0 ~scope:0 ~id:5),
-                    Transient_expr.type_expr
-                      (Transient_expr.create
-                         (Tconstr
-                            (Path.Pident (Ident.create_predef "t"), [], ref Mnil))
-                         ~level:0 ~scope:0 ~id:6),
-                    commu_ok ))
-               ~level:0 ~scope:0 ~id:7);
+          create_expr
+            (Tarrow
+               ( Nolabel,
+                 create_expr
+                   (Tconstr
+                      (Path.Pident (Ident.create_persistent "t"), [], ref Mnil))
+                   ~level:0 ~scope:0 ~id:5,
+                 create_expr
+                   (Tconstr
+                      (Path.Pident (Ident.create_persistent "t"), [], ref Mnil))
+                   ~level:0 ~scope:0 ~id:6,
+                 commu_ok ))
+            ~level:0 ~scope:0 ~id:7;
         val_kind = Val_reg;
         val_loc = Location.none;
         val_attributes = [];
@@ -176,22 +163,19 @@ let modified_val_f_sig =
     ( Ident.create_persistent "f",
       {
         val_type =
-          Transient_expr.type_expr
-            (Transient_expr.create
-               (Tarrow
-                  ( Nolabel,
-                    Transient_expr.type_expr
-                      (Transient_expr.create
-                         (Tconstr
-                            (Path.Pident (Ident.create_predef "t"), [], ref Mnil))
-                         ~level:0 ~scope:0 ~id:8),
-                    Transient_expr.type_expr
-                      (Transient_expr.create
-                         (Tconstr
-                            (Path.Pident (Ident.create_predef "t"), [], ref Mnil))
-                         ~level:0 ~scope:0 ~id:9),
-                    commu_ok ))
-               ~level:0 ~scope:0 ~id:10);
+          create_expr
+            (Tarrow
+               ( Nolabel,
+                 create_expr
+                   (Tconstr
+                      (Path.Pident (Ident.create_persistent "t"), [], ref Mnil))
+                   ~level:0 ~scope:0 ~id:8,
+                 create_expr
+                   (Tconstr
+                      (Path.Pident (Ident.create_persistent "t"), [], ref Mnil))
+                   ~level:0 ~scope:0 ~id:9,
+                 commu_ok ))
+            ~level:0 ~scope:0 ~id:10;
         val_kind = Val_reg;
         val_loc = Location.none;
         val_attributes = [];
