@@ -197,3 +197,139 @@ let%expect_test "modifying_a_value_test" =
   in
   Format.printf "%b" result;
   [%expect {|true|}]
+
+(* Signature for mod_ref.mli:
+     > module M : sig val x : int end *)
+let ref_module_signature : signature =
+  [
+    Sig_module
+      ( Ident.create_persistent "M",
+        Mp_present,
+        {
+          md_type =
+            Mty_signature
+              [
+                Sig_value
+                  ( Ident.create_local "x",
+                    {
+                      val_type =
+                        create_expr
+                          (Tconstr (Predef.path_int, [], ref Mnil))
+                          ~level:0 ~scope:0 ~id:0;
+                      val_kind = Val_reg;
+                      val_attributes = [];
+                      val_loc = Location.none;
+                      val_uid = Uid.internal_not_actually_unique;
+                    },
+                    Exported );
+              ];
+          md_attributes = [];
+          md_loc = Location.none;
+          md_uid = Uid.internal_not_actually_unique;
+        },
+        Trec_not,
+        Exported );
+  ]
+
+(* Signature for new module prepended to mod_ref.mli:
+     > module N : sig val y : float end *)
+
+let new_module : signature =
+  [
+    Sig_module
+      ( Ident.create_persistent "N",
+        Mp_present,
+        {
+          md_type =
+            Mty_signature
+              [
+                Sig_value
+                  ( Ident.create_local "y",
+                    {
+                      val_type =
+                        create_expr
+                          (Tconstr (Predef.path_float, [], ref Mnil))
+                          ~level:0 ~scope:0 ~id:0;
+                      val_kind = Val_reg;
+                      val_attributes = [];
+                      val_loc = Location.none;
+                      val_uid = Uid.internal_not_actually_unique;
+                    },
+                    Exported );
+              ];
+          md_attributes = [];
+          md_loc = Location.none;
+          md_uid = Uid.internal_not_actually_unique;
+        },
+        Trec_not,
+        Exported );
+  ]
+
+(* Signature for add_module.mli:
+     > module M : sig val x : int end
+     > module N : sig val y : float end *)
+
+let add_module_signature = new_module @ ref_module_signature
+
+let%expect_test "adding_a_module_test" =
+  let result =
+    Api_watch_diff.diff_interface ~reference:ref_module_signature
+      ~current:add_module_signature
+  in
+  Format.printf "%b" result;
+  [%expect {|true|}]
+
+(* Signature for remove_module.mli:
+     > *)
+
+let remove_module_signature : signature = []
+
+let%expect_test "removing_a_module_test" =
+  let result =
+    Api_watch_diff.diff_interface ~reference:ref_module_signature
+      ~current:remove_module_signature
+  in
+  Format.printf "%b" result;
+  [%expect {|true|}]
+
+(* Signature for modify_module.mli:
+    > module M : sig val x : float end *)
+
+let modify_ref_module_signature : signature =
+  [
+    Sig_module
+      ( Ident.create_persistent "M",
+        Mp_present,
+        {
+          md_type =
+            Mty_signature
+              [
+                Sig_value
+                  ( Ident.create_local "x",
+                    {
+                      val_type =
+                        create_expr
+                          (Tconstr (Predef.path_float, [], ref Mnil))
+                          ~level:0 ~scope:0 ~id:0;
+                      val_kind = Val_reg;
+                      val_attributes = [];
+                      val_loc = Location.none;
+                      val_uid = Uid.internal_not_actually_unique;
+                    },
+                    Exported );
+              ];
+          md_attributes = [];
+          md_loc = Location.none;
+          md_uid = Uid.internal_not_actually_unique;
+        },
+        Trec_not,
+        Exported );
+  ]
+
+let%expect_test "modifying_a_module_test" =
+  let result =
+    Api_watch_diff.diff_interface ~reference:ref_module_signature
+      ~current:modify_ref_module_signature
+  in
+  Format.printf "%b" result;
+  [%expect {|true|}]
