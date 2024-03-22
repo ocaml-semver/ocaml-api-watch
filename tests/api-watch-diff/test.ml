@@ -200,6 +200,7 @@ let%expect_test "modifying_a_value_test" =
 
 (* Signature for mod_ref.mli:
      > module M : sig val x : int end *)
+
 let ref_module_signature : signature =
   [
     Sig_module
@@ -212,10 +213,7 @@ let ref_module_signature : signature =
                 Sig_value
                   ( Ident.create_local "x",
                     {
-                      val_type =
-                        create_expr
-                          (Tconstr (Predef.path_int, [], ref Mnil))
-                          ~level:0 ~scope:0 ~id:0;
+                      val_type = Predef.type_int;
                       val_kind = Val_reg;
                       val_attributes = [];
                       val_loc = Location.none;
@@ -246,10 +244,7 @@ let new_module : signature =
                 Sig_value
                   ( Ident.create_local "y",
                     {
-                      val_type =
-                        create_expr
-                          (Tconstr (Predef.path_float, [], ref Mnil))
-                          ~level:0 ~scope:0 ~id:0;
+                      val_type = Predef.type_float;
                       val_kind = Val_reg;
                       val_attributes = [];
                       val_loc = Location.none;
@@ -307,10 +302,7 @@ let modify_ref_module_signature : signature =
                 Sig_value
                   ( Ident.create_local "x",
                     {
-                      val_type =
-                        create_expr
-                          (Tconstr (Predef.path_float, [], ref Mnil))
-                          ~level:0 ~scope:0 ~id:0;
+                      val_type = Predef.type_float;
                       val_kind = Val_reg;
                       val_attributes = [];
                       val_loc = Location.none;
