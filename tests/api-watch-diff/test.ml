@@ -1,5 +1,4 @@
 open Types
-open Predef
 
 let%expect_test "test_diff_interface" =
   let result = Api_watch_diff.diff_interface ~reference:[] ~current:[] in
@@ -217,7 +216,7 @@ let added_type_sig =
         type_arity = 0;
         type_kind = Type_abstract;
         type_private = Public;
-        type_manifest = Some type_float;
+        type_manifest = Some Predef.type_float;
         type_variance = [];
         type_separability = [];
         type_is_newtype = false;
@@ -271,7 +270,7 @@ let mod_t_sig =
         type_arity = 0;
         type_kind = Type_abstract;
         type_private = Public;
-        type_manifest = Some type_float;
+        type_manifest = Some Predef.type_float;
         type_variance = [];
         type_separability = [];
         type_is_newtype = false;
