@@ -5,8 +5,11 @@ let parse_interface content =
 
 (* Generate the Types.signature from the parsed and typedtreed interface *)
 let generate_signature intf =
-  let initial_env = Compmisc.initial_env () in
-  let typed_tree = Typemod.type_interface initial_env intf in
+  let env =
+    Typemod.initial_env ~loc:Location.none ~initially_opened_module:None
+      ~open_implicit_modules:[]
+  in
+  let typed_tree = Typemod.type_interface env intf in
   typed_tree.sig_type
 
 (* Compile the .mli content and return the signature *)
