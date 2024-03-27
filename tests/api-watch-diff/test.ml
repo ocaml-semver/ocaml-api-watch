@@ -292,46 +292,46 @@ let%expect_test "Modifying a type" =
 (* Signature for mod_ref.mli:
      > module M : sig val x : int end *)
 
-let ref_module_m_signature =
-  [
-    Sig_module
-      ( Ident.create_persistent "M",
-        Mp_present,
-        {
-          md_type =
-            Mty_signature
-              [
-                Sig_value
-                  ( Ident.create_local "x",
-                    {
-                      val_type = Predef.type_int;
-                      val_kind = Val_reg;
-                      val_attributes = [];
-                      val_loc = Location.none;
-                      val_uid = Uid.internal_not_actually_unique;
-                    },
-                    Exported );
-              ];
-          md_attributes = [];
-          md_loc = Location.none;
-          md_uid = Uid.internal_not_actually_unique;
-        },
-        Trec_not,
-        Exported );
-  ]
+let module_m =
+  Sig_module
+    ( Ident.create_persistent "M",
+      Mp_present,
+      {
+        md_type =
+          Mty_signature
+            [
+              Sig_value
+                ( Ident.create_local "x",
+                  {
+                    val_type = Predef.type_int;
+                    val_kind = Val_reg;
+                    val_attributes = [];
+                    val_loc = Location.none;
+                    val_uid = Uid.internal_not_actually_unique;
+                  },
+                  Exported );
+            ];
+        md_attributes = [];
+        md_loc = Location.none;
+        md_uid = Uid.internal_not_actually_unique;
+      },
+      Trec_not,
+      Exported )
+
+let ref_module_signature = [ module_m ]
 
 let%expect_test "unchanged_module" =
   let result =
-    Api_watch_diff.diff_interface ~reference:ref_module_m_signature
-      ~current:ref_module_m_signature
+    Api_watch_diff.diff_interface ~reference:ref_module_signature
+      ~current:ref_module_signature
   in
   Format.printf "%b" result;
   [%expect {|false|}]
 
-(* Signature for new module prepended to mod_ref.mli:
+(* Signature for module n in mod_ref.mli:
      > module N : sig val y : float end *)
 
-let module_n_signature =
+let module_n =
   Sig_module
     ( Ident.create_persistent "N",
       Mp_present,
@@ -361,11 +361,11 @@ let module_n_signature =
      > module M : sig val x : int end
      > module N : sig val y : float end *)
 
-let add_module_signature = module_n_signature :: ref_module_m_signature
+let add_module_signature = [ module_m; module_n ]
 
 let%expect_test "adding_a_module_test" =
   let result =
-    Api_watch_diff.diff_interface ~reference:ref_module_m_signature
+    Api_watch_diff.diff_interface ~reference:ref_module_signature
       ~current:add_module_signature
   in
   Format.printf "%b" result;
@@ -378,7 +378,7 @@ let remove_module_signature = []
 
 let%expect_test "removing_a_module_test" =
   let result =
-    Api_watch_diff.diff_interface ~reference:ref_module_m_signature
+    Api_watch_diff.diff_interface ~reference:ref_module_signature
       ~current:remove_module_signature
   in
   Format.printf "%b" result;
@@ -387,38 +387,38 @@ let%expect_test "removing_a_module_test" =
 (* Signature for modify_module.mli:
     > module M : sig val x : float end *)
 
-let modify_ref_module_m_signature =
-  [
-    Sig_module
-      ( Ident.create_persistent "M",
-        Mp_present,
-        {
-          md_type =
-            Mty_signature
-              [
-                Sig_value
-                  ( Ident.create_local "x",
-                    {
-                      val_type = Predef.type_float;
-                      val_kind = Val_reg;
-                      val_attributes = [];
-                      val_loc = Location.none;
-                      val_uid = Uid.internal_not_actually_unique;
-                    },
-                    Exported );
-              ];
-          md_attributes = [];
-          md_loc = Location.none;
-          md_uid = Uid.internal_not_actually_unique;
-        },
-        Trec_not,
-        Exported );
-  ]
+let modify_module_m =
+  Sig_module
+    ( Ident.create_persistent "M",
+      Mp_present,
+      {
+        md_type =
+          Mty_signature
+            [
+              Sig_value
+                ( Ident.create_local "x",
+                  {
+                    val_type = Predef.type_float;
+                    val_kind = Val_reg;
+                    val_attributes = [];
+                    val_loc = Location.none;
+                    val_uid = Uid.internal_not_actually_unique;
+                  },
+                  Exported );
+            ];
+        md_attributes = [];
+        md_loc = Location.none;
+        md_uid = Uid.internal_not_actually_unique;
+      },
+      Trec_not,
+      Exported )
+
+let modify_ref_module_signature = [ modify_module_m ]
 
 let%expect_test "modifying_a_module_test" =
   let result =
-    Api_watch_diff.diff_interface ~reference:ref_module_m_signature
-      ~current:modify_ref_module_m_signature
+    Api_watch_diff.diff_interface ~reference:ref_module_signature
+      ~current:modify_ref_module_signature
   in
   Format.printf "%b" result;
   [%expect {|true|}]
