@@ -18,6 +18,32 @@ let%expect_test "test_diff_interface" =
   Format.printf "%a" pp_diff_list result;
   [%expect {|[]|}]
 
+let x_int_value_signature =
+  Test_helpers.compile_interface {|
+    val x : int
+    |}
+
+let x_string_value_signature =
+  Test_helpers.compile_interface {|
+    val x : string
+    |}
+
+let%expect_test "Simple value, identical" =
+  let result =
+    Api_watch_diff.diff_interface ~reference:x_int_value_signature
+      ~current:x_int_value_signature
+  in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
+
+let%expect_test "Simple value, modified" =
+  let result =
+    Api_watch_diff.diff_interface ~reference:x_int_value_signature
+      ~current:x_string_value_signature
+  in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (x, Modified)]|}]
+
 (* Signature for ref.mli:
       > type t = int
       > type unused_type = string
