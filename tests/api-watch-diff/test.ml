@@ -22,7 +22,6 @@ let%expect_test "test_diff_interface" =
       > type t = int
       > type unused_type = string
       > val f : t -> string *)
-
 let ref_signature =
   Test_helpers.compile_interface
     {|
@@ -44,7 +43,6 @@ let%expect_test "Same signature" =
      > type unused_type = string
      > val f : t -> string
      > val g : t -> t *)
-
 let add_value_signature =
   Test_helpers.compile_interface
     {|
@@ -65,7 +63,6 @@ let%expect_test "Adding a value" =
 (* Signature for remove_value.mli:
      > type t = int
      > type unused_type = string *)
-
 let remove_value_signature =
   Test_helpers.compile_interface
     {|
@@ -85,7 +82,6 @@ let%expect_test "Removing a value" =
      > type t = int
      > type unused_type = string
      > val f : t -> t *)
-
 let modify_value_signature =
   Test_helpers.compile_interface
     {|
@@ -107,7 +103,6 @@ let%expect_test "Modifying a value" =
       > type unused_type = string
       > val f : t -> string
       > type added_type = float *)
-
 let add_type_signature =
   Test_helpers.compile_interface
     {|
@@ -129,7 +124,6 @@ let%expect_test "Adding a type" =
     > type t = int
     > val f : t -> string
     > type t = float *)
-
 let remove_type_signature =
   Test_helpers.compile_interface {|
   type t = int
@@ -148,7 +142,6 @@ let%expect_test "Removing a type" =
    > type t = float
    > type unused_type = string
    > val f : t -> string *)
-
 let modify_type_signature =
   Test_helpers.compile_interface
     {|
