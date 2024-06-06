@@ -9,7 +9,7 @@ let pp_diff_list fmt diffs =
   let pp_diff fmt = function
     | Value (name, change) ->
         Format.fprintf fmt "Value (%s, %a)" name pp_item_change change
-    | Any -> Format.fprintf fmt "API changed!"
+    | Any -> Format.fprintf fmt "Any"
   in
   Format.fprintf fmt "[%a]" (Format.pp_print_list pp_diff) diffs
 
@@ -144,7 +144,7 @@ let%expect_test "Adding a type" =
       ~current:add_type_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|[API changed!]|}]
+  [%expect {|[Any]|}]
 
 (* Signature for remove_type.mli:
     > type t = int
@@ -162,7 +162,7 @@ let%expect_test "Removing a type" =
       ~current:remove_type_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|[API changed!]|}]
+  [%expect {|[Any]|}]
 
 (* Signature for modify_type.mli:
    > type t = float
@@ -182,7 +182,7 @@ let%expect_test "Modifying a type" =
       ~current:modify_type_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|[API changed!]|}]
+  [%expect {|[Any]|}]
 
 (* Signature for file mod_ref.mli:
      > module M : sig val x : int end *)
@@ -217,7 +217,7 @@ let%expect_test "Adding a module" =
       ~current:add_module_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|[API changed!]|}]
+  [%expect {|[Any]|}]
 
 (* Signature for remove_module.mli:
      > *)
@@ -232,7 +232,7 @@ let%expect_test "Removing a module" =
       ~current:remove_module_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|[API changed!]|}]
+  [%expect {|[Any]|}]
 
 (* Signature for modify_module.mli:
     > module M : sig val x : float end *)
@@ -248,4 +248,4 @@ let%expect_test "Modifying a module" =
       ~current:modify_module_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|[API changed!]|}]
+  [%expect {|[Any]|}]
