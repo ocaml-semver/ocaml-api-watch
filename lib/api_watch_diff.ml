@@ -1,5 +1,4 @@
 open Types
-open Includemod
 
 type 'a change_type = Added | Removed | Modified of 'a
 
@@ -23,6 +22,9 @@ let rec extract_values tbl = function
   | _ :: rem -> extract_values tbl rem
 
 let compare_values ~reference ~current =
+  let env = Env.empty in
+  let typing_env = Env.add_signature reference (Env.in_signature true env) in
+  let typing_env = Env.add_signature current typing_env in
   let ref_values = extract_values FieldMap.empty reference in
   let curr_values = extract_values FieldMap.empty current in
   let diffs = ref [] in
@@ -32,10 +34,7 @@ let compare_values ~reference ~current =
       | val_name, _ ->
           if FieldMap.mem name ref_values then
             let ref_vd = FieldMap.find name ref_values in
-            let env = Env.empty in
-            let typing_env =
-              Env.add_signature reference (Env.in_signature true env)
-            in
+
             let val_coercion () =
               Includecore.value_descriptions ~loc:ref_vd.val_loc typing_env
                 val_name curr_vd ref_vd
@@ -63,10 +62,10 @@ let diff_interface ~reference ~current =
   if value_diffs = [] then
     let typing_env = Env.empty in
     let coercion1 () =
-      signatures typing_env ~mark:Mark_both reference current
+      Includemod.signatures typing_env ~mark:Mark_both reference current
     in
     let coercion2 () =
-      signatures typing_env ~mark:Mark_both current reference
+      Includemod.signatures typing_env ~mark:Mark_both current reference
     in
     match (coercion1 (), coercion2 ()) with
     | Tcoerce_none, Tcoerce_none -> []

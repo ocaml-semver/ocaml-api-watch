@@ -165,14 +165,14 @@ let%expect_test "Removing a type" =
   [%expect {|[Any]|}]
 
 (* Signature for modify_type.mli:
-   > type t = float
-   > type unused_type = string
+   > type t = int
+   > type unused_type = bool
    > val f : t -> string *)
 let modify_type_signature =
   Test_helpers.compile_interface
     {|
-    type t = float
-    type unused_type = string
+    type t = int
+    type unused_type = bool
     val f : t -> string
     |}
 
