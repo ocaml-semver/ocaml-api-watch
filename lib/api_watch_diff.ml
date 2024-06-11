@@ -1,61 +1,62 @@
 open Types
 
-type 'a change_type = Added | Removed | Modified of 'a
-
-type diff =
-  | Value of string * (value_description * value_description) change_type
-  | Any
-
-type kind = Val
-type name_kind = string * kind
+type change = Added | Removed | Modified
+type diff = Value of string * change | Any
 
 module FieldMap = Map.Make (struct
-  type t = name_kind
+  type t = string
 
-  let compare = Stdlib.compare
+  let compare = String.compare
 end)
 
-let rec extract_values tbl = function
-  | [] -> tbl
-  | Sig_value (id, val_des, _) :: rem ->
-      extract_values (FieldMap.add (Ident.name id, Val) val_des tbl) rem
-  | _ :: rem -> extract_values tbl rem
+let env_setup ref_sig curr_sig =
+  let env = Env.empty in
+  let env = Env.in_signature true env in
+  let env = Env.add_signature ref_sig env in
+  Env.add_signature curr_sig env
+
+let extract_values tbl items =
+  List.fold_left
+    (fun tbl item ->
+      match item with
+      | Sig_value (id, val_des, _) -> FieldMap.add (Ident.name id) val_des tbl
+      | _ -> tbl)
+    tbl items
+
+let diff_value ~typing_env ~val_name reference current =
+  let val_coercion () =
+    Includecore.value_descriptions ~loc:reference.val_loc typing_env val_name
+      current reference
+  in
+  match val_coercion () with
+  | Tcoerce_none -> None
+  | _ -> Some ()
+  | exception Includecore.Dont_match _ -> Some ()
 
 let compare_values ~reference ~current =
-  let env = Env.empty in
-  let typing_env = Env.add_signature reference (Env.in_signature true env) in
-  let typing_env = Env.add_signature current typing_env in
+  let env = env_setup reference current in
   let ref_values = extract_values FieldMap.empty reference in
   let curr_values = extract_values FieldMap.empty current in
-  let diffs = ref [] in
-  FieldMap.iter
-    (fun name curr_vd ->
-      match name with
-      | val_name, _ ->
-          if FieldMap.mem name ref_values then
-            let ref_vd = FieldMap.find name ref_values in
-
-            let val_coercion () =
-              Includecore.value_descriptions ~loc:ref_vd.val_loc typing_env
-                val_name curr_vd ref_vd
-            in
-            match val_coercion () with
-            | Tcoerce_none -> ()
-            | _ ->
-                diffs := Value (val_name, Modified (ref_vd, curr_vd)) :: !diffs
-            | exception Includecore.Dont_match _ ->
-                diffs := Value (val_name, Modified (ref_vd, curr_vd)) :: !diffs
-          else diffs := Value (val_name, Added) :: !diffs)
-    curr_values;
-
-  FieldMap.iter
-    (fun name _ref_vd ->
-      match name with
-      | val_name, _ ->
-          if not (FieldMap.mem name curr_values) then
-            diffs := Value (val_name, Removed) :: !diffs)
-    ref_values;
-  !diffs
+  let diffs =
+    FieldMap.fold
+      (fun val_name curr_vd acc ->
+        if FieldMap.mem val_name ref_values then
+          let ref_vd = FieldMap.find val_name ref_values in
+          let value_differs =
+            diff_value ~typing_env:env ~val_name ref_vd curr_vd
+          in
+          match value_differs with
+          | None -> acc
+          | Some _ -> Value (val_name, Modified) :: acc
+        else Value (val_name, Added) :: acc)
+      curr_values []
+  in
+  FieldMap.fold
+    (fun val_name _ref_vd acc ->
+      if not (FieldMap.mem val_name curr_values) then
+        Value (val_name, Removed) :: acc
+      else acc)
+    ref_values diffs
 
 let diff_interface ~reference ~current =
   let value_diffs = compare_values ~reference ~current in
