@@ -5,8 +5,8 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
     Api_watch_diff.diff_interface ~reference:reference.cmi_sign
       ~current:current.cmi_sign
   in
-  if differs then Printf.printf "API changed!\n"
-  else Printf.printf "API unchanged!\n"
+  if differs = [] then Printf.printf "API unchanged!\n"
+  else Printf.printf "API changed!\n"
 
 let named f = Cmdliner.Term.(app (const f))
 

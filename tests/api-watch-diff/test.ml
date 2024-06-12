@@ -1,12 +1,36 @@
+open Api_watch_diff
+
+let pp_diff_list fmt diffs =
+  let pp_item_change fmt = function
+    | Added -> Format.fprintf fmt "Added"
+    | Removed -> Format.fprintf fmt "Removed"
+    | Modified -> Format.fprintf fmt "Modified"
+  in
+  let pp_diff fmt = function
+    | Value (name, change) ->
+        Format.fprintf fmt "Value (%s, %a)" name pp_item_change change
+    | Any -> Format.fprintf fmt "Any"
+  in
+  Format.fprintf fmt "[%a]" (Format.pp_print_list pp_diff) diffs
+
 let%expect_test "test_diff_interface" =
   let result = Api_watch_diff.diff_interface ~reference:[] ~current:[] in
-  Format.printf "%b" result;
-  [%expect {|false|}]
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
 
-(* Signature for ref.mli:
-      > type t = int
-      > type unused_type = string
-      > val f : t -> string *)
+let%expect_test "Simple value, identical" =
+  let reference = Test_helpers.compile_interface {|val x : int|} in
+  let current = Test_helpers.compile_interface {|val x : int|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
+
+let%expect_test "Simple value, modified" =
+  let reference = Test_helpers.compile_interface {|val x : int|} in
+  let current = Test_helpers.compile_interface {|val x : string|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (x, Modified)]|}]
 
 let ref_signature =
   Test_helpers.compile_interface
@@ -21,14 +45,8 @@ let%expect_test "Same signature" =
     Api_watch_diff.diff_interface ~reference:ref_signature
       ~current:ref_signature
   in
-  Format.printf "%b" result;
-  [%expect {|false|}]
-
-(* Signature for add_value.mli:
-     > type t = int
-     > type unused_type = string
-     > val f : t -> string
-     > val g : t -> t *)
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
 
 let add_value_signature =
   Test_helpers.compile_interface
@@ -44,12 +62,8 @@ let%expect_test "Adding a value" =
     Api_watch_diff.diff_interface ~reference:ref_signature
       ~current:add_value_signature
   in
-  Format.printf "%b" result;
-  [%expect {|true|}]
-
-(* Signature for remove_value.mli:
-     > type t = int
-     > type unused_type = string *)
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (g, Added)]|}]
 
 let remove_value_signature =
   Test_helpers.compile_interface
@@ -63,13 +77,8 @@ let%expect_test "Removing a value" =
     Api_watch_diff.diff_interface ~reference:ref_signature
       ~current:remove_value_signature
   in
-  Format.printf "%b" result;
-  [%expect {|true|}]
-
-(* Signature for modify_value.mli:
-     > type t = int
-     > type unused_type = string
-     > val f : t -> t *)
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (f, Removed)]|}]
 
 let modify_value_signature =
   Test_helpers.compile_interface
@@ -84,14 +93,8 @@ let%expect_test "Modifying a value" =
     Api_watch_diff.diff_interface ~reference:ref_signature
       ~current:modify_value_signature
   in
-  Format.printf "%b" result;
-  [%expect {|true|}]
-
-(* Signature for add_type.mli:
-      > type t = int
-      > type unused_type = string
-      > val f : t -> string
-      > type added_type = float *)
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (f, Modified)]|}]
 
 let add_type_signature =
   Test_helpers.compile_interface
@@ -107,13 +110,8 @@ let%expect_test "Adding a type" =
     Api_watch_diff.diff_interface ~reference:ref_signature
       ~current:add_type_signature
   in
-  Format.printf "%b" result;
-  [%expect {|true|}]
-
-(* Signature for remove_type.mli:
-    > type t = int
-    > val f : t -> string
-    > type t = float *)
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
 
 let remove_type_signature =
   Test_helpers.compile_interface {|
@@ -126,15 +124,17 @@ let%expect_test "Removing a type" =
     Api_watch_diff.diff_interface ~reference:ref_signature
       ~current:remove_type_signature
   in
-  Format.printf "%b" result;
-  [%expect {|true|}]
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
 
-(* Signature for modify_type.mli:
-   > type t = float
-   > type unused_type = string
-   > val f : t -> string *)
+let%expect_test "Modifying a simple type" =
+  let reference = Test_helpers.compile_interface {|type t = int|} in
+  let current = Test_helpers.compile_interface {|type t = string|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
 
-let modify_type_signature =
+let modify_type_in_value_signature =
   Test_helpers.compile_interface
     {|
     type t = float
@@ -142,16 +142,24 @@ let modify_type_signature =
     val f : t -> string
     |}
 
-let%expect_test "Modifying a type" =
-  let result =
-    Api_watch_diff.diff_interface ~reference:ref_signature
-      ~current:modify_type_signature
+let%expect_test "Modifying a type used in a value" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = int
+    val f : t -> string
+    |}
   in
-  Format.printf "%b" result;
-  [%expect {|true|}]
-
-(* Signature for file mod_ref.mli:
-     > module M : sig val x : int end *)
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = float
+    val f : t -> string
+    |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (f, Modified)]|}]
 
 let ref_module_signature =
   Test_helpers.compile_interface {|
@@ -163,12 +171,8 @@ let%expect_test "Same module" =
     Api_watch_diff.diff_interface ~reference:ref_module_signature
       ~current:ref_module_signature
   in
-  Format.printf "%b" result;
-  [%expect {|false|}]
-
-(* Signature for add_module.mli:
-     > module M : sig val x : int end
-     > module N : sig val y : float end *)
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
 
 let add_module_signature =
   Test_helpers.compile_interface
@@ -182,11 +186,8 @@ let%expect_test "Adding a module" =
     Api_watch_diff.diff_interface ~reference:ref_module_signature
       ~current:add_module_signature
   in
-  Format.printf "%b" result;
-  [%expect {|true|}]
-
-(* Signature for remove_module.mli:
-     > *)
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
 
 let remove_module_signature = Test_helpers.compile_interface {|
 
@@ -197,11 +198,8 @@ let%expect_test "Removing a module" =
     Api_watch_diff.diff_interface ~reference:ref_module_signature
       ~current:remove_module_signature
   in
-  Format.printf "%b" result;
-  [%expect {|true|}]
-
-(* Signature for modify_module.mli:
-    > module M : sig val x : float end *)
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
 
 let modify_module_signature =
   Test_helpers.compile_interface {|
@@ -213,5 +211,5 @@ let%expect_test "Modifying a module" =
     Api_watch_diff.diff_interface ~reference:ref_module_signature
       ~current:modify_module_signature
   in
-  Format.printf "%b" result;
-  [%expect {|true|}]
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
