@@ -9,7 +9,7 @@ module FieldMap = Map.Make (struct
   let compare = String.compare
 end)
 
-let env_setup ref_sig curr_sig =
+let env_setup ~ref_sig ~curr_sig =
   let env = Env.empty in
   let env = Env.in_signature true env in
   let env = Env.add_signature ref_sig env in
@@ -34,7 +34,7 @@ let diff_value ~typing_env ~val_name reference current =
   | exception Includecore.Dont_match _ -> Some ()
 
 let compare_values ~reference ~current =
-  let env = env_setup reference current in
+  let env = env_setup ~ref_sig:reference ~curr_sig:current in
   let ref_values = extract_values FieldMap.empty reference in
   let curr_values = extract_values FieldMap.empty current in
   let diffs =

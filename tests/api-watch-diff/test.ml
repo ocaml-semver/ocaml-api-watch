@@ -18,29 +18,17 @@ let%expect_test "test_diff_interface" =
   Format.printf "%a" pp_diff_list result;
   [%expect {|[]|}]
 
-let x_int_value_signature =
-  Test_helpers.compile_interface {|
-    val x : int
-    |}
-
-let x_string_value_signature =
-  Test_helpers.compile_interface {|
-    val x : string
-    |}
-
 let%expect_test "Simple value, identical" =
-  let result =
-    Api_watch_diff.diff_interface ~reference:x_int_value_signature
-      ~current:x_int_value_signature
-  in
+  let reference = Test_helpers.compile_interface {|val x : int|} in
+  let current = Test_helpers.compile_interface {|val x : int|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {|[]|}]
 
 let%expect_test "Simple value, modified" =
-  let result =
-    Api_watch_diff.diff_interface ~reference:x_int_value_signature
-      ~current:x_string_value_signature
-  in
+  let reference = Test_helpers.compile_interface {|val x : int|} in
+  let current = Test_helpers.compile_interface {|val x : string|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {|[Value (x, Modified)]|}]
 
@@ -139,21 +127,10 @@ let%expect_test "Removing a type" =
   Format.printf "%a" pp_diff_list result;
   [%expect {|[Any]|}]
 
-let t_int_type_signature =
-  Test_helpers.compile_interface {|
-    type t = int
-    |}
-
-let t_string_type_signature =
-  Test_helpers.compile_interface {|
-    type t = string
-    |}
-
 let%expect_test "Modifying a simple type" =
-  let result =
-    Api_watch_diff.diff_interface ~reference:t_int_type_signature
-      ~current:t_string_type_signature
-  in
+  let reference = Test_helpers.compile_interface {|type t = int|} in
+  let current = Test_helpers.compile_interface {|type t = string|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {|[Any]|}]
 
@@ -166,10 +143,23 @@ let modify_type_in_value_signature =
     |}
 
 let%expect_test "Modifying a type used in a value" =
-  let result =
-    Api_watch_diff.diff_interface ~reference:ref_signature
-      ~current:modify_type_in_value_signature
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = int
+    type unused_type = string
+    val f : t -> string
+    |}
   in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = float
+    type unused_type = string
+    val f : t -> string
+    |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {|[Value (f, Modified)]|}]
 
