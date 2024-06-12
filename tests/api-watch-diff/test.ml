@@ -147,7 +147,6 @@ let%expect_test "Modifying a type used in a value" =
     Test_helpers.compile_interface
       {|
     type t = int
-    type unused_type = string
     val f : t -> string
     |}
   in
@@ -155,7 +154,6 @@ let%expect_test "Modifying a type used in a value" =
     Test_helpers.compile_interface
       {|
     type t = float
-    type unused_type = string
     val f : t -> string
     |}
   in
