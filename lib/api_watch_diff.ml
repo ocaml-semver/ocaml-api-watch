@@ -23,14 +23,18 @@ let extract_values tbl items =
       | _ -> tbl)
     tbl items
 
-let diff_value ~typing_env ~val_name reference current =
-  let val_coercion () =
-    Includecore.value_descriptions ~loc:reference.val_loc typing_env val_name
+let diff_value ~typing_env ~val_name ~reference ~current =
+  let val_coercion1 () =
+    Includecore.value_descriptions ~loc:current.val_loc typing_env val_name
       current reference
   in
-  match val_coercion () with
-  | Tcoerce_none -> None
-  | _ -> Some ()
+  let val_coercion2 () =
+    Includecore.value_descriptions ~loc:reference.val_loc typing_env val_name
+      reference current
+  in
+  match (val_coercion1 (), val_coercion2 ()) with
+  | Tcoerce_none, Tcoerce_none -> None
+  | _, _ -> Some ()
   | exception Includecore.Dont_match _ -> Some ()
 
 let compare_values ~reference ~current =
@@ -43,7 +47,8 @@ let compare_values ~reference ~current =
         if FieldMap.mem val_name ref_values then
           let ref_vd = FieldMap.find val_name ref_values in
           let value_differs =
-            diff_value ~typing_env:env ~val_name ref_vd curr_vd
+            diff_value ~typing_env:env ~val_name ~reference:ref_vd
+              ~current:curr_vd
           in
           match value_differs with
           | None -> acc
