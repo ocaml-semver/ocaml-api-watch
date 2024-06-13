@@ -214,16 +214,16 @@ let%expect_test "Modifying a module" =
   Format.printf "%a" pp_diff_list result;
   [%expect {|[Any]|}]
 
-let%expect_test "Reference more general than Current interface" =
-  let reference = Test_helpers.compile_interface {|val x : 'a list|} in
-  let current = Test_helpers.compile_interface {|val x : float list|} in
-  let result = Api_watch_diff.diff_interface ~reference ~current in
+let%expect_test "One value more general than the other" =
+  let general = Test_helpers.compile_interface {|val x : 'a list|} in
+  let specialized = Test_helpers.compile_interface {|val x : float list|} in
+  let result =
+    Api_watch_diff.diff_interface ~reference:general ~current:specialized
+  in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|[Value (x, Modified)]|}]
-
-let%expect_test "Current more general than Reference interface" =
-  let reference = Test_helpers.compile_interface {|val x : int list|} in
-  let current = Test_helpers.compile_interface {|val x : 'a list|} in
-  let result = Api_watch_diff.diff_interface ~reference ~current in
-  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (x, Modified)]|}];
+  let rev_result =
+    Api_watch_diff.diff_interface ~reference:specialized ~current:general
+  in
+  Format.printf "%a" pp_diff_list rev_result;
   [%expect {|[Value (x, Modified)]|}]
