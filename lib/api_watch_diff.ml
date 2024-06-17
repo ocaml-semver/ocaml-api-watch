@@ -9,43 +9,50 @@ module FieldMap = Map.Make (struct
   let compare = String.compare
 end)
 
-let env_setup ~ref_sig ~curr_sig =
-  let env = Env.empty in
-  let env = Env.in_signature true env in
-  let env = Env.add_signature ref_sig env in
-  Env.add_signature curr_sig env
+let extract_abstract_types ref_sig =
+  List.fold_left
+    (fun acc item ->
+      match item with
+      | Sig_type
+          (id, { type_kind = Type_abstract; type_manifest = None; _ }, _, _) ->
+          FieldMap.add (Ident.name id) id acc
+      | _ -> acc)
+    FieldMap.empty ref_sig
 
-let add_manifest_to_abstract_types ~ref_sig ~curr_sig =
-  let ref_types =
-    List.fold_left
-      (fun acc item ->
-        match item with
-        | Sig_type (id, decl, _, _)
-          when decl.type_kind = Type_abstract && decl.type_manifest = None ->
-            (Ident.name id, id) :: acc
-        | _ -> acc)
-      [] ref_sig
-  in
+let set_type_equality ref_id curr_decl =
+  let ref_path = Path.Pident ref_id in
+  {
+    curr_decl with
+    type_manifest = Some (Btype.newgenty (Tconstr (ref_path, [], ref Mnil)));
+  }
+
+let modify_curr_sig_manifest ref_type_map curr_sig =
   List.map
     (fun item ->
       match item with
-      | Sig_type (id, decl, rec_st, visibility)
-        when decl.type_kind = Type_abstract && decl.type_manifest = None -> (
+      | Sig_type
+          ( id,
+            ({ type_kind = Type_abstract; type_manifest = None; _ } as decl),
+            rec_st,
+            visibility ) -> (
           let name = Ident.name id in
-          match List.find_opt (fun (n, _) -> n = name) ref_types with
-          | Some (_, ref_id) ->
-              let ref_path = Path.Pident ref_id in
-              let new_decl =
-                {
-                  decl with
-                  type_manifest =
-                    Some (Btype.newgenty (Tconstr (ref_path, [], ref Mnil)));
-                }
-              in
+          match FieldMap.find_opt name ref_type_map with
+          | Some ref_id ->
+              let new_decl = set_type_equality ref_id decl in
               Sig_type (id, new_decl, rec_st, visibility)
           | None -> item)
       | _ -> item)
     curr_sig
+
+let env_setup ~ref_sig ~curr_sig =
+  let ref_abstract_types = extract_abstract_types ref_sig in
+  let modified_curr_sig =
+    modify_curr_sig_manifest ref_abstract_types curr_sig
+  in
+  let env = Env.empty in
+  let env = Env.in_signature true env in
+  let env = Env.add_signature ref_sig env in
+  Env.add_signature modified_curr_sig env
 
 let extract_values tbl items =
   List.fold_left
@@ -70,12 +77,9 @@ let diff_value ~typing_env ~val_name ~reference ~current =
   | exception Includecore.Dont_match _ -> Some ()
 
 let compare_values ~reference ~current =
-  let modified_current =
-    add_manifest_to_abstract_types ~ref_sig:reference ~curr_sig:current
-  in
-  let env = env_setup ~ref_sig:reference ~curr_sig:modified_current in
+  let env = env_setup ~ref_sig:reference ~curr_sig:current in
   let ref_values = extract_values FieldMap.empty reference in
-  let curr_values = extract_values FieldMap.empty modified_current in
+  let curr_values = extract_values FieldMap.empty current in
   let diffs =
     FieldMap.fold
       (fun val_name curr_vd acc ->
