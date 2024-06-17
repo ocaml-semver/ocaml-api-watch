@@ -134,14 +134,6 @@ let%expect_test "Modifying a simple type" =
   Format.printf "%a" pp_diff_list result;
   [%expect {|[Any]|}]
 
-let modify_type_in_value_signature =
-  Test_helpers.compile_interface
-    {|
-    type t = float
-    type unused_type = string
-    val f : t -> string
-    |}
-
 let%expect_test "Modifying a type used in a value" =
   let reference =
     Test_helpers.compile_interface
@@ -227,3 +219,20 @@ let%expect_test "One value more general than the other" =
   in
   Format.printf "%a" pp_diff_list rev_result;
   [%expect {|[Value (x, Modified)]|}]
+
+let%expect_test "Same abstract type" =
+  let reference =
+    Test_helpers.compile_interface {|
+    type t
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface {|
+    type t
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
