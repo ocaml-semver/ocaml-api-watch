@@ -22,7 +22,7 @@ let add_manifest_to_abstract_types ~ref_sig ~curr_sig =
         match item with
         | Sig_type (id, decl, _, _)
           when decl.type_kind = Type_abstract && decl.type_manifest = None ->
-            (Ident.name id, id, decl) :: acc
+            (Ident.name id, id) :: acc
         | _ -> acc)
       [] ref_sig
   in
@@ -32,8 +32,8 @@ let add_manifest_to_abstract_types ~ref_sig ~curr_sig =
       | Sig_type (id, decl, rec_st, visibility)
         when decl.type_kind = Type_abstract && decl.type_manifest = None -> (
           let name = Ident.name id in
-          match List.find_opt (fun (n, _, _) -> n = name) ref_types with
-          | Some (_, ref_id, _) ->
+          match List.find_opt (fun (n, _) -> n = name) ref_types with
+          | Some (_, ref_id) ->
               let ref_path = Path.Pident ref_id in
               let new_decl =
                 {
