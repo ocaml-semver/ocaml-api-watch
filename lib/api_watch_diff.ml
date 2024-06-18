@@ -26,7 +26,8 @@ let set_type_equality ref_id curr_decl =
     type_manifest = Some (Btype.newgenty (Tconstr (ref_path, [], ref Mnil)));
   }
 
-let modify_curr_sig_manifest ref_type_map curr_sig =
+let modify_curr_sig_manifest ~ref_sig ~curr_sig =
+  let ref_abstract_types = extract_abstract_types ref_sig in
   List.map
     (fun item ->
       match item with
@@ -36,7 +37,7 @@ let modify_curr_sig_manifest ref_type_map curr_sig =
             rec_st,
             visibility ) -> (
           let name = Ident.name id in
-          match FieldMap.find_opt name ref_type_map with
+          match FieldMap.find_opt name ref_abstract_types with
           | Some ref_id ->
               let new_decl = set_type_equality ref_id decl in
               Sig_type (id, new_decl, rec_st, visibility)
@@ -45,10 +46,7 @@ let modify_curr_sig_manifest ref_type_map curr_sig =
     curr_sig
 
 let env_setup ~ref_sig ~curr_sig =
-  let ref_abstract_types = extract_abstract_types ref_sig in
-  let modified_curr_sig =
-    modify_curr_sig_manifest ref_abstract_types curr_sig
-  in
+  let modified_curr_sig = modify_curr_sig_manifest ~ref_sig ~curr_sig in
   let env = Env.empty in
   let env = Env.in_signature true env in
   let env = Env.add_signature ref_sig env in
