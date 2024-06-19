@@ -9,11 +9,48 @@ module FieldMap = Map.Make (struct
   let compare = String.compare
 end)
 
+let extract_abstract_types ref_sig =
+  List.fold_left
+    (fun acc item ->
+      match item with
+      | Sig_type
+          (id, { type_kind = Type_abstract; type_manifest = None; _ }, _, _) ->
+          FieldMap.add (Ident.name id) id acc
+      | _ -> acc)
+    FieldMap.empty ref_sig
+
+let set_type_equality ref_id curr_decl =
+  let ref_path = Path.Pident ref_id in
+  {
+    curr_decl with
+    type_manifest = Some (Btype.newgenty (Tconstr (ref_path, [], ref Mnil)));
+  }
+
+let set_type_equalities ~ref_sig ~curr_sig =
+  let ref_abstract_types = extract_abstract_types ref_sig in
+  List.map
+    (fun item ->
+      match item with
+      | Sig_type
+          ( id,
+            ({ type_kind = Type_abstract; type_manifest = None; _ } as decl),
+            rec_st,
+            visibility ) -> (
+          let name = Ident.name id in
+          match FieldMap.find_opt name ref_abstract_types with
+          | Some ref_id ->
+              let new_decl = set_type_equality ref_id decl in
+              Sig_type (id, new_decl, rec_st, visibility)
+          | None -> item)
+      | _ -> item)
+    curr_sig
+
 let env_setup ~ref_sig ~curr_sig =
+  let modified_curr_sig = set_type_equalities ~ref_sig ~curr_sig in
   let env = Env.empty in
   let env = Env.in_signature true env in
   let env = Env.add_signature ref_sig env in
-  Env.add_signature curr_sig env
+  Env.add_signature modified_curr_sig env
 
 let extract_values tbl items =
   List.fold_left
