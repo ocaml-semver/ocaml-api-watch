@@ -9,6 +9,24 @@ module FieldMap = Map.Make (struct
   let compare = String.compare
 end)
 
+let extract_record_types ref_sig =
+  List.fold_left
+    (fun acc item ->
+      match item with
+      | Sig_type (id, { type_kind = Type_record _; _ }, _, _) ->
+          FieldMap.add (Ident.name id) id acc
+      | _ -> acc)
+    FieldMap.empty ref_sig
+
+let extract_variant_types ref_sig =
+  List.fold_left
+    (fun acc item ->
+      match item with
+      | Sig_type (id, { type_kind = Type_variant _; _ }, _, _) ->
+          FieldMap.add (Ident.name id) id acc
+      | _ -> acc)
+    FieldMap.empty ref_sig
+
 let extract_abstract_types ref_sig =
   List.fold_left
     (fun acc item ->
@@ -28,6 +46,8 @@ let set_type_equality ref_id curr_decl =
 
 let set_type_equalities ~ref_sig ~curr_sig =
   let ref_abstract_types = extract_abstract_types ref_sig in
+  let ref_record_types = extract_record_types ref_sig in
+  let ref_variant_types = extract_variant_types ref_sig in
   List.map
     (fun item ->
       match item with
@@ -38,6 +58,24 @@ let set_type_equalities ~ref_sig ~curr_sig =
             visibility ) -> (
           let name = Ident.name id in
           match FieldMap.find_opt name ref_abstract_types with
+          | Some ref_id ->
+              let new_decl = set_type_equality ref_id decl in
+              Sig_type (id, new_decl, rec_st, visibility)
+          | None -> item)
+      | Sig_type
+          (id, ({ type_kind = Type_record _; _ } as decl), rec_st, visibility)
+        -> (
+          let name = Ident.name id in
+          match FieldMap.find_opt name ref_record_types with
+          | Some ref_id ->
+              let new_decl = set_type_equality ref_id decl in
+              Sig_type (id, new_decl, rec_st, visibility)
+          | None -> item)
+      | Sig_type
+          (id, ({ type_kind = Type_variant _; _ } as decl), rec_st, visibility)
+        -> (
+          let name = Ident.name id in
+          match FieldMap.find_opt name ref_variant_types with
           | Some ref_id ->
               let new_decl = set_type_equality ref_id decl in
               Sig_type (id, new_decl, rec_st, visibility)
