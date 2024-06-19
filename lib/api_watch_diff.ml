@@ -26,7 +26,7 @@ let set_type_equality ref_id curr_decl =
     type_manifest = Some (Btype.newgenty (Tconstr (ref_path, [], ref Mnil)));
   }
 
-let modify_curr_sig_manifest ~ref_sig ~curr_sig =
+let set_type_equalities ~ref_sig ~curr_sig =
   let ref_abstract_types = extract_abstract_types ref_sig in
   List.map
     (fun item ->
@@ -46,7 +46,7 @@ let modify_curr_sig_manifest ~ref_sig ~curr_sig =
     curr_sig
 
 let env_setup ~ref_sig ~curr_sig =
-  let modified_curr_sig = modify_curr_sig_manifest ~ref_sig ~curr_sig in
+  let modified_curr_sig = set_type_equalities ~ref_sig ~curr_sig in
   let env = Env.empty in
   let env = Env.in_signature true env in
   let env = Env.add_signature ref_sig env in
