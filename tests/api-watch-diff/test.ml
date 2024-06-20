@@ -236,3 +236,153 @@ let%expect_test "Same abstract type" =
   let result = Api_watch_diff.diff_interface ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {|[]|}]
+
+let%expect_test "Same record type" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = {a:int; b:float}
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = {a:int; b:float}
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
+
+let%expect_test "Adding a record field" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = {a:int; b:float}
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = {a:int; b:float; c:bool}
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
+
+let%expect_test "Removing a record field" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = {a:int; b:float}
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface {|
+    type t = {a:int}
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
+
+let%expect_test "Modifying a record field" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = {a:int; b:float}
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = {a:int; b:string}
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
+
+let%expect_test "Same variant type" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = A | B of int
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = A | B of int
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
+
+let%expect_test "Adding a variant" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = A | B of int
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = A | B of int | C
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
+
+let%expect_test "Removing a variant" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = A | B of int
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface {|
+    type t = A
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
+
+let%expect_test "Modifying a variant type" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = A | B of int
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = A | B of float
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
