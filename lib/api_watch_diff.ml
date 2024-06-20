@@ -9,31 +9,12 @@ module FieldMap = Map.Make (struct
   let compare = String.compare
 end)
 
-let extract_record_types ref_sig =
+let extract_non_alias_types ref_sig =
   List.fold_left
     (fun acc item ->
       match item with
-      | Sig_type (id, { type_kind = Type_record _; _ }, _, _) ->
-          FieldMap.add (Ident.name id) id acc
-      | _ -> acc)
-    FieldMap.empty ref_sig
-
-let extract_variant_types ref_sig =
-  List.fold_left
-    (fun acc item ->
-      match item with
-      | Sig_type (id, { type_kind = Type_variant _; _ }, _, _) ->
-          FieldMap.add (Ident.name id) id acc
-      | _ -> acc)
-    FieldMap.empty ref_sig
-
-let extract_abstract_types ref_sig =
-  List.fold_left
-    (fun acc item ->
-      match item with
-      | Sig_type
-          (id, { type_kind = Type_abstract; type_manifest = None; _ }, _, _) ->
-          FieldMap.add (Ident.name id) id acc
+      | Sig_type (id, ({ type_manifest = None; _ } as decl), _, _) ->
+          FieldMap.add (Ident.name id) (id, decl) acc
       | _ -> acc)
     FieldMap.empty ref_sig
 
@@ -45,40 +26,25 @@ let set_type_equality ref_id curr_decl =
   }
 
 let set_type_equalities ~ref_sig ~curr_sig =
-  let ref_abstract_types = extract_abstract_types ref_sig in
-  let ref_record_types = extract_record_types ref_sig in
-  let ref_variant_types = extract_variant_types ref_sig in
+  let ref_non_alias_types = extract_non_alias_types ref_sig in
   List.map
     (fun item ->
       match item with
       | Sig_type
-          ( id,
-            ({ type_kind = Type_abstract; type_manifest = None; _ } as decl),
+          ( curr_id,
+            ({ type_manifest = None; _ } as curr_decl),
             rec_st,
             visibility ) -> (
-          let name = Ident.name id in
-          match FieldMap.find_opt name ref_abstract_types with
-          | Some ref_id ->
-              let new_decl = set_type_equality ref_id decl in
-              Sig_type (id, new_decl, rec_st, visibility)
-          | None -> item)
-      | Sig_type
-          (id, ({ type_kind = Type_record _; _ } as decl), rec_st, visibility)
-        -> (
-          let name = Ident.name id in
-          match FieldMap.find_opt name ref_record_types with
-          | Some ref_id ->
-              let new_decl = set_type_equality ref_id decl in
-              Sig_type (id, new_decl, rec_st, visibility)
-          | None -> item)
-      | Sig_type
-          (id, ({ type_kind = Type_variant _; _ } as decl), rec_st, visibility)
-        -> (
-          let name = Ident.name id in
-          match FieldMap.find_opt name ref_variant_types with
-          | Some ref_id ->
-              let new_decl = set_type_equality ref_id decl in
-              Sig_type (id, new_decl, rec_st, visibility)
+          let name = Ident.name curr_id in
+          match FieldMap.find_opt name ref_non_alias_types with
+          | Some (ref_id, ref_decl) -> (
+              match (ref_decl.type_kind, curr_decl.type_kind) with
+              | Type_abstract, Type_abstract
+              | Type_record _, Type_record _
+              | Type_variant _, Type_variant _ ->
+                  let new_decl = set_type_equality ref_id curr_decl in
+                  Sig_type (curr_id, new_decl, rec_st, visibility)
+              | _ -> item)
           | None -> item)
       | _ -> item)
     curr_sig
