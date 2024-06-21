@@ -386,3 +386,144 @@ let%expect_test "Modifying a variant type" =
   let result = Api_watch_diff.diff_interface ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {|[Any]|}]
+
+let%expect_test "Basic test case" =
+  let reference = Test_helpers.compile_interface {|
+    val x : int
+  |} in
+  let current =
+    Test_helpers.compile_interface {|
+    type t = int
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
+
+let%expect_test "Basic test case 2" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t =int 
+    type p = t list
+    val x : p
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface {|
+    type t = int
+    val x : t list
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
+
+let%expect_test "Inlined polymorphic variant, identical" =
+  let reference = Test_helpers.compile_interface {|val x : [ `A | `B ]|} in
+  let current = Test_helpers.compile_interface {|val x : [ `A | `B ]|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
+
+let%expect_test "Inlined polymorphic variant, modified" =
+  let reference = Test_helpers.compile_interface {|val x : [ `A | `B ]|} in
+  let current = Test_helpers.compile_interface {|val x : [ `A | `C ]|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (x, Modified)]|}]
+
+let%expect_test "Named polymorphic variant, identical" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = [ `A | `B ]
+    val x : t
+    |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = [ `A | `B ]
+    val x : t
+    |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
+
+let%expect_test "Named polymorphic variant, modified" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = [ `A | `B ]
+    val x : t
+    |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = [ `A | `C ]
+    val x : t
+    |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (x, Modified)]|}]
+
+let%expect_test "Open polymorphic variant, identical" =
+  let reference = Test_helpers.compile_interface {|val x : [> `A | `B ]|} in
+  let current = Test_helpers.compile_interface {|val x : [> `A | `B ]|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
+
+let%expect_test "Open polymorphic variant, modified" =
+  let reference = Test_helpers.compile_interface {|val x : [> `A | `B ]|} in
+  let current = Test_helpers.compile_interface {|val x : [> `A | `C ]|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (x, Modified)]|}]
+
+let%expect_test "Less polymorphic variant, identical" =
+  let reference = Test_helpers.compile_interface {|val x : [< `A | `B ]|} in
+  let current = Test_helpers.compile_interface {|val x : [< `A | `B ]|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
+
+let%expect_test "Less polymorphic variant, modified" =
+  let reference = Test_helpers.compile_interface {|val x : [< `A | `B ]|} in
+  let current = Test_helpers.compile_interface {|val x : [< `A | `C ]|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (x, Modified)]|}]
+
+let%expect_test "Changing from less to more polymorphic" =
+  let reference = Test_helpers.compile_interface {|val x : [< `A | `B ]|} in
+  let current = Test_helpers.compile_interface {|val x : [> `A | `C ]|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (x, Modified)]|}]
+
+let%expect_test "Changing from more to less polymorphic" =
+  let reference = Test_helpers.compile_interface {|val x : [> `A | `B ]|} in
+  let current = Test_helpers.compile_interface {|val x : [< `A | `C ]|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (x, Modified)]|}]
+
+let%expect_test "Changing from open to closed polymorphic" =
+  let reference = Test_helpers.compile_interface {|val x : [> `A | `B ]|} in
+  let current = Test_helpers.compile_interface {|val x : [ `A | `C ]|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (x, Modified)]|}]
+
+let%expect_test "Changing from open  to closed polymorphic" =
+  let reference = Test_helpers.compile_interface {|val x : [< `A | `B ]|} in
+  let current = Test_helpers.compile_interface {|val x : [ `A | `C ]|} in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Value (x, Modified)]|}]
