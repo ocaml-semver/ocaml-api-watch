@@ -514,8 +514,7 @@ let%expect_test "Named polymorphic variant, reduced" =
     |}
   in
   let current =
-    Test_helpers.compile_interface
-      {|
+    Test_helpers.compile_interface {|
     type t = [ `A ]
     val x : t
     |}
