@@ -41,7 +41,8 @@ let set_type_equalities ~ref_sig ~curr_sig =
               match (ref_decl.type_kind, curr_decl.type_kind) with
               | Type_abstract, Type_abstract
               | Type_record _, Type_record _
-              | Type_variant _, Type_variant _ ->
+              | Type_variant _, Type_variant _
+              | Type_open, Type_open ->
                   let new_decl = set_type_equality ref_id curr_decl in
                   Sig_type (curr_id, new_decl, rec_st, visibility)
               | _ -> item)
