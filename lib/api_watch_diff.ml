@@ -56,13 +56,13 @@ let env_setup ~ref_sig ~curr_sig =
   let env = Env.add_signature ref_sig env in
   Env.add_signature modified_curr_sig env
 
-let extract_values tbl items =
+let extract_values items =
   List.fold_left
     (fun tbl item ->
       match item with
       | Sig_value (id, val_des, _) -> FieldMap.add (Ident.name id) val_des tbl
       | _ -> tbl)
-    tbl items
+    FieldMap.empty items
 
 let diff_value ~typing_env ~val_name ~reference ~current =
   let val_coercion1 () =
@@ -80,21 +80,21 @@ let diff_value ~typing_env ~val_name ~reference ~current =
 
 let compare_values ~reference ~current =
   let env = env_setup ~ref_sig:reference ~curr_sig:current in
-  let ref_values = extract_values FieldMap.empty reference in
-  let curr_values = extract_values FieldMap.empty current in
+  let ref_values = extract_values reference in
+  let curr_values = extract_values current in
   let diffs =
     FieldMap.fold
       (fun val_name curr_vd acc ->
-        if FieldMap.mem val_name ref_values then
-          let ref_vd = FieldMap.find val_name ref_values in
-          let value_differs =
-            diff_value ~typing_env:env ~val_name ~reference:ref_vd
-              ~current:curr_vd
-          in
-          match value_differs with
-          | None -> acc
-          | Some _ -> Value (val_name, Modified) :: acc
-        else Value (val_name, Added) :: acc)
+        match FieldMap.find_opt val_name ref_values with
+        | None -> Value (val_name, Added) :: acc
+        | Some ref_vd -> (
+            let value_differs =
+              diff_value ~typing_env:env ~val_name ~reference:ref_vd
+                ~current:curr_vd
+            in
+            match value_differs with
+            | None -> acc
+            | Some _ -> Value (val_name, Modified) :: acc))
       curr_values []
   in
   FieldMap.fold
