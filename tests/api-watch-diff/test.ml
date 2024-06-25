@@ -573,3 +573,87 @@ let%expect_test "Changing from open and less to closed polymorphic" =
   let result = Api_watch_diff.diff_interface ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {|[Value (x, Modified)]|}]
+
+let%expect_test "Extensible variant type, identical" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = ..
+    type t += A | B of int
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = ..
+    type t += A | B of int
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
+
+let%expect_test "Extensible variant type, extended" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = ..
+    type t += A | B of int
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = ..
+    type t += A | B of int | C
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
+
+let%expect_test "Extensible variant type, reduced" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = ..
+    type t += A | B of int 
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = ..
+    type t += A 
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
+
+let%expect_test "Extensible variant type, modified" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = ..
+    type t += A | B of int 
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = ..
+    type t += A | B of string
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
