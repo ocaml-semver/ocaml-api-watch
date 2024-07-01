@@ -657,3 +657,40 @@ let%expect_test "Extensible variant type, modified" =
   let result = Api_watch_diff.diff_interface ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {|[Any]|}]
+
+let%expect_test "Changing from abstract to record type" =
+  let reference =
+    Test_helpers.compile_interface {|
+    type t 
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = {a:string; b:int}
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]
+
+let%expect_test "Changing from record to variant type" =
+  let reference =
+    Test_helpers.compile_interface
+      {|
+    type t = {a:string; b:int}
+    val x : t
+  |}
+  in
+  let current =
+    Test_helpers.compile_interface
+      {|
+    type t = A of string | B of int 
+    val x : t
+  |}
+  in
+  let result = Api_watch_diff.diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[Any]|}]

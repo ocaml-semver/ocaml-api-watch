@@ -13,8 +13,8 @@ let extract_non_alias_types ref_sig =
   List.fold_left
     (fun acc item ->
       match item with
-      | Sig_type (id, ({ type_manifest = None; _ } as decl), _, _) ->
-          FieldMap.add (Ident.name id) (id, decl) acc
+      | Sig_type (id, { type_manifest = None; _ }, _, _) ->
+          FieldMap.add (Ident.name id) id acc
       | _ -> acc)
     FieldMap.empty ref_sig
 
@@ -37,15 +37,9 @@ let set_type_equalities ~ref_sig ~curr_sig =
             visibility ) -> (
           let name = Ident.name curr_id in
           match FieldMap.find_opt name ref_non_alias_types with
-          | Some (ref_id, ref_decl) -> (
-              match (ref_decl.type_kind, curr_decl.type_kind) with
-              | Type_abstract, Type_abstract
-              | Type_record _, Type_record _
-              | Type_variant _, Type_variant _
-              | Type_open, Type_open ->
-                  let new_decl = set_type_equality ref_id curr_decl in
-                  Sig_type (curr_id, new_decl, rec_st, visibility)
-              | _ -> item)
+          | Some ref_id ->
+              let new_decl = set_type_equality ref_id curr_decl in
+              Sig_type (curr_id, new_decl, rec_st, visibility)
           | None -> item)
       | _ -> item)
     curr_sig
