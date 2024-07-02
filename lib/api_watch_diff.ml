@@ -97,9 +97,8 @@ let compare_values ~reference ~current =
   let diffs =
     FieldMap.fold
       (fun val_name curr_vd acc ->
-        let resolved_curr_vd = resolve env curr_vd in
         match FieldMap.find_opt val_name ref_values with
-        | None -> Value (val_name, Added resolved_curr_vd) :: acc
+        | None -> Value (val_name, Added curr_vd) :: acc
         | Some ref_vd -> (
             let value_differs =
               diff_value ~typing_env:env ~val_name ~reference:ref_vd
@@ -109,15 +108,15 @@ let compare_values ~reference ~current =
             | None -> acc
             | Some _ ->
                 let resolved_ref_vd = resolve env ref_vd in
+                let resolved_curr_vd = resolve env curr_vd in
                 Value (val_name, Modified (resolved_ref_vd, resolved_curr_vd))
                 :: acc))
       curr_values []
   in
   FieldMap.fold
     (fun val_name ref_vd acc ->
-      let resolved_ref_vd = resolve env ref_vd in
       if not (FieldMap.mem val_name curr_values) then
-        Value (val_name, Removed resolved_ref_vd) :: acc
+        Value (val_name, Removed ref_vd) :: acc
       else acc)
     ref_values diffs
 
