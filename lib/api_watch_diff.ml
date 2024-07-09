@@ -16,18 +16,6 @@ module FieldMap = Map.Make (struct
   let compare = String.compare
 end)
 
-let rec expand (env : Env.t) (typ : Types.type_expr) : Types.type_expr =
-  match get_desc typ with
-  | Tconstr _ -> Ctype.expand_head env typ
-  | Tarrow (label, param_type, result_type, commutable) ->
-      let expanded_param = expand env param_type in
-      let expanded_result = expand env result_type in
-      if expanded_param == param_type && expanded_result == result_type then typ
-      else
-        Ctype.newty
-          (Tarrow (label, expanded_param, expanded_result, commutable))
-  | _ -> typ
-
 let extract_non_alias_types ref_sig =
   List.fold_left
     (fun acc item ->
@@ -92,10 +80,6 @@ let diff_value ~typing_env ~val_name ~reference ~current =
   | _, _ -> Some ()
   | exception Includecore.Dont_match _ -> Some ()
 
-let resolve env vd =
-  let res_val_type = expand env vd.val_type in
-  { vd with val_type = res_val_type }
-
 let compare_values ~reference ~current =
   let env = env_setup ~ref_sig:reference ~curr_sig:current in
   let ref_values = extract_values reference in
@@ -112,11 +96,7 @@ let compare_values ~reference ~current =
             in
             match value_differs with
             | None -> acc
-            | Some _ ->
-                let resolved_ref_vd = resolve env ref_vd in
-                let resolved_curr_vd = resolve env curr_vd in
-                Value (val_name, Modified (resolved_ref_vd, resolved_curr_vd))
-                :: acc))
+            | Some _ -> Value (val_name, Modified (ref_vd, curr_vd)) :: acc))
       curr_values []
   in
   FieldMap.fold
