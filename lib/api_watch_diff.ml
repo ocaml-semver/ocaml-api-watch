@@ -1,14 +1,11 @@
 open Types
 
-type ('item, 'diff) change =
+type 'item change =
   | Added of 'item
   | Removed of 'item
-  | Modified of 'diff
+  | Modified of { ref : 'item; current : 'item }
 
-type diff =
-  | Value of
-      string * (value_description, value_description * value_description) change
-  | Any
+type diff = Value of string * value_description change | Any
 
 module FieldMap = Map.Make (struct
   type t = string
@@ -96,7 +93,9 @@ let compare_values ~reference ~current =
             in
             match value_differs with
             | None -> acc
-            | Some _ -> Value (val_name, Modified (ref_vd, curr_vd)) :: acc))
+            | Some _ ->
+                Value (val_name, Modified { ref = ref_vd; current = curr_vd })
+                :: acc))
       curr_values []
   in
   FieldMap.fold
