@@ -81,29 +81,25 @@ let compare_values ~reference ~current =
   let env = env_setup ~ref_sig:reference ~curr_sig:current in
   let ref_values = extract_values reference in
   let curr_values = extract_values current in
-  let diffs =
-    FieldMap.fold
-      (fun val_name curr_vd acc ->
-        match FieldMap.find_opt val_name ref_values with
-        | None -> Value (val_name, Added curr_vd) :: acc
-        | Some ref_vd -> (
-            let value_differs =
-              diff_value ~typing_env:env ~val_name ~reference:ref_vd
-                ~current:curr_vd
-            in
-            match value_differs with
-            | None -> acc
-            | Some _ ->
-                Value (val_name, Modified { ref = ref_vd; current = curr_vd })
-                :: acc))
-      curr_values []
-  in
-  FieldMap.fold
-    (fun val_name ref_vd acc ->
-      if not (FieldMap.mem val_name curr_values) then
-        Value (val_name, Removed ref_vd) :: acc
-      else acc)
-    ref_values diffs
+  FieldMap.merge
+    (fun val_name ref_opt curr_opt ->
+      match (ref_opt, curr_opt) with
+      | None, None -> None
+      | None, Some curr_vd -> Some (Value (val_name, Added curr_vd))
+      | Some ref_vd, None -> Some (Value (val_name, Removed ref_vd))
+      | Some ref_vd, Some curr_vd -> (
+          let value_differs =
+            diff_value ~typing_env:env ~val_name ~reference:ref_vd
+              ~current:curr_vd
+          in
+          match value_differs with
+          | None -> None
+          | Some _ ->
+              Some
+                (Value (val_name, Modified { ref = ref_vd; current = curr_vd }))
+          ))
+    ref_values curr_values
+  |> FieldMap.bindings |> List.map snd
 
 let diff_interface ~reference ~current =
   let value_diffs = compare_values ~reference ~current in
