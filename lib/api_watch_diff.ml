@@ -17,17 +17,21 @@ let extract_non_alias_types ref_sig =
   List.fold_left
     (fun acc item ->
       match item with
-      | Sig_type (id, { type_manifest = None; _ }, _, _) ->
-          FieldMap.add (Ident.name id) id acc
+      | Sig_type (id, ({ type_manifest = None; _ } as type_decl), _, _) ->
+          FieldMap.add (Ident.name id) (id, type_decl) acc
       | _ -> acc)
     FieldMap.empty ref_sig
 
-let set_type_equality ref_id curr_decl =
-  let ref_path = Path.Pident ref_id in
-  {
-    curr_decl with
-    type_manifest = Some (Btype.newgenty (Tconstr (ref_path, [], ref Mnil)));
-  }
+let set_type_equality ref_id ~ref_decl ~curr_decl =
+  if List.length ref_decl.type_params = List.length curr_decl.type_params then
+    let ref_path = Path.Pident ref_id in
+    {
+      curr_decl with
+      type_manifest =
+        Some
+          (Btype.newgenty (Tconstr (ref_path, curr_decl.type_params, ref Mnil)));
+    }
+  else curr_decl
 
 let set_type_equalities ~ref_sig ~curr_sig =
   let ref_non_alias_types = extract_non_alias_types ref_sig in
@@ -41,8 +45,8 @@ let set_type_equalities ~ref_sig ~curr_sig =
             visibility ) -> (
           let name = Ident.name curr_id in
           match FieldMap.find_opt name ref_non_alias_types with
-          | Some ref_id ->
-              let new_decl = set_type_equality ref_id curr_decl in
+          | Some (ref_id, ref_decl) ->
+              let new_decl = set_type_equality ref_id ~ref_decl ~curr_decl in
               Sig_type (curr_id, new_decl, rec_st, visibility)
           | None -> item)
       | _ -> item)
