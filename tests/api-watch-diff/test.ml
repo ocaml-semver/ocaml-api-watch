@@ -3,9 +3,9 @@ open Test_helpers
 
 let pp_diff_list fmt diffs =
   let pp_item_change fmt = function
-    | Added -> Format.fprintf fmt "Added"
-    | Removed -> Format.fprintf fmt "Removed"
-    | Modified -> Format.fprintf fmt "Modified"
+    | Added _ -> Format.fprintf fmt "Added"
+    | Removed _ -> Format.fprintf fmt "Removed"
+    | Modified _ -> Format.fprintf fmt "Modified"
   in
   let pp_diff fmt = function
     | Value (name, change) ->
