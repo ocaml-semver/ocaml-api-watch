@@ -642,3 +642,22 @@ let%expect_test "Changing from record to variant type" =
   let result = diff_interface ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {|[Any]|}]
+
+let%expect_test "New test: Identical values" =
+  let reference =
+    compile_interface
+      {|
+    type ('a, 'b) result = Ok of 'a | Error of 'b
+    val x : (int ,string) result
+  |}
+  in
+  let current =
+    compile_interface
+      {|
+     type ('a, 'b) result = Ok of 'a | Error of 'b
+    val x : (int ,string) result
+  |}
+  in
+  let result = diff_interface ~reference ~current in
+  Format.printf "%a" pp_diff_list result;
+  [%expect {|[]|}]
