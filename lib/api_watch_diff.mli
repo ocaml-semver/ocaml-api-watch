@@ -9,3 +9,5 @@ val diff_interface :
   reference:Types.signature_item list ->
   current:Types.signature_item list ->
   diff list
+
+val to_diff : diff list -> Diffutils.Diff.t

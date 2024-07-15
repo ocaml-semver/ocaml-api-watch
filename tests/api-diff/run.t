@@ -99,7 +99,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi add_value.cmi
-  API changed!
+  API changes:
+  +val g : t -> t
+  
 
 ### Removing a value:
 
@@ -114,7 +116,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi remove_value.cmi
-  API changed!
+  API changes:
+  -val f : t -> string
+  
 
 ### Modifying a value:
 
@@ -130,7 +134,10 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi modify_value.cmi
-  API changed!
+  API changes:
+  -val f : t -> string
+  +val f : t -> t
+  
 
 Here we generate a `.mli` file with a module:
 

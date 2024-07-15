@@ -1,4 +1,5 @@
 open Types
+open Diffutils.Diff
 
 type 'item change =
   | Added of 'item
@@ -120,3 +121,34 @@ let diff_interface ~reference ~current =
     | _, _ -> [ Any ]
     | exception Includemod.Error _ -> [ Any ]
   else value_diffs
+
+let to_diff (diff_result : diff list) : t =
+  let vd_to_string name vd =
+    let buf = Buffer.create 256 in
+    let formatter = Format.formatter_of_buffer buf in
+    Printtyp.value_description (Ident.create_local name) formatter vd;
+    Format.pp_print_flush formatter ();
+    Buffer.contents buf
+  in
+  List.map
+    (fun item ->
+      match item with
+      | Any ->
+          Diff
+            {
+              orig = [ "<unspecified change>" ];
+              new_ = [ "<unspecified change>" ];
+            }
+      | Value (name, change) ->
+          let diff =
+            match change with
+            | Added vd -> { orig = []; new_ = [ vd_to_string name vd ] }
+            | Removed vd -> { orig = [ vd_to_string name vd ]; new_ = [] }
+            | Modified { ref; current } ->
+                {
+                  orig = [ vd_to_string name ref ];
+                  new_ = [ vd_to_string name current ];
+                }
+          in
+          Diff diff)
+    diff_result
