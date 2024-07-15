@@ -643,7 +643,7 @@ let%expect_test "Changing from record to variant type" =
   Format.printf "%a" pp_diff_list result;
   [%expect {|[Any]|}]
 
-let%expect_test "Values referencing types with constructors, identical" =
+let%expect_test "Values referencing types with parameters, identical" =
   let reference =
     compile_interface
       {|
@@ -662,7 +662,7 @@ let%expect_test "Values referencing types with constructors, identical" =
   Format.printf "%a" pp_diff_list result;
   [%expect {|[]|}]
 
-let%expect_test " Values referencing types with constructors, modified" =
+let%expect_test " Values referencing types with parameters, modified" =
   let reference =
     compile_interface
       {|
