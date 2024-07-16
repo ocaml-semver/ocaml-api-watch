@@ -27,7 +27,6 @@ And now we run api-watcher on that same cmi file as both arguments,
 there should be no diff:
 
   $ api-diff ref.cmi ref.cmi
-  API unchanged!
 
 ## Different .cmi files for type tests:
 
@@ -47,7 +46,9 @@ We generate the .cmi file
 Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi add_type.cmi
-  API changed!
+  +<unsupported change>
+  
+  [1]
 
 ### A file with a removed type:
 
@@ -63,7 +64,9 @@ We generate the .cmi file
 Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi remove_type.cmi
-  API changed!
+  +<unsupported change>
+  
+  [1]
 
 ### A file with a modified type:
 
@@ -80,7 +83,9 @@ We generate a .cmi file
 Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi modify_type.cmi
-  API changed!
+  +<unsupported change>
+  
+  [1]
 
 ## Different .cmi files for value tests:
 
@@ -99,9 +104,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi add_value.cmi
-  API changes:
   +val g : t -> t
   
+  [1]
 
 ### Removing a value:
 
@@ -116,9 +121,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi remove_value.cmi
-  API changes:
   -val f : t -> string
   
+  [1]
 
 ### Modifying a value:
 
@@ -134,10 +139,10 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi modify_value.cmi
-  API changes:
   -val f : t -> string
   +val f : t -> t
   
+  [1]
 
 Here we generate a `.mli` file with a module:
 
@@ -154,7 +159,6 @@ And now we run api-watcher on that same cmi file as both arguments,
 there should be no diff:
 
   $ api-diff mod_ref.cmi mod_ref.cmi
-  API unchanged!
 
 ### Adding a module:
 
@@ -170,7 +174,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff mod_ref.cmi add_module.cmi
-  API changed!
+  +<unsupported change>
+  
+  [1]
 
 ### Removing a module:
 
@@ -184,7 +190,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff mod_ref.cmi remove_module.cmi
-  API changed!
+  +<unsupported change>
+  
+  [1]
 
 ### Modifying a module:
 
@@ -199,4 +207,6 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff mod_ref.cmi modify_module.cmi
-  API changed!
+  +<unsupported change>
+  
+  [1]

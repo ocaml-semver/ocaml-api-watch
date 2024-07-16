@@ -1,3 +1,0 @@
-[submodule "diffutils"]
-	path = vendor/diffutils
-	url = https://github.com/panglesd/ocaml-diffutils.git

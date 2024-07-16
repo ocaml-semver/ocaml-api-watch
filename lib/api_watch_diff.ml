@@ -1,5 +1,4 @@
 open Types
-open Diffutils.Diff
 
 type 'item change =
   | Added of 'item
@@ -122,7 +121,7 @@ let diff_interface ~reference ~current =
     | exception Includemod.Error _ -> [ Any ]
   else value_diffs
 
-let to_diff (diff_result : diff list) : t =
+let to_text_diff (diff_result : diff list) : Diffutils.Diff.t =
   let vd_to_string name vd =
     let buf = Buffer.create 256 in
     let formatter = Format.formatter_of_buffer buf in
@@ -130,15 +129,11 @@ let to_diff (diff_result : diff list) : t =
     Format.pp_print_flush formatter ();
     Buffer.contents buf
   in
+  let open Diffutils.Diff in
   List.map
     (fun item ->
       match item with
-      | Any ->
-          Diff
-            {
-              orig = [ "<unspecified change>" ];
-              new_ = [ "<unspecified change>" ];
-            }
+      | Any -> Diff { orig = []; new_ = [ "<unsupported change>" ] }
       | Value (name, change) ->
           let diff =
             match change with
