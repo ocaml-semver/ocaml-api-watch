@@ -31,5 +31,5 @@ build: [
 ]
 dev-repo: "git+https://github.com/NathanReb/ocaml-api-watch.git"
 pin-depends: [
-  ["diffutils" "git+https://github.com/panglesd/ocaml-diffutils#0fc293bc0cd2c34742552f7a0c777bfba385bd90"]
+  ["diffutils.dev" "git+https://github.com/panglesd/ocaml-diffutils.git#0fc293bc0cd2c34742552f7a0c777bfba385bd90"]
 ]
