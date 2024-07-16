@@ -18,4 +18,5 @@
   (ocaml (and (>= 5.1.0) (< 5.2.0)))
   (ppx_expect :with-test)
   logs
-  (cmdliner (>= 1.1.0))))
+  (cmdliner (>= 1.1.0))
+  diffutils))
