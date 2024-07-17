@@ -12,6 +12,7 @@ depends: [
   "ppx_expect" {with-test}
   "logs"
   "cmdliner" {>= "1.1.0"}
+  "diffutils"
   "odoc" {with-doc}
 ]
 build: [
@@ -29,3 +30,6 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/NathanReb/ocaml-api-watch.git"
+pin-depends: [
+  ["diffutils.dev" "git+https://github.com/panglesd/ocaml-diffutils#0fc293bc0cd2c34742552f7a0c777bfba385bd90"]
+]

@@ -1,12 +1,18 @@
 let run (`Ref_cmi reference) (`Current_cmi current) =
   let current = Cmi_format.read_cmi current in
   let reference = Cmi_format.read_cmi reference in
-  let differs =
+  let diff =
     Api_watch_diff.diff_interface ~reference:reference.cmi_sign
       ~current:current.cmi_sign
   in
-  if differs = [] then Printf.printf "API unchanged!\n"
-  else Printf.printf "API changed!\n"
+  if diff = [] then 0
+  else
+    let text_diff = Api_watch_diff.to_text_diff diff in
+    Printf.printf "%s\n"
+      (Format.asprintf "%a"
+         (Diffutils.Diff.pp Diffutils.Diff.git_printer)
+         text_diff);
+    1
 
 let named f = Cmdliner.Term.(app (const f))
 
@@ -31,4 +37,4 @@ let info =
 
 let term = Cmdliner.Term.(const run $ ref_cmi $ current_cmi)
 let main = Cmdliner.Cmd.v info term
-let () = Stdlib.exit @@ Cmdliner.Cmd.eval main
+let () = Stdlib.exit @@ Cmdliner.Cmd.eval' main

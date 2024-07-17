@@ -120,3 +120,30 @@ let diff_interface ~reference ~current =
     | _, _ -> [ Any ]
     | exception Includemod.Error _ -> [ Any ]
   else value_diffs
+
+let to_text_diff (diff_result : diff list) : Diffutils.Diff.t =
+  let vd_to_string name vd =
+    let buf = Buffer.create 256 in
+    let formatter = Format.formatter_of_buffer buf in
+    Printtyp.value_description (Ident.create_local name) formatter vd;
+    Format.pp_print_flush formatter ();
+    Buffer.contents buf
+  in
+  let open Diffutils.Diff in
+  List.map
+    (fun item ->
+      match item with
+      | Any -> Diff { orig = []; new_ = [ "<unsupported change>" ] }
+      | Value (name, change) ->
+          let diff =
+            match change with
+            | Added vd -> { orig = []; new_ = [ vd_to_string name vd ] }
+            | Removed vd -> { orig = [ vd_to_string name vd ]; new_ = [] }
+            | Modified { ref; current } ->
+                {
+                  orig = [ vd_to_string name ref ];
+                  new_ = [ vd_to_string name current ];
+                }
+          in
+          Diff diff)
+    diff_result
