@@ -3,22 +3,23 @@ open Test_helpers
 
 let rec pp_module_diff fmt module_diff =
   let pp_item_change fmt = function
-    | Added _ -> Format.fprintf fmt "Added" 
-    | Removed _ -> Format.fprintf fmt "Removed" 
-    | Modified _ -> Format.fprintf fmt "Modified" 
+    | Added _ -> Format.fprintf fmt "Added"
+    | Removed _ -> Format.fprintf fmt "Removed"
+    | Modified _ -> Format.fprintf fmt "Modified"
   in
   let pp_item_change fmt = function
     | Value { name; change } ->
         Format.fprintf fmt "Value (%s, %a)" name pp_item_change change
-    | Module sub_module_diff ->
-        pp_module_diff fmt sub_module_diff
+    | Module sub_module_diff -> pp_module_diff fmt sub_module_diff
   in
   match module_diff.changes with
   | Unsupported ->
-      Format.fprintf fmt "Module %s: Unsupported changes" module_diff.module_name
+      Format.fprintf fmt "Module %s: Unsupported changes"
+        module_diff.module_name
   | Supported changes ->
       Format.fprintf fmt "Module %s: [%a]" module_diff.module_name
-        (Format.pp_print_list pp_item_change) changes
+        (Format.pp_print_list pp_item_change)
+        changes
 
 let pp_diff_list fmt diff_opt =
   match diff_opt with
