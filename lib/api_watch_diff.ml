@@ -13,22 +13,26 @@ and item_change =
 
 and module_change = Unsupported | Supported of item_change list
 
-type diff = module_diff option
+type item_type = Value_item | Module_item
+type sig_items = Val of value_description | Mod of module_declaration
 
-module FieldMap = Map.Make (struct
-  type t = string
+module Sig_item_map = Map.Make (struct
+  type t = item_type * string
 
-  let compare = String.compare
+  let compare (t1, s1) (t2, s2) =
+    match compare t1 t2 with 0 -> String.compare s1 s2 | c -> c
 end)
+
+module String_map = Map.Make (String)
 
 let extract_non_alias_types ref_sig =
   List.fold_left
     (fun acc item ->
       match item with
       | Sig_type (id, ({ type_manifest = None; _ } as type_decl), _, _) ->
-          FieldMap.add (Ident.name id) (id, type_decl) acc
+          String_map.add (Ident.name id) (id, type_decl) acc
       | _ -> acc)
-    FieldMap.empty ref_sig
+    String_map.empty ref_sig
 
 let set_type_equality ref_id ~ref_decl ~curr_decl =
   if List.length ref_decl.type_params = List.length curr_decl.type_params then
@@ -52,7 +56,7 @@ let set_type_equalities ~ref_sig ~curr_sig =
             rec_st,
             visibility ) -> (
           let name = Ident.name curr_id in
-          match FieldMap.find_opt name ref_non_alias_types with
+          match String_map.find_opt name ref_non_alias_types with
           | Some (ref_id, ref_decl) ->
               let new_decl = set_type_equality ref_id ~ref_decl ~curr_decl in
               Sig_type (curr_id, new_decl, rec_st, visibility)
@@ -67,22 +71,16 @@ let env_setup ~ref_sig ~curr_sig =
   let env = Env.add_signature ref_sig env in
   Env.add_signature modified_curr_sig env
 
-let extract_modules items =
+let extract_items items =
   List.fold_left
     (fun tbl item ->
       match item with
       | Sig_module (id, _, mod_decl, _, _) ->
-          FieldMap.add (Ident.name id) mod_decl tbl
+          Sig_item_map.add (Module_item, Ident.name id) (Mod mod_decl) tbl
+      | Sig_value (id, val_des, _) ->
+          Sig_item_map.add (Value_item, Ident.name id) (Val val_des) tbl
       | _ -> tbl)
-    FieldMap.empty items
-
-let extract_values items =
-  List.fold_left
-    (fun tbl item ->
-      match item with
-      | Sig_value (id, val_des, _) -> FieldMap.add (Ident.name id) val_des tbl
-      | _ -> tbl)
-    FieldMap.empty items
+    Sig_item_map.empty items
 
 let diff_value ~typing_env ~val_name ~reference ~current =
   let val_coercion1 () =
@@ -98,66 +96,61 @@ let diff_value ~typing_env ~val_name ~reference ~current =
   | _, _ -> Some ()
   | exception Includecore.Dont_match _ -> Some ()
 
-let compare_values ~reference ~current =
+let rec diff_items curr_mod_name ~reference ~current =
   let env = env_setup ~ref_sig:reference ~curr_sig:current in
-  let ref_values = extract_values reference in
-  let curr_values = extract_values current in
-  FieldMap.merge
-    (fun val_name ref_opt curr_opt ->
-      match (ref_opt, curr_opt) with
-      | None, None -> None
-      | None, Some curr_vd ->
-          Some (Value { name = val_name; change = Added curr_vd })
-      | Some ref_vd, None ->
-          Some (Value { name = val_name; change = Removed ref_vd })
-      | Some ref_vd, Some curr_vd -> (
-          let value_differs =
-            diff_value ~typing_env:env ~val_name ~reference:ref_vd
-              ~current:curr_vd
-          in
-          match value_differs with
-          | None -> None
-          | Some _ ->
-              Some
-                (Value
-                   {
-                     name = val_name;
-                     change = Modified { ref_ = ref_vd; current = curr_vd };
-                   })))
-    ref_values curr_values
-  |> FieldMap.bindings |> List.map snd
-
-let rec compare_modules curr_mod_name ~reference ~current =
-  let value_changes = compare_values ~reference ~current in
-  let ref_modules = extract_modules reference in
-  let curr_modules = extract_modules current in
-  let module_changes =
-    FieldMap.merge
-      (fun mod_name ref_opt curr_opt ->
-        match (ref_opt, curr_opt) with
-        | None, None -> None
-        | None, Some _curr_md ->
-            Some (Module { module_name = mod_name; changes = Unsupported })
-        | Some _ref_md, None ->
-            Some (Module { module_name = mod_name; changes = Unsupported })
-        | Some ref_md, Some curr_md -> (
-            match (ref_md.md_type, curr_md.md_type) with
-            | Mty_signature ref_submod, Mty_signature curr_submod ->
-                compare_modules mod_name ~reference:ref_submod
-                  ~current:curr_submod
-            | _, _ -> None))
-      ref_modules curr_modules
-    |> FieldMap.bindings |> List.map snd
+  let ref_items = extract_items reference in
+  let curr_items = extract_items current in
+  let item_changes =
+    Sig_item_map.merge
+      (fun (item_type, name) ref_opt curr_opt ->
+        match (item_type, ref_opt, curr_opt) with
+        | Value_item, ref_opt, curr_opt -> (
+            match (ref_opt, curr_opt) with
+            | None, None -> None
+            | None, Some (Val curr_vd) ->
+                Some (Value { name; change = Added curr_vd })
+            | Some (Val ref_vd), None ->
+                Some (Value { name; change = Removed ref_vd })
+            | Some (Val ref_vd), Some (Val curr_vd) -> (
+                let value_differs =
+                  diff_value ~typing_env:env ~val_name:name ~reference:ref_vd
+                    ~current:curr_vd
+                in
+                match value_differs with
+                | None -> None
+                | Some _ ->
+                    Some
+                      (Value
+                         {
+                           name;
+                           change =
+                             Modified { ref_ = ref_vd; current = curr_vd };
+                         }))
+            | _ -> None)
+        | Module_item, ref_opt, curr_opt -> (
+            match (ref_opt, curr_opt) with
+            | None, None -> None
+            | None, Some (Mod _curr_md) ->
+                Some (Module { module_name = name; changes = Unsupported })
+            | Some (Mod _ref_md), None ->
+                Some (Module { module_name = name; changes = Unsupported })
+            | Some (Mod ref_md), Some (Mod curr_md) -> (
+                match (ref_md.md_type, curr_md.md_type) with
+                | Mty_signature ref_submod, Mty_signature curr_submod ->
+                    diff_items name ~reference:ref_submod ~current:curr_submod
+                | _, _ ->
+                    Some (Module { module_name = name; changes = Unsupported }))
+            | _ -> None))
+      ref_items curr_items
+    |> Sig_item_map.bindings |> List.map snd
   in
-  let item_changes = value_changes @ module_changes in
   if item_changes = [] then None
   else
     Some
       (Module { module_name = curr_mod_name; changes = Supported item_changes })
 
-let diff_interface ~reference ~current =
-  let module_diffs = compare_modules "main" ~reference ~current in
-  match module_diffs with
+let diff_interface mod_name ~reference ~current =
+  match diff_items mod_name ~reference ~current with
   | Some (Module mod_diff) -> Some mod_diff
   | None -> (
       let typing_env = Env.empty in
@@ -169,47 +162,49 @@ let diff_interface ~reference ~current =
       in
       match (coercion1 (), coercion2 ()) with
       | Tcoerce_none, Tcoerce_none -> None
-      | _, _ -> Some { module_name = "main"; changes = Unsupported }
+      | _, _ -> Some { module_name = mod_name; changes = Unsupported }
       | exception Includemod.Error _ ->
-          Some { module_name = "main"; changes = Unsupported })
+          Some { module_name = mod_name; changes = Unsupported })
   | _ -> None
 
-let to_text_diff (diff_result : diff) : Diffutils.Diff.t FieldMap.t =
-  let vd_to_string name vd =
-    let buf = Buffer.create 256 in
-    let formatter = Format.formatter_of_buffer buf in
-    Printtyp.value_description (Ident.create_local name) formatter vd;
-    Format.pp_print_flush formatter ();
-    Buffer.contents buf
-  in
-  let open Diffutils.Diff in
+let vd_to_string name vd =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  Printtyp.value_description (Ident.create_local name) formatter vd;
+  Format.pp_print_flush formatter ();
+  Buffer.contents buf
+
+let process_value_diff val_name (val_change : value_description change) =
+  match val_change with
+  | Added vd ->
+      [ Diffutils.Diff.Diff { orig = []; new_ = [ vd_to_string val_name vd ] } ]
+  | Removed vd ->
+      [ Diffutils.Diff.Diff { orig = [ vd_to_string val_name vd ]; new_ = [] } ]
+  | Modified { ref_; current } ->
+      [
+        Diffutils.Diff.Diff
+          {
+            orig = [ vd_to_string val_name ref_ ];
+            new_ = [ vd_to_string val_name current ];
+          };
+      ]
+
+let to_text_diff (diff_result : module_diff) : Diffutils.Diff.t String_map.t =
   let rec process_module_diff module_path (module_diff : module_diff) acc =
     match module_diff.changes with
     | Unsupported ->
-        FieldMap.add module_path
-          [ Diff { orig = []; new_ = [ "<unsupported change>" ] } ]
+        String_map.add module_path
+          [
+            Diffutils.Diff.Diff { orig = []; new_ = [ "<unsupported change>" ] };
+          ]
           acc
     | Supported changes ->
         List.fold_left
           (fun acc' change ->
             match change with
-            | Value { name; change = value_change } ->
-                let diff =
-                  match value_change with
-                  | Added vd ->
-                      [ Diff { orig = []; new_ = [ vd_to_string name vd ] } ]
-                  | Removed vd ->
-                      [ Diff { orig = [ vd_to_string name vd ]; new_ = [] } ]
-                  | Modified { ref_; current } ->
-                      [
-                        Diff
-                          {
-                            orig = [ vd_to_string name ref_ ];
-                            new_ = [ vd_to_string name current ];
-                          };
-                      ]
-                in
-                FieldMap.add module_path diff acc'
+            | Value { name; change = val_change } ->
+                let diff = process_value_diff name val_change in
+                String_map.add module_path diff acc'
             | Module sub_module_diff ->
                 let sub_module_path =
                   if module_path = "" then sub_module_diff.module_name
@@ -218,7 +213,4 @@ let to_text_diff (diff_result : diff) : Diffutils.Diff.t FieldMap.t =
                 process_module_diff sub_module_path sub_module_diff acc')
           acc changes
   in
-  match diff_result with
-  | None -> FieldMap.empty
-  | Some module_diff ->
-      process_module_diff module_diff.module_name module_diff FieldMap.empty
+  process_module_diff diff_result.module_name diff_result String_map.empty

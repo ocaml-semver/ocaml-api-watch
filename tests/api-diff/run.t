@@ -46,7 +46,7 @@ We generate the .cmi file
 Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi add_type.cmi
-  diff module main:
+  diff module Add_type:
   
   +<unsupported change>
   [1]
@@ -65,7 +65,7 @@ We generate the .cmi file
 Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi remove_type.cmi
-  diff module main:
+  diff module Remove_type:
   
   +<unsupported change>
   [1]
@@ -85,7 +85,7 @@ We generate a .cmi file
 Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi modify_type.cmi
-  diff module main:
+  diff module Modify_type:
   
   +<unsupported change>
   [1]
@@ -107,7 +107,7 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi add_value.cmi
-  diff module main:
+  diff module Add_value:
   
   +val g : t -> t
   [1]
@@ -125,7 +125,7 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi remove_value.cmi
-  diff module main:
+  diff module Remove_value:
   
   -val f : t -> string
   [1]
@@ -144,7 +144,7 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi modify_value.cmi
-  diff module main:
+  diff module Modify_value:
   
   -val f : t -> string
   +val f : t -> t
@@ -180,7 +180,7 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff mod_ref.cmi add_module.cmi
-  diff module main.N:
+  diff module Add_module.N:
   
   +<unsupported change>
   [1]
@@ -197,7 +197,7 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff mod_ref.cmi remove_module.cmi
-  diff module main.M:
+  diff module Remove_module.M:
   
   +<unsupported change>
   [1]
@@ -215,7 +215,7 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff mod_ref.cmi modify_module.cmi
-  diff module main.M:
+  diff module Modify_module.M:
   
   -val x : int
   +val x : float

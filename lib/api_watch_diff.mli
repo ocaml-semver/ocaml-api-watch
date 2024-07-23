@@ -11,13 +11,12 @@ and item_change =
 
 and module_change = Unsupported | Supported of item_change list
 
-type diff = module_diff option
-
-module FieldMap : Map.S with type key = string
+module String_map : Map.S with type key = string
 
 val diff_interface :
+  string ->
   reference:Types.signature_item list ->
   current:Types.signature_item list ->
-  diff
+  module_diff option
 
-val to_text_diff : diff -> Diffutils.Diff.t FieldMap.t
+val to_text_diff : module_diff -> Diffutils.Diff.t String_map.t
