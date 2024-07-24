@@ -204,7 +204,10 @@ let to_text_diff (diff_result : module_diff) : Diffutils.Diff.t String_map.t =
             match change with
             | Value { name; change = val_change } ->
                 let diff = process_value_diff name val_change in
-                String_map.add module_path diff acc'
+                String_map.update module_path
+                  (function
+                    | None -> Some diff | Some existing -> Some (existing @ diff))
+                  acc'
             | Module sub_module_diff ->
                 let sub_module_path =
                   module_path ^ "." ^ sub_module_diff.module_name
