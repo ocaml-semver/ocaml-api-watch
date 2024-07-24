@@ -9,15 +9,13 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
   | None -> 0
   | Some diff ->
       let text_diff = Api_watch_diff.to_text_diff diff in
-      if Api_watch_diff.String_map.is_empty text_diff then 0
-      else
-        let print_module_diff module_path diff =
-          Printf.printf "diff module %s:\n" module_path;
-          Diffutils.Diff.pp Diffutils.Diff.git_printer Format.std_formatter diff;
-          Printf.printf "\n"
-        in
-        Api_watch_diff.String_map.iter print_module_diff text_diff;
-        1
+      let print_module_diff module_path diff =
+        Printf.printf "diff module %s:\n" module_path;
+        Diffutils.Diff.pp Diffutils.Diff.git_printer Format.std_formatter diff;
+        Printf.printf "\n"
+      in
+      Api_watch_diff.String_map.iter print_module_diff text_diff;
+      1
 
 let named f = Cmdliner.Term.(app (const f))
 

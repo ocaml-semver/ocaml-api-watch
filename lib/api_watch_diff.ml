@@ -207,8 +207,7 @@ let to_text_diff (diff_result : module_diff) : Diffutils.Diff.t String_map.t =
                 String_map.add module_path diff acc'
             | Module sub_module_diff ->
                 let sub_module_path =
-                  if module_path = "" then sub_module_diff.module_name
-                  else module_path ^ "." ^ sub_module_diff.module_name
+                  module_path ^ "." ^ sub_module_diff.module_name
                 in
                 process_module_diff sub_module_path sub_module_diff acc')
           acc changes
