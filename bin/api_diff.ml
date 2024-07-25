@@ -2,8 +2,8 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
   let current = Cmi_format.read_cmi current in
   let reference = Cmi_format.read_cmi reference in
   let diff =
-    Api_watch_diff.diff_interface current.cmi_name ~reference:reference.cmi_sign
-      ~current:current.cmi_sign
+    Api_watch_diff.diff_interface ~module_name:current.cmi_name
+      ~reference:reference.cmi_sign ~current:current.cmi_sign
   in
   match diff with
   | None -> 0

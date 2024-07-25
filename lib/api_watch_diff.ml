@@ -13,14 +13,11 @@ and item_change =
 
 and module_change = Unsupported | Supported of item_change list
 
-type item_type = Value_item | Module_item
+type item_type = Value_item | Module_item [@@deriving ord]
 type sig_items = Val of value_description | Mod of module_declaration
 
 module Sig_item_map = Map.Make (struct
-  type t = item_type * string
-
-  let compare (t1, s1) (t2, s2) =
-    match compare t1 t2 with 0 -> String.compare s1 s2 | c -> c
+  type t = item_type * string [@@deriving ord]
 end)
 
 module String_map = Map.Make (String)
@@ -82,21 +79,41 @@ let extract_items items =
       | _ -> tbl)
     Sig_item_map.empty items
 
-let diff_value ~typing_env ~val_name ~reference ~current =
-  let val_coercion1 () =
-    Includecore.value_descriptions ~loc:current.val_loc typing_env val_name
-      current reference
+let diff_modtype_item ~loc ~typing_env ~name ~ref_ ~current =
+  let modtype_coercion1 () =
+    Includemod.modtypes ~loc typing_env ~mark:Mark_both ref_ current
   in
-  let val_coercion2 () =
-    Includecore.value_descriptions ~loc:reference.val_loc typing_env val_name
-      reference current
+  let modtype_coercion2 () =
+    Includemod.modtypes ~loc typing_env ~mark:Mark_both current ref_
   in
-  match (val_coercion1 (), val_coercion2 ()) with
+  match (modtype_coercion1 (), modtype_coercion2 ()) with
   | Tcoerce_none, Tcoerce_none -> None
-  | _, _ -> Some ()
-  | exception Includecore.Dont_match _ -> Some ()
+  | _, _ -> Some (Module { module_name = name; changes = Unsupported })
+  | exception Includemod.Error _ ->
+      Some (Module { module_name = name; changes = Unsupported })
 
-let rec diff_items curr_mod_name ~reference ~current =
+let diff_value_item ~typing_env ~name ~ref_ ~current =
+  match (ref_, current) with
+  | None, None -> None
+  | Some (Val ref_), None -> Some (Value { name; change = Removed ref_ })
+  | None, Some (Val current) -> Some (Value { name; change = Added current })
+  | Some (Val ref_), Some (Val current) -> (
+      let val_coercion1 () =
+        Includecore.value_descriptions ~loc:current.val_loc typing_env name
+          current ref_
+      in
+      let val_coercion2 () =
+        Includecore.value_descriptions ~loc:ref_.val_loc typing_env name ref_
+          current
+      in
+      match (val_coercion1 (), val_coercion2 ()) with
+      | Tcoerce_none, Tcoerce_none -> None
+      | _, _ -> Some (Value { name; change = Modified { ref_; current } })
+      | exception Includecore.Dont_match _ ->
+          Some (Value { name; change = Modified { ref_; current } }))
+  | _ -> None
+
+let rec diff_items ~module_name ~reference ~current =
   let env = env_setup ~ref_sig:reference ~curr_sig:current in
   let ref_items = extract_items reference in
   let curr_items = extract_items current in
@@ -104,53 +121,31 @@ let rec diff_items curr_mod_name ~reference ~current =
     Sig_item_map.merge
       (fun (item_type, name) ref_opt curr_opt ->
         match (item_type, ref_opt, curr_opt) with
-        | Value_item, ref_opt, curr_opt -> (
-            match (ref_opt, curr_opt) with
-            | None, None -> None
-            | None, Some (Val curr_vd) ->
-                Some (Value { name; change = Added curr_vd })
-            | Some (Val ref_vd), None ->
-                Some (Value { name; change = Removed ref_vd })
-            | Some (Val ref_vd), Some (Val curr_vd) -> (
-                let value_differs =
-                  diff_value ~typing_env:env ~val_name:name ~reference:ref_vd
-                    ~current:curr_vd
-                in
-                match value_differs with
-                | None -> None
-                | Some _ ->
-                    Some
-                      (Value
-                         {
-                           name;
-                           change =
-                             Modified { ref_ = ref_vd; current = curr_vd };
-                         }))
-            | _ -> None)
-        | Module_item, ref_opt, curr_opt -> (
-            match (ref_opt, curr_opt) with
-            | None, None -> None
-            | None, Some (Mod _curr_md) ->
-                Some (Module { module_name = name; changes = Unsupported })
-            | Some (Mod _ref_md), None ->
-                Some (Module { module_name = name; changes = Unsupported })
-            | Some (Mod ref_md), Some (Mod curr_md) -> (
-                match (ref_md.md_type, curr_md.md_type) with
-                | Mty_signature ref_submod, Mty_signature curr_submod ->
-                    diff_items name ~reference:ref_submod ~current:curr_submod
-                | _, _ ->
-                    Some (Module { module_name = name; changes = Unsupported }))
-            | _ -> None))
+        | Value_item, ref_opt, curr_opt ->
+            diff_value_item ~typing_env:env ~name ~ref_:ref_opt
+              ~current:curr_opt
+        | Module_item, None, None -> None
+        | Module_item, None, Some (Mod _curr_md) ->
+            Some (Module { module_name = name; changes = Unsupported })
+        | Module_item, Some (Mod _ref_md), None ->
+            Some (Module { module_name = name; changes = Unsupported })
+        | Module_item, Some (Mod ref_md), Some (Mod curr_md) -> (
+            match (ref_md.md_type, curr_md.md_type) with
+            | Mty_signature ref_submod, Mty_signature curr_submod ->
+                diff_items ~module_name:name ~reference:ref_submod
+                  ~current:curr_submod
+            | ref_modtype, curr_modtype ->
+                diff_modtype_item ~loc:ref_md.md_loc ~typing_env:env ~name
+                  ~ref_:ref_modtype ~current:curr_modtype)
+        | _ -> None)
       ref_items curr_items
     |> Sig_item_map.bindings |> List.map snd
   in
   if item_changes = [] then None
-  else
-    Some
-      (Module { module_name = curr_mod_name; changes = Supported item_changes })
+  else Some (Module { module_name; changes = Supported item_changes })
 
-let diff_interface mod_name ~reference ~current =
-  match diff_items mod_name ~reference ~current with
+let diff_interface ~module_name ~reference ~current =
+  match diff_items ~module_name ~reference ~current with
   | Some (Module mod_diff) -> Some mod_diff
   | None -> (
       let typing_env = Env.empty in
@@ -162,9 +157,9 @@ let diff_interface mod_name ~reference ~current =
       in
       match (coercion1 (), coercion2 ()) with
       | Tcoerce_none, Tcoerce_none -> None
-      | _, _ -> Some { module_name = mod_name; changes = Unsupported }
+      | _, _ -> Some { module_name; changes = Unsupported }
       | exception Includemod.Error _ ->
-          Some { module_name = mod_name; changes = Unsupported })
+          Some { module_name; changes = Unsupported })
   | _ -> None
 
 let vd_to_string name vd =

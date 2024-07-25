@@ -14,7 +14,7 @@ and module_change = Unsupported | Supported of item_change list
 module String_map : Map.S with type key = string
 
 val diff_interface :
-  string ->
+  module_name:string ->
   reference:Types.signature_item list ->
   current:Types.signature_item list ->
   module_diff option
