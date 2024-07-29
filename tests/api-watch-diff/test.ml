@@ -2,23 +2,23 @@ open Api_watch_diff
 open Test_helpers
 
 let%expect_test "test_diff_interface" =
-  let result = diff_interface ~module_name:"main" ~reference:[] ~current:[] in
+  let result = diff_interface ~module_name:"Main" ~reference:[] ~current:[] in
   Format.printf "%a" pp_diff_list result;
   [%expect {| None |}]
 
 let%expect_test "Simple value, identical" =
   let reference = compile_interface {|val x : int|} in
   let current = compile_interface {|val x : int|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {| None |}]
 
 let%expect_test "Simple value, modified" =
   let reference = compile_interface {|val x : int|} in
   let current = compile_interface {|val x : string|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let ref_signature =
   compile_interface
@@ -30,7 +30,7 @@ let ref_signature =
 
 let%expect_test "Same signature" =
   let result =
-    diff_interface ~module_name:"main" ~reference:ref_signature
+    diff_interface ~module_name:"Main" ~reference:ref_signature
       ~current:ref_signature
   in
   Format.printf "%a" pp_diff_list result;
@@ -47,11 +47,11 @@ let add_value_signature =
 
 let%expect_test "Adding a value" =
   let result =
-    diff_interface ~module_name:"main" ~reference:ref_signature
+    diff_interface ~module_name:"Main" ~reference:ref_signature
       ~current:add_value_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (g, Added);]|}]
+  [%expect {|Some Module Main: [ Value (g, Added);]|}]
 
 let remove_value_signature =
   compile_interface {|
@@ -61,11 +61,11 @@ let remove_value_signature =
 
 let%expect_test "Removing a value" =
   let result =
-    diff_interface ~module_name:"main" ~reference:ref_signature
+    diff_interface ~module_name:"Main" ~reference:ref_signature
       ~current:remove_value_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (f, Removed);]|}]
+  [%expect {|Some Module Main: [ Value (f, Removed);]|}]
 
 let modify_value_signature =
   compile_interface
@@ -77,11 +77,11 @@ let modify_value_signature =
 
 let%expect_test "Modifying a value" =
   let result =
-    diff_interface ~module_name:"main" ~reference:ref_signature
+    diff_interface ~module_name:"Main" ~reference:ref_signature
       ~current:modify_value_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (f, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (f, Modified);]|}]
 
 let add_type_signature =
   compile_interface
@@ -94,11 +94,11 @@ let add_type_signature =
 
 let%expect_test "Adding a type" =
   let result =
-    diff_interface ~module_name:"main" ~reference:ref_signature
+    diff_interface ~module_name:"Main" ~reference:ref_signature
       ~current:add_type_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let remove_type_signature =
   compile_interface {|
@@ -108,18 +108,18 @@ let remove_type_signature =
 
 let%expect_test "Removing a type" =
   let result =
-    diff_interface ~module_name:"main" ~reference:ref_signature
+    diff_interface ~module_name:"Main" ~reference:ref_signature
       ~current:remove_type_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Modifying a simple type" =
   let reference = compile_interface {|type t = int|} in
   let current = compile_interface {|type t = string|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Modifying a type used in a value" =
   let reference =
@@ -134,9 +134,9 @@ let%expect_test "Modifying a type used in a value" =
     val f : t -> string
     |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (f, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (f, Modified);]|}]
 
 let ref_module_signature =
   compile_interface {|
@@ -145,7 +145,7 @@ let ref_module_signature =
 
 let%expect_test "Same module" =
   let result =
-    diff_interface ~module_name:"main" ~reference:ref_module_signature
+    diff_interface ~module_name:"Main" ~reference:ref_module_signature
       ~current:ref_module_signature
   in
   Format.printf "%a" pp_diff_list result;
@@ -160,11 +160,11 @@ let add_module_signature =
 
 let%expect_test "Adding a module" =
   let result =
-    diff_interface ~module_name:"main" ~reference:ref_module_signature
+    diff_interface ~module_name:"Main" ~reference:ref_module_signature
       ~current:add_module_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [Module N: Unsupported changes]|}]
+  [%expect {|Some Module Main: [Module N: Unsupported changes]|}]
 
 let remove_module_signature = compile_interface {|
 
@@ -172,11 +172,11 @@ let remove_module_signature = compile_interface {|
 
 let%expect_test "Removing a module" =
   let result =
-    diff_interface ~module_name:"main" ~reference:ref_module_signature
+    diff_interface ~module_name:"Main" ~reference:ref_module_signature
       ~current:remove_module_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [Module M: Unsupported changes]|}]
+  [%expect {|Some Module Main: [Module M: Unsupported changes]|}]
 
 let modify_module_signature =
   compile_interface {|
@@ -185,25 +185,25 @@ let modify_module_signature =
 
 let%expect_test "Modifying a module" =
   let result =
-    diff_interface ~module_name:"main" ~reference:ref_module_signature
+    diff_interface ~module_name:"Main" ~reference:ref_module_signature
       ~current:modify_module_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [Module M: [ Value (x, Modified);]]|}]
+  [%expect {|Some Module Main: [Module M: [ Value (x, Modified);]]|}]
 
 let%expect_test "One value more general than the other" =
   let general = compile_interface {|val x : 'a list|} in
   let specialized = compile_interface {|val x : float list|} in
   let result =
-    diff_interface ~module_name:"main" ~reference:general ~current:specialized
+    diff_interface ~module_name:"Main" ~reference:general ~current:specialized
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}];
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}];
   let rev_result =
-    diff_interface ~module_name:"main" ~reference:specialized ~current:general
+    diff_interface ~module_name:"Main" ~reference:specialized ~current:general
   in
   Format.printf "%a" pp_diff_list rev_result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Same abstract type" =
   let reference = compile_interface {|
@@ -214,7 +214,7 @@ let%expect_test "Same abstract type" =
     type t
     val x : t
   |} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {| None |}]
 
@@ -231,7 +231,7 @@ let%expect_test "Same record type" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {| None |}]
 
@@ -249,9 +249,9 @@ let%expect_test "Adding a record field" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Removing a record field" =
   let reference =
@@ -264,9 +264,9 @@ let%expect_test "Removing a record field" =
     type t = {a:int}
     val x : t
   |} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Modifying a record field" =
   let reference =
@@ -281,9 +281,9 @@ let%expect_test "Modifying a record field" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Same variant type" =
   let reference =
@@ -298,7 +298,7 @@ let%expect_test "Same variant type" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {| None |}]
 
@@ -315,9 +315,9 @@ let%expect_test "Adding a variant" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Removing a variant" =
   let reference =
@@ -330,9 +330,9 @@ let%expect_test "Removing a variant" =
     type t = A
     val x : t
   |} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Modifying a variant type" =
   let reference =
@@ -347,37 +347,37 @@ let%expect_test "Modifying a variant type" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Inlined polymorphic variant, identical" =
   let reference = compile_interface {|val x : [ `A | `B ]|} in
   let current = compile_interface {|val x : [ `A | `B ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {| None |}]
 
 let%expect_test "Inlined polymorphic variant, modified" =
   let reference = compile_interface {|val x : [ `A | `B ]|} in
   let current = compile_interface {|val x : [ `A | `C ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Inlined polymorphic variant, extended" =
   let reference = compile_interface {|val x : [ `A | `B ]|} in
   let current = compile_interface {|val x : [ `A | `B | `C ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Inlined polymorphic variant, reduced" =
   let reference = compile_interface {|val x : [ `A | `B ]|} in
   let current = compile_interface {|val x : [ `A ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Named polymorphic variant, identical" =
   let reference =
@@ -392,7 +392,7 @@ let%expect_test "Named polymorphic variant, identical" =
     val x : t
     |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {| None |}]
 
@@ -409,9 +409,9 @@ let%expect_test "Named polymorphic variant, modified" =
     val x : t
     |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Named polymorphic variant, extended" =
   let reference =
@@ -426,9 +426,9 @@ let%expect_test "Named polymorphic variant, extended" =
     val x : t
     |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Named polymorphic variant, reduced" =
   let reference =
@@ -441,93 +441,93 @@ let%expect_test "Named polymorphic variant, reduced" =
     type t = [ `A ]
     val x : t
     |} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Open polymorphic variant, identical" =
   let reference = compile_interface {|val x : [> `A | `B ]|} in
   let current = compile_interface {|val x : [> `A | `B ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {| None |}]
 
 let%expect_test "Open polymorphic variant, modified" =
   let reference = compile_interface {|val x : [> `A | `B ]|} in
   let current = compile_interface {|val x : [> `A | `C ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Open polymorphic variant, extended" =
   let reference = compile_interface {|val x : [> `A | `B ]|} in
   let current = compile_interface {|val x : [> `A | `B | `C ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Open polymorphic variant, reduced" =
   let reference = compile_interface {|val x : [> `A | `B ]|} in
   let current = compile_interface {|val x : [> `A ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Less polymorphic variant, identical" =
   let reference = compile_interface {|val x : [< `A | `B ]|} in
   let current = compile_interface {|val x : [< `A | `B ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {| None |}]
 
 let%expect_test "Less polymorphic variant, modified" =
   let reference = compile_interface {|val x : [< `A | `B ]|} in
   let current = compile_interface {|val x : [< `A | `C ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Less polymorphic variant, extended" =
   let reference = compile_interface {|val x : [< `A | `B ]|} in
   let current = compile_interface {|val x : [< `A | `B | `C ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Less polymorphic variant, reduced" =
   let reference = compile_interface {|val x : [< `A | `B ]|} in
   let current = compile_interface {|val x : [< `A ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Changing from less to more polymorphic" =
   let reference = compile_interface {|val x : [< `A | `B ]|} in
   let current = compile_interface {|val x : [> `A | `B ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Changing from more to less polymorphic" =
   let reference = compile_interface {|val x : [> `A | `B ]|} in
   let current = compile_interface {|val x : [< `A | `B ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Changing from open and more to closed polymorphic" =
   let reference = compile_interface {|val x : [> `A | `B ]|} in
   let current = compile_interface {|val x : [ `A | `B ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Changing from open and less to closed polymorphic" =
   let reference = compile_interface {|val x : [< `A | `B ]|} in
   let current = compile_interface {|val x : [ `A | `B ]|} in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
 
 let%expect_test "Extensible variant type, identical" =
   let reference =
@@ -546,7 +546,7 @@ let%expect_test "Extensible variant type, identical" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {| None |}]
 
@@ -567,9 +567,9 @@ let%expect_test "Extensible variant type, extended" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Extensible variant type, reduced" =
   let reference =
@@ -587,9 +587,9 @@ let%expect_test "Extensible variant type, reduced" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Extensible variant type, modified" =
   let reference =
@@ -608,9 +608,9 @@ let%expect_test "Extensible variant type, modified" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Changing from abstract to record type" =
   let reference = compile_interface {|
@@ -623,9 +623,9 @@ let%expect_test "Changing from abstract to record type" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Changing from record to variant type" =
   let reference =
@@ -640,9 +640,9 @@ let%expect_test "Changing from record to variant type" =
     val x : t
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes|}]
 
 let%expect_test "Values referencing types with parameters, identical" =
   let reference =
@@ -659,7 +659,7 @@ let%expect_test "Values referencing types with parameters, identical" =
     val x : (int ,string) result
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {| None |}]
 
@@ -678,68 +678,6 @@ let%expect_test "Values referencing types with parameters, modified" =
     val x : (float ,string) result
   |}
   in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
+  let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module main: [ Value (x, Modified);]|}]
-
-let%expect_test "Modules with both value and submodule changes" =
-  let reference =
-    compile_interface
-      {|
-    type ('a, 'b) result = Ok of 'a | Error of 'b
-    val f : int -> string
-    module M : sig
-      val g : int -> string
-    end
-  |}
-  in
-  let current =
-    compile_interface
-      {|
-    type ('a, 'b) result = Ok of 'a | Error of 'b
-    val f : int -> (string, string) result
-    module M : sig
-      val g : int -> (string, string) result
-    end
-  |}
-  in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
-  Format.printf "%a" pp_diff_list result;
-  [%expect
-    {|
-    Some Module main: [ Value (f, Modified);
-    Module M: [ Value (g, Modified);]]|}]
-
-let%expect_test "Modules with multiple value and submodule changes" =
-  let reference =
-    compile_interface
-      {|
-    type ('a, 'b) result = Ok of 'a | Error of 'b
-    val a : string -> int 
-    val f : int -> string
-    module M : sig
-      val b : int list -> int
-      val g : int -> string
-    end
-  |}
-  in
-  let current =
-    compile_interface
-      {|
-    type ('a, 'b) result = Ok of 'a | Error of 'b
-    val a : string -> float
-    val f : int -> (string, string) result
-    module M : sig
-      val b : float list -> float
-      val g : int -> (string, string) result
-    end
-    module N : sig val x: int end
-  |}
-  in
-  let result = diff_interface ~module_name:"main" ~reference ~current in
-  Format.printf "%a" pp_diff_list result;
-  [%expect
-    {|
-    Some Module main: [ Value (a, Modified); Value (f, Modified);
-    Module M: [ Value (b, Modified); Value (g, Modified);]
-    Module N: Unsupported changes]|}]
+  [%expect {|Some Module Main: [ Value (x, Modified);]|}]
