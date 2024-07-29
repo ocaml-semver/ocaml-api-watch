@@ -2,12 +2,14 @@ open Api_watch_diff
 open Test_helpers
 
 let%expect_test "Modules with multiple value and submodule changes" =
-  let reference= compile_interface {|
+  let reference =
+    compile_interface {|
   val x: int
   module M: sig 
   
-  end|} in
-  let current= compile_interface {|
+  end|}
+  in
+  let current = compile_interface {|
   module M: sig
   type t
   end
@@ -16,6 +18,5 @@ let%expect_test "Modules with multiple value and submodule changes" =
   Format.printf "%a" pp_diff_list result;
   [%expect
     {|
-    Some Module main: [ Value (a, Modified); Value (f, Modified);
-    Module M: [ Value (b, Modified); Value (g, Modified);]
-    Module N: Unsupported changes]|}]
+    Some Module Main: [ Value (x, Removed);
+    Module M: Unsupported changes]|}]
