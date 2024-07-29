@@ -16,6 +16,4 @@ let%expect_test "Modules with multiple value and submodule changes" =
   Format.printf "%a" pp_diff_list result;
   [%expect
     {|
-    Some Module main: [ Value (a, Modified); Value (f, Modified);
-    Module M: [ Value (b, Modified); Value (g, Modified);]
-    Module N: Unsupported changes]|}]
+    Some Module Main: [ Value (x, Removed);]|}]

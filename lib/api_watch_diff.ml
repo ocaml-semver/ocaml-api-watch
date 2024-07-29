@@ -144,6 +144,42 @@ let rec diff_items ~module_name ~reference ~current =
   if item_changes = [] then None
   else Some (Module { module_name; changes = Supported item_changes })
 
+  and diff_module_item ~typing_env ~name ~reference ~current =
+    match (ref_, current) with
+     | None, None -> None
+        |  None, Some (Mod _curr_md) ->
+            Some (Module { module_name = name; changes = Unsupported })
+        | Some (Mod _ref_md), None ->
+            Some (Module { module_name = name; changes = Unsupported })
+        | Some (Mod ref_md), Some (Mod curr_md) -> 
+            
+
+and diff_module_declaration ~typing_env ~name ~reference ~current =
+  match (ref_.md_type, current.md_type) with
+            | Mty_signature ref_submod, Mty_signature curr_submod ->
+                diff_items ~module_name:name ~reference:ref_submod
+                  ~current:curr_submod
+            | ref_modtype, curr_modtype ->
+                diff_modtype_item ~loc:ref_md.md_loc ~typing_env:env ~name
+                  ~ref_:ref_modtype ~current:curr_modtype
+
+and diff_signatures ~typing_env ~name ~reference ~current =
+  match diff_items ~module_name:name ~reference ~current with
+  | Some (Module mod_diff) -> Some mod_diff
+  | None -> (
+      let coercion1 () =
+        Includemod.signatures typing_env ~mark:Mark_both reference current
+      in
+      let coercion2 () =
+        Includemod.signatures typing_env ~mark:Mark_both current reference
+      in
+      match (coercion1 (), coercion2 ()) with
+      | Tcoerce_none, Tcoerce_none -> None
+      | _, _ -> Some { module_name; changes = Unsupported }
+      | exception Includemod.Error _ ->
+          Some { module_name; changes = Unsupported })
+  | _ -> None
+
 let diff_interface ~module_name ~reference ~current =
   match diff_items ~module_name ~reference ~current with
   | Some (Module mod_diff) -> Some mod_diff
