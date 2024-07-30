@@ -63,7 +63,7 @@ let%expect_test "Modules with multiple value and submodule changes" =
     {|
     Some Module Main: [ Value (a, Modified); Value (f, Modified);
     Module M: [ Value (b, Modified); Value (g, Modified);]
-    Module N: Unsupported changes]|}]
+    Module N: Added;]|}]
 
 let%expect_test "Modules with both supported and unsupported changes" =
   let reference =
@@ -83,7 +83,7 @@ let%expect_test "Modules with both supported and unsupported changes" =
   [%expect
     {|
     Some Module Main: [ Value (x, Removed);
-    Module M: Unsupported changes]|}]
+    Module M: Unsupported changes;]|}]
 
 let%expect_test "Submodules with different functor types" =
   let reference =
@@ -113,7 +113,7 @@ let%expect_test "Submodules with different functor types" =
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {|
-    Some Module Main: [Module F: Unsupported changes]|}]
+    Some Module Main: [Module F: Unsupported changes;]|}]
 
 let%expect_test "Submodule with module type modified from signature to functor"
     =
@@ -138,4 +138,4 @@ let%expect_test "Submodule with module type modified from signature to functor"
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
   [%expect {|
-    Some Module Main: [Module M: Unsupported changes]|}]
+    Some Module Main: [Module M: Unsupported changes;]|}]

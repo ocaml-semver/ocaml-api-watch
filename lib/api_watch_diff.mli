@@ -9,7 +9,11 @@ and item_change =
   | Value of { name : string; change : Types.value_description change }
   | Module of module_diff
 
-and module_change = Unsupported | Supported of item_change list
+and module_change =
+  | Unsupported
+  | Supported of item_change list
+  | Mod_added of Types.module_declaration
+  | Mod_removed of Types.module_declaration
 
 module String_map : Map.S with type key = string
 

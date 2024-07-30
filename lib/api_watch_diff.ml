@@ -11,7 +11,11 @@ and item_change =
   | Value of { name : string; change : value_description change }
   | Module of module_diff
 
-and module_change = Unsupported | Supported of item_change list
+and module_change =
+  | Unsupported
+  | Supported of item_change list
+  | Mod_added of module_declaration
+  | Mod_removed of module_declaration
 
 type item_type = Value_item | Module_item [@@deriving ord]
 type sig_items = Val of value_description | Mod of module_declaration
@@ -131,10 +135,10 @@ let rec diff_items ~reference ~current =
 and diff_module_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
-  | None, Some (Mod _curr_md) ->
-      Some (Module { module_name = name; changes = Unsupported })
-  | Some (Mod _ref_md), None ->
-      Some (Module { module_name = name; changes = Unsupported })
+  | None, Some (Mod curr_md) ->
+      Some (Module { module_name = name; changes = Mod_added curr_md })
+  | Some (Mod ref_md), None ->
+      Some (Module { module_name = name; changes = Mod_removed ref_md })
   | Some (Mod reference), Some (Mod current) ->
       diff_module_declaration ~typing_env ~name ~reference ~current
   | _ -> assert false
@@ -175,6 +179,13 @@ let vd_to_string name vd =
   Format.pp_print_flush formatter ();
   Buffer.contents buf
 
+let md_to_string md =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  Printtyp.modtype formatter md.md_type;
+  Format.pp_print_flush formatter ();
+  Buffer.contents buf
+
 let process_value_diff val_name (val_change : value_description change) =
   match val_change with
   | Added vd ->
@@ -198,6 +209,14 @@ let to_text_diff (diff_result : module_diff) : Diffutils.Diff.t String_map.t =
           [
             Diffutils.Diff.Diff { orig = []; new_ = [ "<unsupported change>" ] };
           ]
+          acc
+    | Mod_added curr_md ->
+        String_map.add module_path
+          [ Diffutils.Diff.Diff { orig = []; new_ = [ md_to_string curr_md ] } ]
+          acc
+    | Mod_removed ref_md ->
+        String_map.add module_path
+          [ Diffutils.Diff.Diff { orig = [ md_to_string ref_md ]; new_ = [] } ]
           acc
     | Supported changes ->
         List.fold_left

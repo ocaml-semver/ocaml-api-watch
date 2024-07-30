@@ -98,7 +98,7 @@ let%expect_test "Adding a type" =
       ~current:add_type_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let remove_type_signature =
   compile_interface {|
@@ -112,14 +112,14 @@ let%expect_test "Removing a type" =
       ~current:remove_type_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Modifying a simple type" =
   let reference = compile_interface {|type t = int|} in
   let current = compile_interface {|type t = string|} in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Modifying a type used in a value" =
   let reference =
@@ -164,7 +164,7 @@ let%expect_test "Adding a module" =
       ~current:add_module_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: [Module N: Unsupported changes]|}]
+  [%expect {|Some Module Main: [Module N: Added;]|}]
 
 let remove_module_signature = compile_interface {|
 
@@ -176,7 +176,7 @@ let%expect_test "Removing a module" =
       ~current:remove_module_signature
   in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: [Module M: Unsupported changes]|}]
+  [%expect {|Some Module Main: [Module M: Removed;]|}]
 
 let modify_module_signature =
   compile_interface {|
@@ -251,7 +251,7 @@ let%expect_test "Adding a record field" =
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Removing a record field" =
   let reference =
@@ -266,7 +266,7 @@ let%expect_test "Removing a record field" =
   |} in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Modifying a record field" =
   let reference =
@@ -283,7 +283,7 @@ let%expect_test "Modifying a record field" =
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Same variant type" =
   let reference =
@@ -317,7 +317,7 @@ let%expect_test "Adding a variant" =
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Removing a variant" =
   let reference =
@@ -332,7 +332,7 @@ let%expect_test "Removing a variant" =
   |} in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Modifying a variant type" =
   let reference =
@@ -349,7 +349,7 @@ let%expect_test "Modifying a variant type" =
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Inlined polymorphic variant, identical" =
   let reference = compile_interface {|val x : [ `A | `B ]|} in
@@ -569,7 +569,7 @@ let%expect_test "Extensible variant type, extended" =
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Extensible variant type, reduced" =
   let reference =
@@ -589,7 +589,7 @@ let%expect_test "Extensible variant type, reduced" =
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Extensible variant type, modified" =
   let reference =
@@ -610,7 +610,7 @@ let%expect_test "Extensible variant type, modified" =
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Changing from abstract to record type" =
   let reference = compile_interface {|
@@ -625,7 +625,7 @@ let%expect_test "Changing from abstract to record type" =
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Changing from record to variant type" =
   let reference =
@@ -642,7 +642,7 @@ let%expect_test "Changing from record to variant type" =
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_list result;
-  [%expect {|Some Module Main: Unsupported changes|}]
+  [%expect {|Some Module Main: Unsupported changes;|}]
 
 let%expect_test "Values referencing types with parameters, identical" =
   let reference =

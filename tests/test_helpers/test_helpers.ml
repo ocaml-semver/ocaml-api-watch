@@ -13,12 +13,16 @@ let rec pp_module_diff fmt module_diff =
   in
   match module_diff.changes with
   | Unsupported ->
-      Format.fprintf fmt "Module %s: Unsupported changes"
+      Format.fprintf fmt "Module %s: Unsupported changes;"
         module_diff.module_name
   | Supported changes ->
       Format.fprintf fmt "Module %s: [%a]" module_diff.module_name
         (Format.pp_print_list pp_item)
         changes
+  | Mod_added _ ->
+      Format.fprintf fmt "Module %s: Added;" module_diff.module_name
+  | Mod_removed _ ->
+      Format.fprintf fmt "Module %s: Removed;" module_diff.module_name
 
 let pp_diff_list fmt diff_opt =
   match diff_opt with

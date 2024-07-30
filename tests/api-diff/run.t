@@ -182,7 +182,7 @@ Run api-diff and check the output
   $ api-diff mod_ref.cmi add_module.cmi
   diff module Add_module.N:
   
-  +<unsupported change>
+  +sig val y : float end
   [1]
 
 ### Removing a module:
@@ -199,7 +199,7 @@ Run api-diff and check the output
   $ api-diff mod_ref.cmi remove_module.cmi
   diff module Remove_module.M:
   
-  +<unsupported change>
+  -sig val x : int end
   [1]
 
 ### Modifying a module:
@@ -267,6 +267,6 @@ Run api-diff and check the output
   +val g : int -> (string, string) result
   
   diff module Modified_module.E:
-  +<unsupported change>
+  +sig val x : int end
   
   [1]
