@@ -1,21 +1,27 @@
 open Types
 
-type 'item change =
+type ('item, 'diff) diff =
   | Added of 'item
   | Removed of 'item
-  | Modified of { ref_ : 'item; current : 'item }
+  | Modified of 'diff
 
-type module_diff = { module_name : string; changes : module_change }
+type 'a atomic_modification = { reference : 'a; current : 'a }
+(** The simplest diff representation for the modification of a value of type 'a.
+     [reference] is the value before and [current] is the value after the change occured.
+     Use this type when there is no better representation available. *)
 
-and item_change =
-  | Value of { name : string; change : value_description change }
-  | Module of module_diff
+type value_diff = {
+  vname : string;
+  vdiff : (value_description, value_description atomic_modification) diff;
+}
 
-and module_change =
-  | Unsupported
-  | Supported of item_change list
-  | Mod_added of module_declaration
-  | Mod_removed of module_declaration
+type module_diff = {
+  mname : string;
+  mdiff : (module_declaration, module_modification) diff;
+}
+
+and module_modification = Unsupported | Supported of item_diff list
+and item_diff = Value of value_diff | Module of module_diff
 
 type item_type = Value_item | Module_item [@@deriving ord]
 type sig_items = Val of value_description | Mod of module_declaration
@@ -92,29 +98,33 @@ let diff_modtype_item ~loc ~typing_env ~name ~reference ~current =
   in
   match (modtype_coercion1 (), modtype_coercion2 ()) with
   | Tcoerce_none, Tcoerce_none -> None
-  | _, _ -> Some (Module { module_name = name; changes = Unsupported })
+  | _, _ -> Some (Module { mname = name; mdiff = Modified Unsupported })
   | exception Includemod.Error _ ->
-      Some (Module { module_name = name; changes = Unsupported })
+      Some (Module { mname = name; mdiff = Modified Unsupported })
 
 let diff_value_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
-  | Some (Val ref_), None -> Some (Value { name; change = Removed ref_ })
-  | None, Some (Val current) -> Some (Value { name; change = Added current })
-  | Some (Val ref_), Some (Val current) -> (
+  | Some (Val reference), None ->
+      Some (Value { vname = name; vdiff = Removed reference })
+  | None, Some (Val current) ->
+      Some (Value { vname = name; vdiff = Added current })
+  | Some (Val reference), Some (Val current) -> (
       let val_coercion1 () =
         Includecore.value_descriptions ~loc:current.val_loc typing_env name
-          current ref_
+          current reference
       in
       let val_coercion2 () =
-        Includecore.value_descriptions ~loc:ref_.val_loc typing_env name ref_
-          current
+        Includecore.value_descriptions ~loc:reference.val_loc typing_env name
+          reference current
       in
       match (val_coercion1 (), val_coercion2 ()) with
       | Tcoerce_none, Tcoerce_none -> None
-      | _, _ -> Some (Value { name; change = Modified { ref_; current } })
+      | _, _ ->
+          Some (Value { vname = name; vdiff = Modified { reference; current } })
       | exception Includecore.Dont_match _ ->
-          Some (Value { name; change = Modified { ref_; current } }))
+          Some (Value { vname = name; vdiff = Modified { reference; current } })
+      )
   | _ -> None
 
 let rec diff_items ~reference ~current =
@@ -124,9 +134,8 @@ let rec diff_items ~reference ~current =
   Sig_item_map.merge
     (fun (item_type, name) ref_opt curr_opt ->
       match (item_type, ref_opt, curr_opt) with
-      | Value_item, ref_opt, curr_opt ->
-          diff_value_item ~typing_env:env ~name ~reference:ref_opt
-            ~current:curr_opt
+      | Value_item, reference, current ->
+          diff_value_item ~typing_env:env ~name ~reference ~current
       | Module_item, reference, current ->
           diff_module_item ~typing_env:env ~name ~reference ~current)
     ref_items curr_items
@@ -136,9 +145,9 @@ and diff_module_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
   | None, Some (Mod curr_md) ->
-      Some (Module { module_name = name; changes = Mod_added curr_md })
+      Some (Module { mname = name; mdiff = Added curr_md })
   | Some (Mod ref_md), None ->
-      Some (Module { module_name = name; changes = Mod_removed ref_md })
+      Some (Module { mname = name; mdiff = Removed ref_md })
   | Some (Mod reference), Some (Mod current) ->
       diff_module_declaration ~typing_env ~name ~reference ~current
   | _ -> assert false
@@ -147,7 +156,7 @@ and diff_module_declaration ~typing_env ~name ~reference ~current =
   match (reference.md_type, current.md_type) with
   | Mty_signature ref_submod, Mty_signature curr_submod ->
       diff_signatures ~typing_env ~reference:ref_submod ~current:curr_submod
-      |> Option.map (fun changes -> Module { module_name = name; changes })
+      |> Option.map (fun mdiff -> Module { mname = name; mdiff })
   | ref_modtype, curr_modtype ->
       diff_modtype_item ~loc:reference.md_loc ~typing_env ~name
         ~reference:ref_modtype ~current:curr_modtype
@@ -163,14 +172,14 @@ and diff_signatures ~typing_env ~reference ~current =
       in
       match (coercion1 (), coercion2 ()) with
       | Tcoerce_none, Tcoerce_none -> None
-      | _, _ -> Some Unsupported
-      | exception Includemod.Error _ -> Some Unsupported)
-  | item_changes -> Some (Supported item_changes)
+      | _, _ -> Some (Modified Unsupported)
+      | exception Includemod.Error _ -> Some (Modified Unsupported))
+  | item_changes -> Some (Modified (Supported item_changes))
 
 let diff_interface ~module_name ~reference ~current =
   let typing_env = Env.empty in
   diff_signatures ~typing_env ~reference ~current
-  |> Option.map (fun changes -> { module_name; changes })
+  |> Option.map (fun mdiff -> { mname = module_name; mdiff })
 
 let vd_to_string name vd =
   let buf = Buffer.create 256 in
@@ -179,60 +188,82 @@ let vd_to_string name vd =
   Format.pp_print_flush formatter ();
   Buffer.contents buf
 
-let md_to_string md =
+let md_to_string name md =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
   Printtyp.modtype formatter md.md_type;
   Format.pp_print_flush formatter ();
-  Buffer.contents buf
+  "module " ^ name ^ ": " ^ Buffer.contents buf
 
-let process_value_diff val_name (val_change : value_description change) =
-  match val_change with
+let process_value_diff (val_diff : value_diff) =
+  match val_diff.vdiff with
   | Added vd ->
-      [ Diffutils.Diff.Diff { orig = []; new_ = [ vd_to_string val_name vd ] } ]
+      [
+        Diffutils.Diff.Diff
+          { orig = []; new_ = [ vd_to_string val_diff.vname vd ] };
+      ]
   | Removed vd ->
-      [ Diffutils.Diff.Diff { orig = [ vd_to_string val_name vd ]; new_ = [] } ]
-  | Modified { ref_; current } ->
+      [
+        Diffutils.Diff.Diff
+          { orig = [ vd_to_string val_diff.vname vd ]; new_ = [] };
+      ]
+  | Modified { reference; current } ->
       [
         Diffutils.Diff.Diff
           {
-            orig = [ vd_to_string val_name ref_ ];
-            new_ = [ vd_to_string val_name current ];
+            orig = [ vd_to_string val_diff.vname reference ];
+            new_ = [ vd_to_string val_diff.vname current ];
           };
       ]
 
 let to_text_diff (diff_result : module_diff) : Diffutils.Diff.t String_map.t =
   let rec process_module_diff module_path (module_diff : module_diff) acc =
-    match module_diff.changes with
-    | Unsupported ->
+    match module_diff.mdiff with
+    | Modified Unsupported ->
         String_map.add module_path
           [
             Diffutils.Diff.Diff { orig = []; new_ = [ "<unsupported change>" ] };
           ]
           acc
-    | Mod_added curr_md ->
-        String_map.add module_path
-          [ Diffutils.Diff.Diff { orig = []; new_ = [ md_to_string curr_md ] } ]
+    | Added curr_md ->
+        let diff =
+          [
+            Diffutils.Diff.Diff
+              { orig = []; new_ = [ md_to_string module_diff.mname curr_md ] };
+          ]
+        in
+        String_map.update module_path
+          (function
+            | None -> Some diff | Some existing -> Some (existing @ diff))
           acc
-    | Mod_removed ref_md ->
-        String_map.add module_path
-          [ Diffutils.Diff.Diff { orig = [ md_to_string ref_md ]; new_ = [] } ]
+    | Removed ref_md ->
+        let diff =
+          [
+            Diffutils.Diff.Diff
+              { orig = [ md_to_string module_diff.mname ref_md ]; new_ = [] };
+          ]
+        in
+        String_map.update module_path
+          (function
+            | None -> Some diff | Some existing -> Some (existing @ diff))
           acc
-    | Supported changes ->
+    | Modified (Supported changes) ->
         List.fold_left
           (fun acc' change ->
             match change with
-            | Value { name; change = val_change } ->
-                let diff = process_value_diff name val_change in
+            | Value val_diff ->
+                let diff = process_value_diff val_diff in
                 String_map.update module_path
                   (function
                     | None -> Some diff | Some existing -> Some (existing @ diff))
                   acc'
             | Module sub_module_diff ->
                 let sub_module_path =
-                  module_path ^ "." ^ sub_module_diff.module_name
+                  match sub_module_diff.mdiff with
+                  | Modified _ -> module_path ^ "." ^ sub_module_diff.mname
+                  | Added _ | Removed _ -> module_path
                 in
                 process_module_diff sub_module_path sub_module_diff acc')
           acc changes
   in
-  process_module_diff diff_result.module_name diff_result String_map.empty
+  process_module_diff diff_result.mname diff_result String_map.empty

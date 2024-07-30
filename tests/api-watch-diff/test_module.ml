@@ -23,11 +23,11 @@ let%expect_test "Modules with both value and submodule changes" =
   |}
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
-  Format.printf "%a" pp_diff_list result;
+  Format.printf "%a" pp_diff_option result;
   [%expect
     {|
-    Some Module Main: [ Value (f, Modified);
-    Module M: [ Value (g, Modified);]]|}]
+    Some (Module Main: {Modified (Supported [ Value (f, Modified);
+    Module M: {Modified (Supported [ Value (g, Modified)])}])})|}]
 
 let%expect_test "Modules with multiple value and submodule changes" =
   let reference =
@@ -58,12 +58,14 @@ let%expect_test "Modules with multiple value and submodule changes" =
   |}
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
-  Format.printf "%a" pp_diff_list result;
+  Format.printf "%a" pp_diff_option result;
   [%expect
     {|
-    Some Module Main: [ Value (a, Modified); Value (f, Modified);
-    Module M: [ Value (b, Modified); Value (g, Modified);]
-    Module N: Added;]|}]
+    Some (Module Main: {Modified (Supported [ Value (a, Modified);
+    Value (f, Modified);
+    Module M: {Modified (Supported [ Value (b, Modified);
+    Value (g, Modified)])};
+    Module N: Added])})|}]
 
 let%expect_test "Modules with both supported and unsupported changes" =
   let reference =
@@ -79,11 +81,11 @@ let%expect_test "Modules with both supported and unsupported changes" =
   end
   |} in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
-  Format.printf "%a" pp_diff_list result;
+  Format.printf "%a" pp_diff_option result;
   [%expect
     {|
-    Some Module Main: [ Value (x, Removed);
-    Module M: Unsupported changes;]|}]
+    Some (Module Main: {Modified (Supported [ Value (x, Removed);
+    Module M: {Modified (Unsupported)}])})|}]
 
 let%expect_test "Submodules with different functor types" =
   let reference =
@@ -111,9 +113,10 @@ let%expect_test "Submodules with different functor types" =
   |}
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
-  Format.printf "%a" pp_diff_list result;
-  [%expect {|
-    Some Module Main: [Module F: Unsupported changes;]|}]
+  Format.printf "%a" pp_diff_option result;
+  [%expect
+    {|
+    Some (Module Main: {Modified (Supported [ Module F: {Modified (Unsupported)}])})|}]
 
 let%expect_test "Submodule with module type modified from signature to functor"
     =
@@ -136,6 +139,7 @@ let%expect_test "Submodule with module type modified from signature to functor"
   |}
   in
   let result = diff_interface ~module_name:"Main" ~reference ~current in
-  Format.printf "%a" pp_diff_list result;
-  [%expect {|
-    Some Module Main: [Module M: Unsupported changes;]|}]
+  Format.printf "%a" pp_diff_option result;
+  [%expect
+    {|
+    Some (Module Main: {Modified (Supported [ Module M: {Modified (Unsupported)}])})|}]

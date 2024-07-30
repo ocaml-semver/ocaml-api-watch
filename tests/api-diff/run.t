@@ -180,9 +180,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff mod_ref.cmi add_module.cmi
-  diff module Add_module.N:
+  diff module Add_module:
   
-  +sig val y : float end
+  +module N: sig val y : float end
   [1]
 
 ### Removing a module:
@@ -197,9 +197,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff mod_ref.cmi remove_module.cmi
-  diff module Remove_module.M:
+  diff module Remove_module:
   
-  -sig val x : int end
+  -module M: sig val x : int end
   [1]
 
 ### Modifying a module:
@@ -259,14 +259,12 @@ Run api-diff and check the output
   +val a : string -> float
   -val f : int -> string
   +val f : int -> (string, string) result
+  +module E: sig val x : int end
   
   diff module Modified_module.D:
   -val b : int list -> int
   +val b : float list -> float
   -val g : int -> string
   +val g : int -> (string, string) result
-  
-  diff module Modified_module.E:
-  +sig val x : int end
   
   [1]

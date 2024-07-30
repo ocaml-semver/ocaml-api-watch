@@ -1,26 +1,30 @@
-type 'item change =
+type ('item, 'diff) diff =
   | Added of 'item
   | Removed of 'item
-  | Modified of { ref_ : 'item; current : 'item }
+  | Modified of 'diff
 
-type module_diff = { module_name : string; changes : module_change }
+type 'a atomic_modification = { reference : 'a; current : 'a }
 
-and item_change =
-  | Value of { name : string; change : Types.value_description change }
-  | Module of module_diff
+type value_diff = {
+  vname : string;
+  vdiff :
+    (Types.value_description, Types.value_description atomic_modification) diff;
+}
 
-and module_change =
-  | Unsupported
-  | Supported of item_change list
-  | Mod_added of Types.module_declaration
-  | Mod_removed of Types.module_declaration
+type module_diff = {
+  mname : string;
+  mdiff : (Types.module_declaration, module_modification) diff;
+}
 
-module String_map : Map.S with type key = string
+and module_modification = Unsupported | Supported of item_diff list
+and item_diff = Value of value_diff | Module of module_diff
 
 val diff_interface :
   module_name:string ->
-  reference:Types.signature_item list ->
-  current:Types.signature_item list ->
+  reference:Types.signature ->
+  current:Types.signature ->
   module_diff option
+
+module String_map : Map.S with type key = string
 
 val to_text_diff : module_diff -> Diffutils.Diff.t String_map.t
