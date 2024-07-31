@@ -2,17 +2,20 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
   let current = Cmi_format.read_cmi current in
   let reference = Cmi_format.read_cmi reference in
   let diff =
-    Api_watch_diff.diff_interface ~reference:reference.cmi_sign
-      ~current:current.cmi_sign
+    Api_watch_diff.diff_interface ~module_name:current.cmi_name
+      ~reference:reference.cmi_sign ~current:current.cmi_sign
   in
-  if diff = [] then 0
-  else
-    let text_diff = Api_watch_diff.to_text_diff diff in
-    Printf.printf "%s\n"
-      (Format.asprintf "%a"
-         (Diffutils.Diff.pp Diffutils.Diff.git_printer)
-         text_diff);
-    1
+  match diff with
+  | None -> 0
+  | Some diff ->
+      let text_diff = Api_watch_diff.to_text_diff diff in
+      let print_module_diff module_path diff =
+        Printf.printf "diff module %s:\n" module_path;
+        Diffutils.Diff.pp Diffutils.Diff.git_printer Format.std_formatter diff;
+        Printf.printf "\n"
+      in
+      Api_watch_diff.String_map.iter print_module_diff text_diff;
+      1
 
 let named f = Cmdliner.Term.(app (const f))
 

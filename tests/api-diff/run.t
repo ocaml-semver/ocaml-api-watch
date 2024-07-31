@@ -46,8 +46,9 @@ We generate the .cmi file
 Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi add_type.cmi
-  +<unsupported change>
+  diff module Add_type:
   
+  +<unsupported change>
   [1]
 
 ### A file with a removed type:
@@ -64,8 +65,9 @@ We generate the .cmi file
 Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi remove_type.cmi
-  +<unsupported change>
+  diff module Remove_type:
   
+  +<unsupported change>
   [1]
 
 ### A file with a modified type:
@@ -83,8 +85,9 @@ We generate a .cmi file
 Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi modify_type.cmi
-  +<unsupported change>
+  diff module Modify_type:
   
+  +<unsupported change>
   [1]
 
 ## Different .cmi files for value tests:
@@ -104,8 +107,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi add_value.cmi
-  +val g : t -> t
+  diff module Add_value:
   
+  +val g : t -> t
   [1]
 
 ### Removing a value:
@@ -121,8 +125,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi remove_value.cmi
-  -val f : t -> string
+  diff module Remove_value:
   
+  -val f : t -> string
   [1]
 
 ### Modifying a value:
@@ -139,9 +144,10 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff ref.cmi modify_value.cmi
+  diff module Modify_value:
+  
   -val f : t -> string
   +val f : t -> t
-  
   [1]
 
 Here we generate a `.mli` file with a module:
@@ -174,8 +180,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff mod_ref.cmi add_module.cmi
-  +<unsupported change>
+  diff module Add_module:
   
+  +module N: sig val y : float end
   [1]
 
 ### Removing a module:
@@ -190,8 +197,9 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff mod_ref.cmi remove_module.cmi
-  +<unsupported change>
+  diff module Remove_module:
   
+  -module M: sig val x : int end
   [1]
 
 ### Modifying a module:
@@ -207,6 +215,56 @@ Compile the new .mli file to a .cmi file
 
 Run api-diff and check the output
   $ api-diff mod_ref.cmi modify_module.cmi
-  +<unsupported change>
+  diff module Modify_module.M:
+  
+  -val x : int
+  +val x : float
+  [1]
+
+Generate a new .mli file with values and submodules
+  $ cat > orig_module.mli << EOF
+  > module M : sig val x : float end
+  > type ('a, 'b) result = Ok of 'a | Error of 'b
+  >  val a : string -> int
+  > val f : int -> string
+  > module D : sig
+  >   val b : int list -> int
+  >   val g : int -> string
+  > end
+  > EOF
+
+Compile the new .mli file to a .cmi file
+  $ ocamlc orig_module.mli
+
+Generate a new .mli file with the values and submodules modified
+  $ cat > modified_module.mli << EOF
+  > module M : sig val x : float end
+  > type ('a, 'b) result = Ok of 'a | Error of 'b
+  > val a : string -> float
+  > val f : int -> (string, string) result
+  > module D : sig
+  >   val b : float list -> float
+  >   val g : int -> (string, string) result
+  > end
+  > module E : sig val x: int end
+  > EOF
+
+Compile the modified .mli file to a .cmi file
+  $ ocamlc modified_module.mli
+
+Run api-diff and check the output
+  $ api-diff orig_module.cmi modified_module.cmi
+  diff module Modified_module:
+  -val a : string -> int
+  +val a : string -> float
+  -val f : int -> string
+  +val f : int -> (string, string) result
+  +module E: sig val x : int end
+  
+  diff module Modified_module.D:
+  -val b : int list -> int
+  +val b : float list -> float
+  -val g : int -> string
+  +val g : int -> (string, string) result
   
   [1]

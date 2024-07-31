@@ -1,4 +1,6 @@
 (library
  (name api_watch_diff)
  (public_name api-watch.diff)
+ (preprocess
+  (pps ppx_deriving.std))
  (libraries compiler-libs.common diffutils))
