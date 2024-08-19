@@ -15,7 +15,7 @@
  (name api-watch)
  (synopsis "Libraries and tools to keep watch on your OCaml lib's API changes")
  (depends
-  (ocaml (and (>= 5.1.0) (< 5.2.0)))
+  (ocaml (and (>= 5.2.0) (< 5.3.0)))
   (ppx_expect :with-test)
   ppx_deriving
   logs
