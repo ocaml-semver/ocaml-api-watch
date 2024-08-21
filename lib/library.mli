@@ -1,1 +1,1 @@
-val load : string -> Types.signature
+val load : string -> (Types.signature, string) result

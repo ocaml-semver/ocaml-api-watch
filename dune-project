@@ -19,5 +19,6 @@
   (ppx_expect :with-test)
   ppx_deriving
   logs
+  containers
   (cmdliner (>= 1.1.0))
   diffutils))
