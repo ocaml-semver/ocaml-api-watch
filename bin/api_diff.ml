@@ -5,15 +5,14 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
       let+ reference_sig = Api_watch.Library.load reference
       and+ current_sig = Api_watch.Library.load current in
       let module_name =
-        let rec find_parent_dir path =
+        let rec find_library_name path =
           let parent = Filename.dirname path in
-          if
-            Filename.basename parent = "_build"
-            || Filename.basename parent = "_opam"
-          then Filename.basename (Filename.dirname parent)
-          else find_parent_dir parent
+          if Filename.basename parent = "_build" then
+            Filename.basename (Filename.dirname parent)
+          else if Filename.basename parent = "_opam" then Filename.basename path
+          else find_library_name parent
         in
-        find_parent_dir current
+        find_library_name current
       in
       (reference_sig, current_sig, module_name)
     else
