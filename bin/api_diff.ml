@@ -7,22 +7,16 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
       let module_name = Filename.basename current in
       (reference_sig, current_sig, module_name)
     else
-      let+ reference_cmi =
-        try Ok (Cmi_format.read_cmi reference)
-        with e -> Error (Printexc.to_string e)
-      and+ current_cmi =
-        try Ok (Cmi_format.read_cmi current)
-        with e -> Error (Printexc.to_string e)
-      in
-      let module_name = current_cmi.cmi_name in
-      (reference_cmi.cmi_sign, current_cmi.cmi_sign, module_name)
+      let+ reference_cmi, _ = Api_watch.Library.load_cmi reference
+      and+ current_cmi, module_name = Api_watch.Library.load_cmi current in
+      (reference_cmi, current_cmi, module_name)
   in
   let diff =
     Api_watch.Diff.interface ~module_name ~reference:reference_sig
       ~current:current_sig
   in
   match diff with
-  | None -> Ok 0
+  | None -> Ok ()
   | Some diff ->
       let text_diff = Api_watch.Text_diff.from_diff diff in
       let print_module_diff module_path diff =
@@ -31,7 +25,7 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
         Printf.printf "\n"
       in
       Api_watch.String_map.iter print_module_diff text_diff;
-      Ok 1
+      Ok ()
 
 let named f = Cmdliner.Term.(app (const f))
 
@@ -54,13 +48,8 @@ let info =
   Cmd.info "api-watcher" ~version:"%%VERSION%%" ~exits:Cmd.Exit.defaults
     ~doc:"List API changes between two versions of a library"
 
-let run_with_error_handling ref_cmi current_cmi =
-  match run ref_cmi current_cmi with
-  | Ok code -> code
-  | Error msg ->
-      Printf.eprintf "Error: %s\n" msg;
-      2
+let term = Cmdliner.Term.(const run $ ref_cmi $ current_cmi)
 
-let term = Cmdliner.Term.(const run_with_error_handling $ ref_cmi $ current_cmi)
-let main = Cmdliner.Cmd.v info term
-let () = Stdlib.exit @@ Cmdliner.Cmd.eval' main
+let () =
+  let exit_code = Cmdliner.Cmd.eval_result (Cmdliner.Cmd.v info term) in
+  exit exit_code
