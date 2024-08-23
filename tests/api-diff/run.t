@@ -49,6 +49,7 @@ Run api-watcher on the two cmi files, there should be a difference
   diff module Add_type:
   
   +<unsupported change>
+  [1]
 
 ### A file with a removed type:
 
@@ -67,6 +68,7 @@ Run api-watcher on the two cmi files, there should be a difference
   diff module Remove_type:
   
   +<unsupported change>
+  [1]
 
 ### A file with a modified type:
 
@@ -86,6 +88,7 @@ Run api-watcher on the two cmi files, there should be a difference
   diff module Modify_type:
   
   +<unsupported change>
+  [1]
 
 ## Different .cmi files for value tests:
 
@@ -107,6 +110,7 @@ Run api-diff and check the output
   diff module Add_value:
   
   +val g : t -> t
+  [1]
 
 ### Removing a value:
 
@@ -124,6 +128,7 @@ Run api-diff and check the output
   diff module Remove_value:
   
   -val f : t -> string
+  [1]
 
 ### Modifying a value:
 
@@ -143,6 +148,7 @@ Run api-diff and check the output
   
   -val f : t -> string
   +val f : t -> t
+  [1]
 
 Here we generate a `.mli` file with a module:
 
@@ -177,6 +183,7 @@ Run api-diff and check the output
   diff module Add_module:
   
   +module N: sig val y : float end
+  [1]
 
 ### Removing a module:
 
@@ -193,6 +200,7 @@ Run api-diff and check the output
   diff module Remove_module:
   
   -module M: sig val x : int end
+  [1]
 
 ### Modifying a module:
 
@@ -211,6 +219,7 @@ Run api-diff and check the output
   
   -val x : int
   +val x : float
+  [1]
 
 Generate a new .mli file with values and submodules
   $ cat > orig_module.mli << EOF
@@ -258,6 +267,7 @@ Run api-diff and check the output
   -val g : int -> string
   +val g : int -> (string, string) result
   
+  [1]
 
 Create the first version of a simple project
   $ mkdir -p project_v1/lib
@@ -367,3 +377,4 @@ Run the api-diff tool on the two project versions
   diff module project_v2.Mylib__Utils:
   +val triple : int -> int
   
+  [1]
