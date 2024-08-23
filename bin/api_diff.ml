@@ -25,7 +25,7 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
       ~current:current_sig
   in
   match diff with
-  | None -> Ok ()
+  | None -> Ok 0
   | Some diff ->
       let text_diff = Api_watch.Text_diff.from_diff diff in
       let print_module_diff module_path diff =
@@ -34,7 +34,7 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
         Printf.printf "\n"
       in
       Api_watch.String_map.iter print_module_diff text_diff;
-      Ok ()
+      Ok 1
 
 let named f = Cmdliner.Term.(app (const f))
 
@@ -60,5 +60,5 @@ let info =
 let term = Cmdliner.Term.(const run $ ref_cmi $ current_cmi)
 
 let () =
-  let exit_code = Cmdliner.Cmd.eval_result (Cmdliner.Cmd.v info term) in
+  let exit_code = Cmdliner.Cmd.eval_result' (Cmdliner.Cmd.v info term) in
   exit exit_code
