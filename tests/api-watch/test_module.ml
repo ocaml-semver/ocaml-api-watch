@@ -143,3 +143,30 @@ let%expect_test "Submodule with module type modified from signature to functor"
   [%expect
     {|
     Some (Module Main: {Modified (Supported [ Module M: {Modified (Unsupported)}])})|}]
+
+let%expect_test "Typing env is properly set in submodules" =
+  let reference =
+    compile_interface
+      {|
+      type s
+      module M : sig
+      type t
+      val x : t
+      val y : s
+      end
+  |}
+  in
+  let current =
+    compile_interface
+      {|
+      type s
+      module M : sig
+      type t
+      val x : t
+      val y : s
+      end
+  |}
+  in
+  let result = Diff.interface ~module_name:"Main" ~reference ~current in
+  Format.printf "%a" pp_diff_option result;
+  [%expect {| Some (Module Main: {Modified (Supported [ Module M: {Modified (Supported [ Value (y, Modified)])}])}) |}]
