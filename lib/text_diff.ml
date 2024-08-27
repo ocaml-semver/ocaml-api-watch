@@ -2,38 +2,37 @@ open Types
 
 type t = Diffutils.Diff.t String_map.t
 
-let vd_to_string name vd =
+let vd_to_lines name vd =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
   Printtyp.value_description (Ident.create_local name) formatter vd;
   Format.pp_print_flush formatter ();
-  Buffer.contents buf
+  CCString.lines (Buffer.contents buf)
 
-let md_to_string name md =
+let md_to_lines name md =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
   Printtyp.modtype formatter md.md_type;
   Format.pp_print_flush formatter ();
-  "module " ^ name ^ ": " ^ Buffer.contents buf
+  let module_str = "module " ^ name ^ ": " ^ Buffer.contents buf in
+  CCString.lines module_str
 
 let process_value_diff (val_diff : Diff.value) =
   match val_diff.vdiff with
   | Added vd ->
       [
-        Diffutils.Diff.Diff
-          { orig = []; new_ = [ vd_to_string val_diff.vname vd ] };
+        Diffutils.Diff.Diff { orig = []; new_ = vd_to_lines val_diff.vname vd };
       ]
   | Removed vd ->
       [
-        Diffutils.Diff.Diff
-          { orig = [ vd_to_string val_diff.vname vd ]; new_ = [] };
+        Diffutils.Diff.Diff { orig = vd_to_lines val_diff.vname vd; new_ = [] };
       ]
   | Modified { reference; current } ->
       [
         Diffutils.Diff.Diff
           {
-            orig = [ vd_to_string val_diff.vname reference ];
-            new_ = [ vd_to_string val_diff.vname current ];
+            orig = vd_to_lines val_diff.vname reference;
+            new_ = vd_to_lines val_diff.vname current;
           };
       ]
 
@@ -50,7 +49,7 @@ let from_diff (diff : Diff.module_) : Diffutils.Diff.t String_map.t =
         let diff =
           [
             Diffutils.Diff.Diff
-              { orig = []; new_ = [ md_to_string module_diff.mname curr_md ] };
+              { orig = []; new_ = md_to_lines module_diff.mname curr_md };
           ]
         in
         String_map.update module_path
@@ -61,7 +60,7 @@ let from_diff (diff : Diff.module_) : Diffutils.Diff.t String_map.t =
         let diff =
           [
             Diffutils.Diff.Diff
-              { orig = [ md_to_string module_diff.mname ref_md ]; new_ = [] };
+              { orig = md_to_lines module_diff.mname ref_md; new_ = [] };
           ]
         in
         String_map.update module_path
