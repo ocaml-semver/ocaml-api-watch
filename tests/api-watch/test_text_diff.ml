@@ -29,11 +29,11 @@ let%expect_test "multi-line items are represented as multi-line diffs" =
     {|
     diff module Main:
     +val f :
-      some_long_labeled_argument:int ->
-      some_other_long_labeled_arg:int * int -> string * string -> unit -> string
+    +  some_long_labeled_argument:int ->
+    +  some_other_long_labeled_arg:int * int -> string * string -> unit -> string
     +module M: sig
-      val some_val : int -> int -> int -> string
-      val some_other_val : string -> string -> string -> int
-      val yet_some_other_val : string -> bool -> string
-    end
+    +  val some_val : int -> int -> int -> string
+    +  val some_other_val : string -> string -> string -> int
+    +  val yet_some_other_val : string -> bool -> string
+    +end
     |}]
