@@ -88,3 +88,11 @@ let from_diff (diff : Diff.module_) : Diffutils.Diff.t String_map.t =
           acc changes
   in
   process_module_diff diff.mname diff String_map.empty
+
+let pp fmt t =
+  let print_module_diff module_path diff =
+    Format.fprintf fmt "diff module %s:\n" module_path;
+    Diffutils.Diff.pp Diffutils.Diff.git_printer Format.std_formatter diff;
+    Format.fprintf fmt "\n"
+  in
+  String_map.iter print_module_diff t

@@ -28,12 +28,7 @@ let run (`Ref_cmi reference) (`Current_cmi current) =
   | None -> Ok 0
   | Some diff ->
       let text_diff = Api_watch.Text_diff.from_diff diff in
-      let print_module_diff module_path diff =
-        Printf.printf "diff module %s:\n" module_path;
-        Diffutils.Diff.pp Diffutils.Diff.git_printer Format.std_formatter diff;
-        Printf.printf "\n"
-      in
-      Api_watch.String_map.iter print_module_diff text_diff;
+      Api_watch.Text_diff.pp Format.std_formatter text_diff;
       Ok 1
 
 let named f = Cmdliner.Term.(app (const f))

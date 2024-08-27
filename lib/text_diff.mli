@@ -21,3 +21,6 @@ type t = Diffutils.Diff.t String_map.t
     ones. *)
 
 val from_diff : Diff.module_ -> Diffutils.Diff.t String_map.t
+
+val pp : Format.formatter -> t -> unit
+(** Pretty-print the text diff in a human readable, git diff like format. *)
