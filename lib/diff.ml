@@ -76,17 +76,16 @@ let value_item ~typing_env ~name ~reference ~current =
       )
   | _ -> None
 
-let rec items ~reference ~current =
-  let env = Typing_env.for_diff ~reference ~current in
+let rec items ~typing_env ~reference ~current =
   let ref_items = extract_items reference in
   let curr_items = extract_items current in
   Sig_item_map.merge
     (fun (item_type, name) ref_opt curr_opt ->
       match (item_type, ref_opt, curr_opt) with
       | Value_item, reference, current ->
-          value_item ~typing_env:env ~name ~reference ~current
+          value_item ~typing_env ~name ~reference ~current
       | Module_item, reference, current ->
-          module_item ~typing_env:env ~name ~reference ~current)
+          module_item ~typing_env ~name ~reference ~current)
     ref_items curr_items
   |> Sig_item_map.bindings |> List.map snd
 
@@ -111,7 +110,7 @@ and module_declaration ~typing_env ~name ~reference ~current =
         ~reference:ref_modtype ~current:curr_modtype
 
 and signatures ~typing_env ~reference ~current =
-  match items ~reference ~current with
+  match items ~typing_env ~reference ~current with
   | [] -> (
       let coercion1 () =
         Includemod.signatures typing_env ~mark:Mark_both reference current
@@ -126,6 +125,6 @@ and signatures ~typing_env ~reference ~current =
   | item_changes -> Some (Modified (Supported item_changes))
 
 let interface ~module_name ~reference ~current =
-  let typing_env = Env.empty in
+  let typing_env = Typing_env.for_diff ~reference ~current in
   signatures ~typing_env ~reference ~current
   |> Option.map (fun mdiff -> { mname = module_name; mdiff })

@@ -169,4 +169,4 @@ let%expect_test "Typing env is properly set in submodules" =
   in
   let result = Diff.interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_option result;
-  [%expect {| Some (Module Main: {Modified (Supported [ Module M: {Modified (Supported [ Value (y, Modified)])}])}) |}]
+  [%expect {||}]
