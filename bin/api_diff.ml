@@ -1,3 +1,5 @@
+let tool_name = "api-diff"
+
 let run (`Main_module main_module) (`Ref_cmi reference) (`Current_cmi current) =
   let open CCResult.Infix in
   let* reference_sig, current_sig, module_name =
@@ -15,8 +17,8 @@ let run (`Main_module main_module) (`Ref_cmi reference) (`Current_cmi current) =
           | None -> ()
           | Some _ ->
               Printf.eprintf
-                "%s: --main-module ignored when diffing single .cmi files"
-                Sys.executable_name
+                "%s: --main-module ignored when diffing single .cmi files\n"
+                tool_name
         in
         let+ reference_cmi, _ = Api_watch.Library.load_cmi reference
         and+ current_cmi, module_name = Api_watch.Library.load_cmi current in
@@ -73,7 +75,7 @@ let current_cmi =
 
 let info =
   let open Cmdliner in
-  Cmd.info "api-watcher" ~version:"%%VERSION%%" ~exits:Cmd.Exit.defaults
+  Cmd.info tool_name ~version:"%%VERSION%%" ~exits:Cmd.Exit.defaults
     ~doc:"List API changes between two versions of a library"
 
 let term = Cmdliner.Term.(const run $ main_module $ ref_cmi $ current_cmi)
