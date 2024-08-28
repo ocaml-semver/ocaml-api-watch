@@ -88,10 +88,35 @@ let from_diff (diff : Diff.module_) : Diffutils.Diff.t String_map.t =
   in
   process_module_diff diff.mname diff String_map.empty
 
-let pp fmt t =
+let pp_diff fmt diff = Diffutils.Diff.pp Diffutils.Diff.git_printer fmt diff
+
+let gen_pp pp_diff fmt t =
   let print_module_diff module_path diff =
     Format.fprintf fmt "diff module %s:\n" module_path;
-    Diffutils.Diff.pp Diffutils.Diff.git_printer Format.std_formatter diff;
+    pp_diff fmt diff;
     Format.fprintf fmt "\n"
   in
   String_map.iter print_module_diff t
+
+let pp fmt t = gen_pp pp_diff fmt t
+
+module With_colors = struct
+  let pp_l fmt ~color ~prefix ~line =
+    Format.fprintf fmt "%a%a\n"
+      Fmt.(styled color string)
+      prefix
+      Fmt.(styled color string)
+      line
+
+  let pp_add fmt line = pp_l fmt ~color:`Green ~prefix:"+" ~line
+  let pp_remove fmt line = pp_l fmt ~color:`Red ~prefix:"-" ~line
+  let pp_keep fmt line = Format.fprintf fmt " %s\n" line
+
+  let printer =
+    Diffutils.Diff.printer ~same:pp_keep ~diff:(fun fmt { orig; new_ } ->
+        List.iter (pp_remove fmt) orig;
+        List.iter (pp_add fmt) new_)
+
+  let pp_diff fmt diff = Diffutils.Diff.pp printer fmt diff
+  let pp fmt t = gen_pp pp_diff fmt t
+end

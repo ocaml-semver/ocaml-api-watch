@@ -37,7 +37,7 @@ let run (`Main_module main_module) (`Ref_cmi reference) (`Current_cmi current) =
   | None -> Ok 0
   | Some diff ->
       let text_diff = Api_watch.Text_diff.from_diff diff in
-      Api_watch.Text_diff.pp Format.std_formatter text_diff;
+      Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff;
       Ok 1
 
 let named f = Cmdliner.Term.(app (const f))
@@ -81,5 +81,6 @@ let info =
 let term = Cmdliner.Term.(const run $ main_module $ ref_cmi $ current_cmi)
 
 let () =
+  Fmt_tty.setup_std_outputs ();
   let exit_code = Cmdliner.Cmd.eval_result' (Cmdliner.Cmd.v info term) in
   exit exit_code

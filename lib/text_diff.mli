@@ -24,3 +24,9 @@ val from_diff : Diff.module_ -> Diffutils.Diff.t String_map.t
 
 val pp : Format.formatter -> t -> unit
 (** Pretty-print the text diff in a human readable, git diff like format. *)
+
+module With_colors : sig
+  val pp : Format.formatter -> t -> unit
+  (** Same as regular [pp] but prints added lines in green and removed lines
+    in red. *)
+end

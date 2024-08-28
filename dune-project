@@ -20,5 +20,6 @@
   ppx_deriving
   logs
   containers
+  fmt
   (cmdliner (>= 1.1.0))
   diffutils))
