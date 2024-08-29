@@ -7,8 +7,9 @@ let run (`Main_module main_module) (`Ref_cmi reference) (`Current_cmi current) =
       (Sys.is_directory reference, Sys.is_directory current, main_module)
     with
     | true, true, Some main_module ->
-        let+ reference_sig = Api_watch.Library.load reference
-        and+ current_sig = Api_watch.Library.load current in
+        let main_module = String.capitalize_ascii main_module in
+        let+ reference_sig = Api_watch.Library.load ~main_module reference
+        and+ current_sig = Api_watch.Library.load ~main_module current in
         let module_name = String.capitalize_ascii main_module in
         (reference_sig, current_sig, module_name)
     | false, false, main_module ->

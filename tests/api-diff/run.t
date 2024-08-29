@@ -364,17 +364,17 @@ Build the second version
   $ cd project_v2 && dune build && cd ..
 
 Run the api-diff tool on the two project versions
-  $ api-diff --main-module myproject  project_v1/_build/default/lib/.mylib.objs/byte project_v2/_build/default/lib/.mylib.objs/byte
-  diff module Myproject.Mylib__Math:
+  $ api-diff --main-module mylib  project_v1/_build/default/lib/.mylib.objs/byte project_v2/_build/default/lib/.mylib.objs/byte
+  diff module Mylib.Math:
   -val add : int -> int -> int
   +val add : int -> int -> int -> int
   +val multiply : int -> int -> int
   +module New_module: sig val hello : unit -> string end
   
-  diff module Myproject.Mylib__Math.Advanced:
+  diff module Mylib.Math.Advanced:
   +val cube : int -> int
   
-  diff module Myproject.Mylib__Utils:
+  diff module Mylib.Utils:
   +val triple : int -> int
   
   [1]
