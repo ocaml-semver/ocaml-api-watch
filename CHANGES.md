@@ -1,13 +1,6 @@
-## unreleased
+## 0.1.0
 
 ### Added
 
-### Changed
-
-### Deprecated
-
-### Fixed
-
-### Removed
-
-### Security
+- First prototype of `api-diff` tool (@Siddhi-agg, @NathanReb)
+- First prototype of `api-watch` library (@Siddhi-agg, @NathanReb)
