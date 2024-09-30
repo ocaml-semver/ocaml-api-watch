@@ -18,12 +18,12 @@ cd ocaml-api-watch
 And setup a local opam switch to install the right ocaml version along with the
 set of base dependencies:
 ```
-opam switch create ./ --deps-only -t
+opam switch create ./ --deps-only -t --with-dev-setup
 ```
 
-You should also install `ocamlformat` and `merlin` for a better dev experience
+You should also install `merlin` and `ocp-indent` for a better dev experience
 ```
-opam install ocamlformat.0.26.1 merlin ocp-indent
+opam install merlin ocp-indent
 ```
 
 From there you should be all set. You can run the following commands to build
@@ -84,11 +84,16 @@ for your newly updated branch.
 
 ## Writing tests
 
-This repo uses dune's cram tests feature for testing the provided tools.
+This repo uses dune's cram tests feature for testing the provided tools and
+expect tests for testing our library functions.
 
-Cram tests are written in `.t` files. Those files are made out of text which
-is usually here to describe what the actual tests are doing and provide a bit
-of context.
+### Cram tests
+
+We use cram tests to test our command line tools.
+
+Cram tests can be found in the `tests/api-diff` folder and are written in `.t`
+files. Those files are made out of text which is usually here to describe what
+the actual tests are doing and provide a bit of context.
 Among this text are also indented parts which are made of commands to execute
 and their expected output.
 
@@ -98,7 +103,7 @@ In this test we will list the files available in the current directory.
 We should see two files
 
   $ ls
-  some_file some_other_file 
+  some_file some_other_file
 ```
 
 The two first lines are just descriptive text for the test.
@@ -130,9 +135,9 @@ index 58d9cd4..520d3bf 100644
 +++ b/tests/api-watch/run.t.corrected
 @@ -27,4 +27,4 @@ In this test we will list the files available in the current directory.
  We should see two files
- 
+
    $ ls
--  some_file some_other_file 
+-  some_file some_other_file
 +  some_file some_file2
 ```
 
@@ -149,13 +154,13 @@ dune promote
 
 This will update the expected output directly in the original `.t` file.
 
-### Generating files on the fly
+#### Generating files on the fly
 
 It is often the case that when you write a test you will need input files for
 it. You could add those files to the repository and use them in the test but
 that results in a potentially large number of test files lying around and it
 also make it harder to read the test since you have to open several files to get
-the whole picture. 
+the whole picture.
 
 What you can do instead is generate those files as part of the test, by using
 a bash' heredoc redirection. It's usually done like this:
@@ -165,9 +170,9 @@ For this test we need the following input file
 
   $ cat > ref.mli << EOF
   > type t = int
-  > 
+  >
   > val f : t -> string
-  > EOF  
+  > EOF
 
 ```
 
@@ -179,3 +184,36 @@ val f : t -> string
 ```
 
 the `<< EOF` part indicates that we use `EOF` as an end delimiter for our file.
+
+### Expect tests
+
+Expect tests can be considered as the OCaml counterpart to cram tests. They use
+the same promotion workflow as cram tests: they contain the expected test
+output, if the test runner produces a different output from the one in the test
+file, it will show the diff. At this point you can either accept the change and
+promote it to the test file or try to fix the code until the output matches
+depending on the nature of the change.
+
+We use `ppx_expect` as our expect test runner, you can read the documentation on
+the project homepage [here](https://github.com/janestreet/ppx_expect).
+
+Our expect tests live in the `tests/api-watch` folder. They are written in
+regular `.ml` files.
+
+Imagine we want to test a simple `add` function that returns the sum of two
+integers, here's how we would go about it:
+```
+let%expect_test "0 is neutral" =
+  let res = add 2 0 in
+  Format.printf "%d" res;
+  [%expect 2]
+```
+
+As you can see expected are written in a `let%expect_test "<test-name>" = ...`
+let binding. You can define regular functions and values outside of those blocks
+in an expect test if you need to factor out some code.
+
+The test usually contain one or multiple calls to the function under test
+followed by printing statements and `[%expect <expected output>]` statements.
+The test runner will capture the output after executing the test block and
+compare it with the content of the `[%expect ...]` statements.
