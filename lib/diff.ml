@@ -21,7 +21,11 @@ and module_modification = Unsupported | Supported of sig_item list
 and sig_item = Value of value | Module of module_
 
 type item_type = Value_item | Module_item | ClassType_item [@@deriving ord]
-type sig_items = Val of value_description | Mod of module_declaration | Cty of class_type_declaration (*Extended for class-type-dec*)
+
+type sig_items =
+  | Val of value_description
+  | Mod of module_declaration
+  | Cty of class_type_declaration (*Extended for class-type-dec*)
 
 module Sig_item_map = Map.Make (struct
   type t = item_type * string [@@deriving ord]
@@ -35,8 +39,11 @@ let extract_items items =
           Sig_item_map.add (Module_item, Ident.name id) (Mod mod_decl) tbl
       | Sig_value (id, val_des, _) ->
           Sig_item_map.add (Value_item, Ident.name id) (Val val_des) tbl
-      | Sig_class_type (id, class_type_decl, _, _) ->  (*Extended to include Class_type_declaration*)
-          Sig_item_map.add (ClassType_item, Ident.name id) (Cty class_type_decl) tbl
+      | Sig_class_type (id, class_type_decl, _, _) ->
+          (*Extended to include Class_type_declaration*)
+          Sig_item_map.add
+            (ClassType_item, Ident.name id)
+            (Cty class_type_decl) tbl
       | _ -> tbl)
     Sig_item_map.empty items
 
@@ -74,7 +81,8 @@ let value_item ~typing_env ~name ~reference ~current =
       | _, _ ->
           Some (Value { vname = name; vdiff = Modified { reference; current } })
       | exception Includecore.Dont_match _ ->
-          Some (Value { vname = name; vdiff = Modified { reference; current } }))
+          Some (Value { vname = name; vdiff = Modified { reference; current } })
+      )
   | _ -> None
 
 let rec items ~reference ~current =
@@ -92,8 +100,7 @@ let rec items ~reference ~current =
           None (* Class type was removed, ignore it *)
       | ClassType_item, None, Some (Cty _) ->
           None (* Class type was added, ignore it *)
-      | ClassType_item, _, _ ->
-          None)
+      | ClassType_item, _, _ -> None)
     ref_items curr_items
   |> Sig_item_map.bindings |> List.map snd
 
