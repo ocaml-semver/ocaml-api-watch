@@ -6,7 +6,6 @@ type conflict2 = { orig : string list; new_ : string list }
 
 type diff = Diff of conflict2
 type t = diff list
-type ts = t String_map.t
 type printer = { same : string Fmt.t; diff : conflict2 Fmt.t }
 
 let printer ~same ~diff = { same; diff }
@@ -20,7 +19,7 @@ let git_printer =
         List.iter (fun line -> Fmt.pf ppf "+%s\n" line) new_);
   }
 
-let pp diff_printer =
+let pp_ diff_printer =
   let pp_dh ppf dh = match dh with Diff c -> diff_printer.diff ppf c in
   Fmt.list ~sep:Fmt.nop pp_dh
 
@@ -52,7 +51,7 @@ let process_value_diff (val_diff : Diff.value) =
           };
       ]
 
-let from_diff (diff : Diff.module_) : ts =
+let from_diff (diff : Diff.module_) : t String_map.t =
   let rec process_module_diff module_path (module_diff : Diff.module_) acc =
     match module_diff.mdiff with
     | Modified Unsupported ->
@@ -104,8 +103,11 @@ let gen_pp pp_diff fmt t =
   in
   String_map.iter print_module_diff t
 
-let pp_diff fmt diff = pp git_printer fmt diff
-let pp_git fmt t = gen_pp pp_diff fmt t
+let pp_diff fmt diff = pp_ git_printer fmt diff
+
+let pp fmt diff =
+  let t = from_diff diff in
+  gen_pp pp_diff fmt t
 
 module With_colors = struct
   let pp_l fmt ~color ~prefix ~line =
@@ -124,6 +126,9 @@ module With_colors = struct
         List.iter (pp_remove fmt) orig;
         List.iter (pp_add fmt) new_)
 
-  let pp_diff fmt diff = pp printer fmt diff
-  let pp fmt t = gen_pp pp_diff fmt t
+  let pp_diff fmt diff = pp_ printer fmt diff
+
+  let pp fmt diff =
+    let t = from_diff diff in
+    gen_pp pp_diff fmt t
 end
