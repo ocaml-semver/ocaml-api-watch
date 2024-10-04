@@ -16,10 +16,7 @@ type t = conflict2 list String_map.t
     a new function [Main.M.do_something], this will show in the textual
     diff under the key ["Main.M"].
     Identical modules won't appear in the map.
-
-    Note that the individual [t] stored in the map only
-    contain line changes, i.e. only [Diff {orig; new_}] hunks, no [Same s]
-    ones. *)
+*)
 
 val pp : Format.formatter -> t -> unit
 (** Pretty-print the text diff in a human readable, git diff like format. *)
