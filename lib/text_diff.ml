@@ -4,8 +4,8 @@ type conflict2 = { orig : string list; new_ : string list }
 (** In a value of type {!conflict2}, the sequence [orig] and [new_] should
         have no common value. *)
 
-type hunk = Same of string | Diff of conflict2
-type t = hunk list
+type diff = Diff of conflict2
+type t = diff list
 type ts = t String_map.t
 type printer = { same : string Fmt.t; diff : conflict2 Fmt.t }
 
@@ -21,11 +21,7 @@ let git_printer =
   }
 
 let pp diff_printer =
-  let pp_dh ppf dh =
-    match dh with
-    | Same e -> diff_printer.same ppf e
-    | Diff c -> diff_printer.diff ppf c
-  in
+  let pp_dh ppf dh = match dh with Diff c -> diff_printer.diff ppf c in
   Fmt.list ~sep:Fmt.nop pp_dh
 
 let vd_to_lines name vd =
