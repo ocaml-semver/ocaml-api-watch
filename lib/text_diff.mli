@@ -1,11 +1,7 @@
 (** Utilities for custom diff printing  *)
 
-type conflict2 = { orig : string list; new_ : string list }
-(** In a value of type {!conflict2}, the sequence [orig] and [new_] should
-        have no common value. *)
-
-type hunk = Same of string | Diff of conflict2
-type t = hunk list
+type t
+(** Represents a single textual diff of a module interface*)
 
 type ts = t String_map.t
 (** Type for representing library interface diffs as text diff.
@@ -21,16 +17,8 @@ type ts = t String_map.t
     a new function [Main.M.do_something], this will show in the textual
     diff under the key ["Main.M"].
     Identical modules won't appear in the map.
+*)
 
-    Note that the individual [t] stored in the map only
-    contain line changes, i.e. only [Diff {orig; new_}] hunks, no [Same s]
-    ones. *)
-
-type printer
-
-val printer : same:string Fmt.t -> diff:conflict2 Fmt.t -> printer
-val git_printer : printer
-val pp : printer -> t Fmt.t
 val from_diff : Diff.module_ -> ts
 
 val pp_git : Format.formatter -> ts -> unit
