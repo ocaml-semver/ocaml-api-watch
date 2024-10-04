@@ -37,7 +37,6 @@ let run (`Main_module main_module) (`Ref_cmi reference) (`Current_cmi current) =
   match diff with
   | None -> Ok 0
   | Some diff ->
-      (* let text_diff = Api_watch.Text_diff.from_diff diff in *)
       Api_watch.Text_diff.With_colors.pp Format.std_formatter diff;
       Ok 1
 
