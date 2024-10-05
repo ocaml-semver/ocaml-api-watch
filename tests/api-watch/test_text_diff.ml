@@ -23,7 +23,8 @@ let%expect_test "multi-line items are represented as multi-line diffs" =
   in
   let diff_opt = Diff.interface ~module_name:"Main" ~reference ~current in
   let diff = Option.get diff_opt in
-  Format.printf "%a" Text_diff.pp diff;
+  let text_diff = Text_diff.from_diff diff in
+  Format.printf "%a" Text_diff.pp text_diff;
   [%expect
     {|
     diff module Main:

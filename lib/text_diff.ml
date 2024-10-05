@@ -1,11 +1,8 @@
 open Types
 
 type conflict2 = { orig : string list; new_ : string list }
-(** In a value of type {!conflict2}, the sequence [orig] and [new_] should
-        have no common value. *)
-
 type diff = Diff of conflict2
-type t = diff list
+type t = diff list String_map.t
 type printer = { same : string Fmt.t; diff : conflict2 Fmt.t }
 
 let printer ~same ~diff = { same; diff }
@@ -51,7 +48,7 @@ let process_value_diff (val_diff : Diff.value) =
           };
       ]
 
-let from_diff (diff : Diff.module_) : t String_map.t =
+let from_diff (diff : Diff.module_) : t =
   let rec process_module_diff module_path (module_diff : Diff.module_) acc =
     match module_diff.mdiff with
     | Modified Unsupported ->
@@ -104,10 +101,7 @@ let gen_pp pp_diff fmt t =
   String_map.iter print_module_diff t
 
 let pp_diff fmt diff = pp_ git_printer fmt diff
-
-let pp fmt diff =
-  let t = from_diff diff in
-  gen_pp pp_diff fmt t
+let pp fmt t = gen_pp pp_diff fmt t
 
 module With_colors = struct
   let pp_l fmt ~color ~prefix ~line =
@@ -127,8 +121,5 @@ module With_colors = struct
         List.iter (pp_add fmt) new_)
 
   let pp_diff fmt diff = pp_ printer fmt diff
-
-  let pp fmt diff =
-    let t = from_diff diff in
-    gen_pp pp_diff fmt t
+  let pp fmt t = gen_pp pp_diff fmt t
 end
