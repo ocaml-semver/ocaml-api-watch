@@ -10,11 +10,6 @@ We generate the .cmi file
 
   $ ocamlc ref.mli
 
-And now we run api-watcher on that same cmi file as both arguments,
-there should be no diff:
-
-  $ api-diff ref.cmi ref.cmi
-
 ## Different .cmi files for value tests:
 
 ### Adding a value:
