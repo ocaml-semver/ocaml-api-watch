@@ -9,6 +9,13 @@ let vd_to_lines name vd =
   Format.pp_print_flush formatter ();
   CCString.lines (Buffer.contents buf)
 
+let td_to_lines name vd =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  Printtyp.type_declaration (Ident.create_local name) formatter vd;
+  Format.pp_print_flush formatter ();
+  CCString.lines (Buffer.contents buf)
+
 let md_to_lines name md =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
@@ -35,6 +42,18 @@ let process_value_diff (val_diff : Diff.value) =
             new_ = vd_to_lines val_diff.vname current;
           };
       ]
+
+let process_type_diff (type_diff : Diff.type_) =
+  match type_diff.tdiff with
+  | Added td ->
+      [
+        Diffutils.Diff.Diff { orig = []; new_ = td_to_lines type_diff.tname td };
+      ]
+  | Removed td ->
+      [
+        Diffutils.Diff.Diff { orig = td_to_lines type_diff.tname td; new_ = [] };
+      ]
+  | Modified _ -> failwith "Unimplemented"
 
 let from_diff (diff : Diff.module_) : Diffutils.Diff.t String_map.t =
   let rec process_module_diff module_path (module_diff : Diff.module_) acc =
@@ -77,12 +96,19 @@ let from_diff (diff : Diff.module_) : Diffutils.Diff.t String_map.t =
                   (function
                     | None -> Some diff | Some existing -> Some (existing @ diff))
                   acc'
+            | Type type_diff ->
+                let diff = process_type_diff type_diff in
+                String_map.update module_path
+                  (function
+                    | None -> Some diff | Some existing -> Some (existing @ diff))
+                  acc'
             | Module sub_module_diff ->
                 let sub_module_path =
                   match sub_module_diff.mdiff with
                   | Modified _ -> module_path ^ "." ^ sub_module_diff.mname
                   | Added _ | Removed _ -> module_path
                 in
+
                 process_module_diff sub_module_path sub_module_diff acc')
           acc changes
   in
