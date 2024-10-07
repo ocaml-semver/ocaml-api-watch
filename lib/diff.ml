@@ -69,6 +69,7 @@ let type_item ~name ~reference ~current =
       Some (Type { tname = name; tdiff = Removed refType })
   | None, Some (Typ curType) ->
       Some (Type { tname = name; tdiff = Added curType })
+  | Some (Typ _), Some (Typ _) -> None
   | _ -> None
 
 let value_item ~typing_env ~name ~reference ~current =
