@@ -2,7 +2,6 @@ open Types
 
 type conflict2 = { orig : string list; new_ : string list }
 type t = conflict2 list String_map.t
-type t = conflict2 list String_map.t
 type printer = { same : string Fmt.t; diff : conflict2 Fmt.t }
 
 let printer ~same ~diff = { same; diff }
@@ -17,7 +16,6 @@ let git_printer =
   }
 
 let pp_ diff_printer =
-  let pp_dh ppf dh = match dh with c -> diff_printer.diff ppf c in
   let pp_dh ppf dh = match dh with c -> diff_printer.diff ppf c in
   Fmt.list ~sep:Fmt.nop pp_dh
 
@@ -47,8 +45,6 @@ let process_value_diff (val_diff : Diff.value) =
   match val_diff.vdiff with
   | Added vd -> [ { orig = []; new_ = vd_to_lines val_diff.vname vd } ]
   | Removed vd -> [ { orig = vd_to_lines val_diff.vname vd; new_ = [] } ]
-  | Added vd -> [ { orig = []; new_ = vd_to_lines val_diff.vname vd } ]
-  | Removed vd -> [ { orig = vd_to_lines val_diff.vname vd; new_ = [] } ]
   | Modified { reference; current } ->
       [
         {
@@ -58,18 +54,6 @@ let process_value_diff (val_diff : Diff.value) =
         {
           orig = vd_to_lines val_diff.vname reference;
           new_ = vd_to_lines val_diff.vname current;
-        };
-      ]
-
-let process_type_diff (type_diff : Diff.type_) =
-  match type_diff.tdiff with
-  | Added td -> [ { orig = []; new_ = td_to_lines type_diff.tname td } ]
-  | Removed td -> [ { orig = td_to_lines type_diff.tname td; new_ = [] } ]
-  | Modified { reference; current } ->
-      [
-        {
-          orig = td_to_lines type_diff.tname reference;
-          new_ = td_to_lines type_diff.tname current;
         };
       ]
 
@@ -91,12 +75,10 @@ let from_diff (diff : Diff.module_) : t =
     | Modified Unsupported ->
         String_map.add module_path
           [ { orig = []; new_ = [ "<unsupported change>" ] } ]
-          [ { orig = []; new_ = [ "<unsupported change>" ] } ]
           acc
     | Added curr_md ->
         let diff =
           [ { orig = []; new_ = md_to_lines module_diff.mname curr_md } ]
-            [ { orig = []; new_ = md_to_lines module_diff.mname curr_md } ]
         in
         String_map.update module_path
           (function
@@ -105,7 +87,6 @@ let from_diff (diff : Diff.module_) : t =
     | Removed ref_md ->
         let diff =
           [ { orig = md_to_lines module_diff.mname ref_md; new_ = [] } ]
-            [ { orig = md_to_lines module_diff.mname ref_md; new_ = [] } ]
         in
         String_map.update module_path
           (function
