@@ -73,20 +73,19 @@ let process_type_diff (type_diff : Diff.type_) =
         };
       ]
 
-let from_diff (diff : Diff.module_) : t =
 let process_type_diff (type_diff : Diff.type_) =
   match type_diff.tdiff with
-  | Added td ->
+  | Added td -> [ { orig = []; new_ = td_to_lines type_diff.tname td } ]
+  | Removed td -> [ { orig = td_to_lines type_diff.tname td; new_ = [] } ]
+  | Modified { reference; current } ->
       [
-        Diffutils.Diff.Diff { orig = []; new_ = td_to_lines type_diff.tname td };
+        {
+          orig = td_to_lines type_diff.tname reference;
+          new_ = td_to_lines type_diff.tname current;
+        };
       ]
-  | Removed td ->
-      [
-        Diffutils.Diff.Diff { orig = td_to_lines type_diff.tname td; new_ = [] };
-      ]
-  | Modified _ -> failwith "Unimplemented"
 
-let from_diff (diff : Diff.module_) : Diffutils.Diff.t String_map.t =
+let from_diff (diff : Diff.module_) : t =
   let rec process_module_diff module_path (module_diff : Diff.module_) acc =
     match module_diff.mdiff with
     | Modified Unsupported ->
