@@ -87,7 +87,7 @@ let%expect_test "Modules with both supported and unsupported changes" =
   [%expect
     {|
     Some (Module Main: {Modified (Supported [ Value (x, Removed);
-    Module M: {Modified (Supported [ Type (t, Added)])}])})|}]
+    Module M: {Modified (Unsupported)}])})|}]
 
 let%expect_test "Submodules with different functor types" =
   let reference =
