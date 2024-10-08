@@ -1,9 +1,8 @@
 (** Utilities for custom diff printing  *)
 
 type conflict2 = { orig : string list; new_ : string list }
-type diff = Diff of conflict2
 
-type t = diff list String_map.t
+type t = conflict2 list String_map.t
 (** Type for representing library interface diffs as text diff.
 
     Changes are arranged per fully qualified module path.
