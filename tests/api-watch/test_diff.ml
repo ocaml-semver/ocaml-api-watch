@@ -100,7 +100,8 @@ let%expect_test "Adding a type" =
       ~current:add_type_signature
   in
   Format.printf "%a" pp_diff_option result;
-  [%expect {|Some (Module Main: {Modified (Unsupported)})|}]
+  [%expect
+    {|Some (Module Main: {Modified (Supported [ Type (added_t, Added)])})|}]
 
 let remove_type_signature =
   compile_interface {|
@@ -114,7 +115,8 @@ let%expect_test "Removing a type" =
       ~current:remove_type_signature
   in
   Format.printf "%a" pp_diff_option result;
-  [%expect {|Some (Module Main: {Modified (Unsupported)})|}]
+  [%expect
+    {|Some (Module Main: {Modified (Supported [ Type (unused_type, Removed)])})|}]
 
 let%expect_test "Modifying a simple type" =
   let reference = compile_interface {|type t = int|} in
