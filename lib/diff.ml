@@ -30,7 +30,7 @@ type item_type = Value_item | Module_item | Type_item [@@deriving ord]
 type sig_items =
   | Val of value_description
   | Mod of module_declaration
-  | Typ of type_declaration
+  | Typ of type_declaration * Ident.t
 
 module Sig_item_map = Map.Make (struct
   type t = item_type * string [@@deriving ord]
@@ -41,11 +41,11 @@ let extract_items items =
     (fun tbl item ->
       match item with
       | Sig_module (id, _, mod_decl, _, _) ->
-          Sig_item_map.add (Module_item, Ident.name id) (Mod mod_decl, id) tbl
+          Sig_item_map.add (Module_item, Ident.name id) (Mod mod_decl) tbl
       | Sig_value (id, val_des, _) ->
-          Sig_item_map.add (Value_item, Ident.name id) (Val val_des, id) tbl
+          Sig_item_map.add (Value_item, Ident.name id) (Val val_des) tbl
       | Sig_type (id, type_decl, _, _) ->
-          Sig_item_map.add (Type_item, Ident.name id) (Typ type_decl, id) tbl
+          Sig_item_map.add (Type_item, Ident.name id) (Typ (type_decl, id)) tbl
       | _ -> tbl)
     Sig_item_map.empty items
 
@@ -65,11 +65,11 @@ let modtype_item ~loc ~typing_env ~name ~reference ~current =
 let type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
-  | Some (Typ reference, _), None ->
+  | Some (Typ (reference, _)), None ->
       Some (Type { tname = name; tdiff = Removed reference })
-  | None, Some (Typ current, _) ->
+  | None, Some (Typ (current, _)) ->
       Some (Type { tname = name; tdiff = Added current })
-  | Some (Typ reference, refId), Some (Typ current, curId) -> (
+  | Some (Typ (reference, refId)), Some (Typ (current, curId)) -> (
       let type_coercion1 () =
         Includecore.type_declarations ~equality:true ~loc:current.type_loc
           typing_env ~mark:true name current (Pident curId) reference
@@ -87,11 +87,11 @@ let type_item ~typing_env ~name ~reference ~current =
 let value_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
-  | Some (Val reference, _), None ->
+  | Some (Val reference), None ->
       Some (Value { vname = name; vdiff = Removed reference })
-  | None, Some (Val current, _) ->
+  | None, Some (Val current) ->
       Some (Value { vname = name; vdiff = Added current })
-  | Some (Val reference, _), Some (Val current, _) -> (
+  | Some (Val reference), Some (Val current) -> (
       let val_coercion1 () =
         Includecore.value_descriptions ~loc:current.val_loc typing_env name
           current reference
@@ -128,11 +128,11 @@ let rec items ~reference ~current =
 and module_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
-  | None, Some (Mod curr_md, _) ->
+  | None, Some (Mod curr_md) ->
       Some (Module { mname = name; mdiff = Added curr_md })
-  | Some (Mod ref_md, _), None ->
+  | Some (Mod ref_md), None ->
       Some (Module { mname = name; mdiff = Removed ref_md })
-  | Some (Mod reference, _), Some (Mod current, _) ->
+  | Some (Mod reference), Some (Mod current) ->
       module_declaration ~typing_env ~name ~reference ~current
   | _ -> assert false
 
