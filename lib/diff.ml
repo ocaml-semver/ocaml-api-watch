@@ -71,12 +71,12 @@ let type_item ~typing_env ~name ~reference ~current =
       Some (Type { tname = name; tdiff = Added current })
   | Some (Typ (reference, refId)), Some (Typ (current, curId)) -> (
       let type_coercion1 () =
-        Includecore.type_declarations ~equality:true ~loc:current.type_loc
-          typing_env ~mark:true name current (Pident curId) reference
+        Includecore.type_declarations ~loc:current.type_loc typing_env
+          ~mark:false name current (Pident curId) reference
       in
       let type_coercion2 () =
-        Includecore.type_declarations ~equality:true ~loc:reference.type_loc
-          typing_env ~mark:true name reference (Pident refId) current
+        Includecore.type_declarations ~loc:reference.type_loc typing_env
+          ~mark:false name reference (Pident refId) current
       in
       match (type_coercion1 (), type_coercion2 ()) with
       | None, None -> None
