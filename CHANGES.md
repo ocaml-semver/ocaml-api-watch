@@ -8,6 +8,9 @@
 
 ### Fixed
 
+- Remove dependency on unreleased `diffutils` package
+  (#88, #95, @azzsal)
+
 ### Removed
 
 ### Security
