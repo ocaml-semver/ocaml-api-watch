@@ -1,3 +1,0 @@
-pin-depends: [
-  ["diffutils.dev" "git+https://github.com/panglesd/ocaml-diffutils#0fc293bc0cd2c34742552f7a0c777bfba385bd90"]
-]
