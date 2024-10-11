@@ -2,6 +2,9 @@
 
 ### Added
 
+- Add detection of modified type declarations
+(#92, @azzsal) 
+
 ### Changed
 
 ### Deprecated
