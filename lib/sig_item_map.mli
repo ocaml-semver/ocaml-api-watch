@@ -12,7 +12,7 @@ val empty : t
 val add : name:string -> 'a item_type -> 'a -> t -> t
 
 val diff :
-  diff_item:('a item_type -> 'a option -> 'a option -> 'diff option) ->
+  diff_item:('a item_type -> string -> 'a option -> 'a option -> 'diff option) ->
   t ->
   t ->
   'diff list

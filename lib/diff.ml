@@ -75,11 +75,11 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
 let type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
-  | Some (Typ (reference, _)), None ->
+  | Some (reference, _), None ->
       Some (Type { tname = name; tdiff = Removed reference })
-  | None, Some (Typ (current, _)) ->
+  | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
-  | Some (Typ (reference, refId)), Some (Typ (current, curId)) -> (
+  | Some (reference, refId), Some (current, curId) -> (
       let type_coercion1 () =
         Includecore.type_declarations ~loc:current.type_loc typing_env
           ~mark:false name current (Pident curId) reference
@@ -92,16 +92,14 @@ let type_item ~typing_env ~name ~reference ~current =
       | None, None -> None
       | _, _ ->
           Some (Type { tname = name; tdiff = Modified { reference; current } }))
-  | _ -> None
 
 let value_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
-  | Some (Val reference), None ->
+  | Some reference, None ->
       Some (Value { vname = name; vdiff = Removed reference })
-  | None, Some (Val current) ->
-      Some (Value { vname = name; vdiff = Added current })
-  | Some (Val reference), Some (Val current) -> (
+  | None, Some current -> Some (Value { vname = name; vdiff = Added current })
+  | Some reference, Some current -> (
       let val_coercion1 () =
         Includecore.value_descriptions ~loc:current.val_loc typing_env name
           current reference
@@ -117,35 +115,30 @@ let value_item ~typing_env ~name ~reference ~current =
       | exception Includecore.Dont_match _ ->
           Some (Value { vname = name; vdiff = Modified { reference; current } })
       )
-  | _ -> None
 
 let rec items ~reference ~current =
   let env = Typing_env.for_diff ~reference ~current in
   let ref_items = extract_items reference in
   let curr_items = extract_items current in
-  (* Sig_item_map.merge
-       (fun (item_type, name) ref_opt curr_opt ->
-         match (item_type, ref_opt, curr_opt) with
-         | Value_item, reference, current ->
-             value_item ~typing_env:env ~name ~reference ~current
-         | Module_item, reference, current ->
-             module_item ~typing_env:env ~name ~reference ~current
-         | Type_item, reference, current ->
-             type_item ~typing_env:env ~name ~reference ~current
-         | Modtype_item, reference, current ->
-             module_type_item ~typing_env:env ~name ~reference ~current)
-       ref_items curr_items
-     |> Sig_item_map.bindings |> List.map snd *)
-  []
+  Sig_item_map.diff
+    ~diff_item:(fun item_type name reference current ->
+      match item_type with
+      | Sig_item_map.Value ->
+          value_item ~typing_env:env ~name ~reference ~current
+      | Sig_item_map.Module ->
+          module_item ~typing_env:env ~name ~reference ~current
+      | Sig_item_map.Modtype ->
+          module_type_item ~typing_env:env ~name ~reference ~current
+      | Sig_item_map.Type -> type_item ~typing_env:env ~name ~reference ~current)
+    ref_items curr_items
 
-and module_item ~typing_env ~name ~reference ~current =
+and module_item ~typing_env ~name ~(reference : module_declaration option)
+    ~(current : module_declaration option) =
   match (reference, current) with
   | None, None -> None
-  | None, Some (Mod curr_md) ->
-      Some (Module { mname = name; mdiff = Added curr_md })
-  | Some (Mod ref_md), None ->
-      Some (Module { mname = name; mdiff = Removed ref_md })
-  | Some (Mod reference), Some (Mod current) ->
+  | None, Some curr_md -> Some (Module { mname = name; mdiff = Added curr_md })
+  | Some ref_md, None -> Some (Module { mname = name; mdiff = Removed ref_md })
+  | Some reference, Some current ->
       module_declaration ~typing_env ~name ~reference ~current
   | _ -> assert false
 
