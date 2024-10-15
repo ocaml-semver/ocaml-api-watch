@@ -35,12 +35,6 @@ and sig_item =
   | Type of type_
   | Modtype of modtype
 
-type sig_items =
-  | Val of value_description
-  | Mod of module_declaration
-  | Typ of type_declaration * Ident.t
-  | Modtyp of modtype_declaration
-
 let extract_items items =
   List.fold_left
     (fun tbl item ->
@@ -121,15 +115,21 @@ let rec items ~reference ~current =
   let ref_items = extract_items reference in
   let curr_items = extract_items current in
   Sig_item_map.diff
-    ~diff_item:(fun item_type name reference current ->
-      match item_type with
-      | Sig_item_map.Value ->
-          value_item ~typing_env:env ~name ~reference ~current
-      | Sig_item_map.Module ->
-          module_item ~typing_env:env ~name ~reference ~current
-      | Sig_item_map.Modtype ->
-          module_type_item ~typing_env:env ~name ~reference ~current
-      | Sig_item_map.Type -> type_item ~typing_env:env ~name ~reference ~current)
+    ~diff_item:
+      {
+        diff_item =
+          (fun (type a) (item_type : a Sig_item_map.item_type) name
+               (reference : a option) (current : a option) ->
+            match item_type with
+            | Sig_item_map.Value ->
+                value_item ~typing_env:env ~name ~reference ~current
+            | Sig_item_map.Module ->
+                module_item ~typing_env:env ~name ~reference ~current
+            | Sig_item_map.Modtype ->
+                module_type_item ~typing_env:env ~name ~reference ~current
+            | Sig_item_map.Type ->
+                type_item ~typing_env:env ~name ~reference ~current);
+      }
     ref_items curr_items
 
 and module_item ~typing_env ~name ~(reference : module_declaration option)
@@ -140,18 +140,17 @@ and module_item ~typing_env ~name ~(reference : module_declaration option)
   | Some ref_md, None -> Some (Module { mname = name; mdiff = Removed ref_md })
   | Some reference, Some current ->
       module_declaration ~typing_env ~name ~reference ~current
-  | _ -> assert false
 
-and module_type_item ~typing_env ~name ~reference ~current =
+and module_type_item ~typing_env ~name ~(reference : modtype_declaration option)
+    ~(current : modtype_declaration option) =
   match (reference, current) with
   | None, None -> None
-  | None, Some (Modtyp curr_mtd) ->
+  | None, Some curr_mtd ->
       Some (Modtype { mtname = name; mtdiff = Added curr_mtd })
-  | Some (Modtyp ref_mtd), None ->
+  | Some ref_mtd, None ->
       Some (Modtype { mtname = name; mtdiff = Removed ref_mtd })
-  | Some (Modtyp ref_mtd), Some (Modtyp curr_mtd) ->
+  | Some ref_mtd, Some curr_mtd ->
       modtype_declaration ~typing_env ~name ~reference:ref_mtd ~current:curr_mtd
-  | _ -> assert false
 
 and module_declaration ~typing_env ~name ~reference ~current =
   module_type ~typing_env ~name ~ref_module_type:reference.md_type

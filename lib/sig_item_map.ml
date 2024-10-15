@@ -22,7 +22,7 @@ let empty : t =
   }
 
 let add (type a) ~name (item_type : a item_type) (item : a)
-    { values_map; modules_map; modtypes_map; types_map } =
+    { values_map; modules_map; modtypes_map; types_map } : t =
   match item_type with
   | Value ->
       {
@@ -53,8 +53,12 @@ let add (type a) ~name (item_type : a item_type) (item : a)
         types_map = String_map.add name item types_map;
       }
 
-let diff (type a)
-    ~(diff_item : a item_type -> string -> a option -> a option -> 'diff option)
+type 'diff poly_diff_item = {
+  diff_item :
+    'a. 'a item_type -> string -> 'a option -> 'a option -> 'diff option;
+}
+
+let diff ~diff_item:{ diff_item }
     {
       values_map = ref_values_map;
       modules_map = ref_modules_map;
@@ -66,7 +70,7 @@ let diff (type a)
       modules_map = curr_modules_map;
       modtypes_map = curr_modtypes_map;
       types_map = curr_types_map;
-    } =
+    } : 'diff list =
   let value_diffs =
     String_map.merge
       (fun name ref_opt curr_opt -> diff_item Value name ref_opt curr_opt)
@@ -91,4 +95,4 @@ let diff (type a)
       ref_types_map curr_types_map
     |> String_map.bindings |> List.map snd
   in
-  value_diffs @ module_diffs @ type_diffs
+  value_diffs @ module_diffs @ modtype_diffs @ type_diffs
