@@ -114,23 +114,17 @@ let rec items ~reference ~current =
   let env = Typing_env.for_diff ~reference ~current in
   let ref_items = extract_items reference in
   let curr_items = extract_items current in
-  Sig_item_map.diff
-    ~diff_item:
-      {
-        diff_item =
-          (fun (type a) (item_type : a Sig_item_map.item_type) name
-               (reference : a option) (current : a option) ->
-            match item_type with
-            | Sig_item_map.Value ->
-                value_item ~typing_env:env ~name ~reference ~current
-            | Sig_item_map.Module ->
-                module_item ~typing_env:env ~name ~reference ~current
-            | Sig_item_map.Modtype ->
-                module_type_item ~typing_env:env ~name ~reference ~current
-            | Sig_item_map.Type ->
-                type_item ~typing_env:env ~name ~reference ~current);
-      }
-    ref_items curr_items
+  let diff_item : type a. (a, 'diff) Sig_item_map.diff_item =
+   fun item_type name reference current ->
+    match item_type with
+    | Sig_item_map.Value -> value_item ~typing_env:env ~name ~reference ~current
+    | Sig_item_map.Module ->
+        module_item ~typing_env:env ~name ~reference ~current
+    | Sig_item_map.Modtype ->
+        module_type_item ~typing_env:env ~name ~reference ~current
+    | Sig_item_map.Type -> type_item ~typing_env:env ~name ~reference ~current
+  in
+  Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 
 and module_item ~typing_env ~name ~(reference : module_declaration option)
     ~(current : module_declaration option) =

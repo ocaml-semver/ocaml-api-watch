@@ -53,10 +53,10 @@ let add (type a) ~name (item_type : a item_type) (item : a)
         types_map = String_map.add name item types_map;
       }
 
-type 'diff poly_diff_item = {
-  diff_item :
-    'a. 'a item_type -> string -> 'a option -> 'a option -> 'diff option;
-}
+type ('a, 'diff) diff_item =
+  'a item_type -> string -> 'a option -> 'a option -> 'diff option
+
+type 'diff poly_diff_item = { diff_item : 'a. ('a, 'diff) diff_item }
 
 let diff ~diff_item:{ diff_item }
     {
