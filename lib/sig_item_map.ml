@@ -21,78 +21,43 @@ let empty : t =
     types_map = String_map.empty;
   }
 
-let add (type a) ~name (item_type : a item_type) (item : a)
-    { values_map; modules_map; modtypes_map; types_map } : t =
+let add (type a) ~name (item_type : a item_type) (item : a) maps : t =
   match item_type with
-  | Value ->
-      {
-        values_map = String_map.add name item values_map;
-        modules_map;
-        modtypes_map;
-        types_map;
-      }
+  | Value -> { maps with values_map = String_map.add name item maps.values_map }
   | Module ->
-      {
-        values_map;
-        modules_map = String_map.add name item modules_map;
-        modtypes_map;
-        types_map;
-      }
+      { maps with modules_map = String_map.add name item maps.modules_map }
   | Modtype ->
-      {
-        values_map;
-        modules_map;
-        modtypes_map = String_map.add name item modtypes_map;
-        types_map;
-      }
-  | Type ->
-      {
-        values_map;
-        modules_map;
-        modtypes_map;
-        types_map = String_map.add name item types_map;
-      }
+      { maps with modtypes_map = String_map.add name item maps.modtypes_map }
+  | Type -> { maps with types_map = String_map.add name item maps.types_map }
 
 type ('a, 'diff) diff_item =
   'a item_type -> string -> 'a option -> 'a option -> 'diff option
 
 type 'diff poly_diff_item = { diff_item : 'a. ('a, 'diff) diff_item }
 
-let diff ~diff_item:{ diff_item }
-    {
-      values_map = ref_values_map;
-      modules_map = ref_modules_map;
-      modtypes_map = ref_modtypes_map;
-      types_map = ref_types_map;
-    }
-    {
-      values_map = curr_values_map;
-      modules_map = curr_modules_map;
-      modtypes_map = curr_modtypes_map;
-      types_map = curr_types_map;
-    } : 'diff list =
+let diff ~diff_item:{ diff_item } ref_maps curr_maps : 'diff list =
   let value_diffs =
     String_map.merge
       (fun name ref_opt curr_opt -> diff_item Value name ref_opt curr_opt)
-      ref_values_map curr_values_map
+      ref_maps.values_map curr_maps.values_map
     |> String_map.bindings |> List.map snd
   in
   let module_diffs =
     String_map.merge
       (fun name ref_opt curr_opt -> diff_item Module name ref_opt curr_opt)
-      ref_modules_map curr_modules_map
+      ref_maps.modules_map curr_maps.modules_map
     |> String_map.bindings |> List.map snd
   in
   let modtype_diffs =
     String_map.merge
       (fun name ref_opt curr_opt -> diff_item Modtype name ref_opt curr_opt)
-      ref_modtypes_map curr_modtypes_map
+      ref_maps.modtypes_map curr_maps.modtypes_map
     |> String_map.bindings |> List.map snd
   in
   let type_diffs =
     String_map.merge
       (fun name ref_opt curr_opt -> diff_item Type name ref_opt curr_opt)
-      ref_types_map curr_types_map
+      ref_maps.types_map curr_maps.types_map
     |> String_map.bindings |> List.map snd
   in
   value_diffs @ module_diffs @ modtype_diffs @ type_diffs

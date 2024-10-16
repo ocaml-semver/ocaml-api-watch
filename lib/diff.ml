@@ -117,12 +117,10 @@ let rec items ~reference ~current =
   let diff_item : type a. (a, 'diff) Sig_item_map.diff_item =
    fun item_type name reference current ->
     match item_type with
-    | Sig_item_map.Value -> value_item ~typing_env:env ~name ~reference ~current
-    | Sig_item_map.Module ->
-        module_item ~typing_env:env ~name ~reference ~current
-    | Sig_item_map.Modtype ->
-        module_type_item ~typing_env:env ~name ~reference ~current
-    | Sig_item_map.Type -> type_item ~typing_env:env ~name ~reference ~current
+    | Value -> value_item ~typing_env:env ~name ~reference ~current
+    | Module -> module_item ~typing_env:env ~name ~reference ~current
+    | Modtype -> module_type_item ~typing_env:env ~name ~reference ~current
+    | Type -> type_item ~typing_env:env ~name ~reference ~current
   in
   Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 
