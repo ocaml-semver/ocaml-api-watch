@@ -22,4 +22,7 @@
   containers
   fmt
   (cmdliner (>= 1.1.0))
+  diffutils
   (ocamlformat (and :with-dev-setup (= 0.26.2)))))
+
+

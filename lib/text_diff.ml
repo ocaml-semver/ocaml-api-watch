@@ -71,20 +71,18 @@ let cd_to_lines name cd =
   let class_str = "class " ^ name ^ ": " ^ Buffer.contents buf in
   CCString.lines class_str
 
+let process_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name to_lines =
+  match diff with
+  | Added item -> [ { orig = []; new_ = to_lines name item } ]
+  | Removed item -> [ { orig = to_lines name item; new_ = [] } ]
+  | Modified { reference; current } ->
+      [ { orig = to_lines name reference; new_ = to_lines name current } ]
+
 let process_value_diff (val_diff : Diff.value) =
   process_diff val_diff.vdiff val_diff.vname vd_to_lines
 
 let process_type_diff (type_diff : Diff.type_) =
-  match type_diff.tdiff with
-  | Added td -> [ { orig = []; new_ = td_to_lines type_diff.tname td } ]
-  | Removed td -> [ { orig = td_to_lines type_diff.tname td; new_ = [] } ]
-  | Modified { reference; current } ->
-      [
-        {
-          orig = td_to_lines type_diff.tname reference;
-          new_ = td_to_lines type_diff.tname current;
-        };
-      ]
+  process_diff type_diff.tdiff type_diff.tname td_to_lines
 
 let process_class_diff (class_diff : Diff.class_) =
   match class_diff.cdiff with
