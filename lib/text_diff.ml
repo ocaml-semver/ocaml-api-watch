@@ -41,13 +41,7 @@ let md_to_lines name md =
   let module_str = "module " ^ name ^ ": " ^ Buffer.contents buf in
   CCString.lines module_str
 
-let process_diff :
-    type a.
-    (string -> a -> string list) ->
-    (a, a Diff.atomic_modification) Diff.t ->
-    _ ->
-    _ =
- fun to_lines (diff : (a, a Diff.atomic_modification) Diff.t) name ->
+let process_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name to_lines =
   match diff with
   | Added item -> [ { orig = []; new_ = to_lines name item } ]
   | Removed item -> [ { orig = to_lines name item; new_ = [] } ]
@@ -55,10 +49,10 @@ let process_diff :
       [ { orig = to_lines name reference; new_ = to_lines name current } ]
 
 let process_value_diff (val_diff : Diff.value) =
-  process_diff vd_to_lines val_diff.vdiff val_diff.vname
+  process_diff val_diff.vdiff val_diff.vname vd_to_lines
 
 let process_type_diff (type_diff : Diff.type_) =
-  process_diff td_to_lines type_diff.tdiff type_diff.tname
+  process_diff type_diff.tdiff type_diff.tname td_to_lines
 
 let from_diff (diff : Diff.module_) : t =
   let rec process_module_diff module_path (module_diff : Diff.module_) acc =
