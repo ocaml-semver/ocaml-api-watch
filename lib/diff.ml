@@ -25,27 +25,18 @@ type module_ = {
 and module_modification = Unsupported | Supported of sig_item list
 and sig_item = Value of value | Module of module_ | Type of type_
 
-type item_type = Value_item | Module_item | Type_item [@@deriving ord]
-
-type sig_items =
-  | Val of value_description
-  | Mod of module_declaration
-  | Typ of type_declaration * Ident.t
-
-module Sig_item_map = Map.Make (struct
-  type t = item_type * string [@@deriving ord]
-end)
-
 let extract_items items =
   List.fold_left
     (fun tbl item ->
       match item with
-      | Sig_module (id, _, mod_decl, _, _) ->
-          Sig_item_map.add (Module_item, Ident.name id) (Mod mod_decl) tbl
       | Sig_value (id, val_des, _) ->
-          Sig_item_map.add (Value_item, Ident.name id) (Val val_des) tbl
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl
+      | Sig_module (id, _, mod_decl, _, _) ->
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
+            tbl
       | Sig_type (id, type_decl, _, _) ->
-          Sig_item_map.add (Type_item, Ident.name id) (Typ (type_decl, id)) tbl
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
+            (type_decl, id) tbl
       | _ -> tbl)
     Sig_item_map.empty items
 
@@ -65,11 +56,11 @@ let modtype_item ~loc ~typing_env ~name ~reference ~current =
 let type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
-  | Some (Typ (reference, _)), None ->
+  | Some (reference, _), None ->
       Some (Type { tname = name; tdiff = Removed reference })
-  | None, Some (Typ (current, _)) ->
+  | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
-  | Some (Typ (reference, refId)), Some (Typ (current, curId)) -> (
+  | Some (reference, refId), Some (current, curId) -> (
       let type_coercion1 () =
         Includecore.type_declarations ~loc:current.type_loc typing_env
           ~mark:false name current (Pident curId) reference
@@ -82,16 +73,14 @@ let type_item ~typing_env ~name ~reference ~current =
       | None, None -> None
       | _, _ ->
           Some (Type { tname = name; tdiff = Modified { reference; current } }))
-  | _ -> None
 
 let value_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
-  | Some (Val reference), None ->
+  | Some reference, None ->
       Some (Value { vname = name; vdiff = Removed reference })
-  | None, Some (Val current) ->
-      Some (Value { vname = name; vdiff = Added current })
-  | Some (Val reference), Some (Val current) -> (
+  | None, Some current -> Some (Value { vname = name; vdiff = Added current })
+  | Some reference, Some current -> (
       let val_coercion1 () =
         Includecore.value_descriptions ~loc:current.val_loc typing_env name
           current reference
@@ -107,34 +96,28 @@ let value_item ~typing_env ~name ~reference ~current =
       | exception Includecore.Dont_match _ ->
           Some (Value { vname = name; vdiff = Modified { reference; current } })
       )
-  | _ -> None
 
 let rec items ~reference ~current =
   let env = Typing_env.for_diff ~reference ~current in
   let ref_items = extract_items reference in
   let curr_items = extract_items current in
-  Sig_item_map.merge
-    (fun (item_type, name) ref_opt curr_opt ->
-      match (item_type, ref_opt, curr_opt) with
-      | Value_item, reference, current ->
-          value_item ~typing_env:env ~name ~reference ~current
-      | Module_item, reference, current ->
-          module_item ~typing_env:env ~name ~reference ~current
-      | Type_item, reference, current ->
-          type_item ~typing_env:env ~name ~reference ~current)
-    ref_items curr_items
-  |> Sig_item_map.bindings |> List.map snd
+  let diff_item : type a. (a, 'diff) Sig_item_map.diff_item =
+   fun item_type name reference current ->
+    match item_type with
+    | Value -> value_item ~typing_env:env ~name ~reference ~current
+    | Module -> module_item ~typing_env:env ~name ~reference ~current
+    | Type -> type_item ~typing_env:env ~name ~reference ~current
+  in
+  Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 
-and module_item ~typing_env ~name ~reference ~current =
+and module_item ~typing_env ~name ~(reference : module_declaration option)
+    ~(current : module_declaration option) =
   match (reference, current) with
   | None, None -> None
-  | None, Some (Mod curr_md) ->
-      Some (Module { mname = name; mdiff = Added curr_md })
-  | Some (Mod ref_md), None ->
-      Some (Module { mname = name; mdiff = Removed ref_md })
-  | Some (Mod reference), Some (Mod current) ->
+  | None, Some curr_md -> Some (Module { mname = name; mdiff = Added curr_md })
+  | Some ref_md, None -> Some (Module { mname = name; mdiff = Removed ref_md })
+  | Some reference, Some current ->
       module_declaration ~typing_env ~name ~reference ~current
-  | _ -> assert false
 
 and module_declaration ~typing_env ~name ~reference ~current =
   match (reference.md_type, current.md_type) with
