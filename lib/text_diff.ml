@@ -41,20 +41,20 @@ let md_to_lines name md =
   let module_str = "module " ^ name ^ ": " ^ Buffer.contents buf in
   CCString.lines module_str
 
-  let mtd_to_lines name mtd =
-    match mtd.mtd_type with
-    | Some m ->
-        let buf = Buffer.create 256 in
-        let formatter = Format.formatter_of_buffer buf in
-        Printtyp.modtype formatter m;
-        Format.pp_print_flush formatter ();
-        let module_type_str =
-          "module type " ^ name ^ " = " ^ Buffer.contents buf
-        in
-        CCString.lines module_type_str
-    | None ->
-        let abstract_module_type_str = "module type " ^ name in
-        CCString.lines abstract_module_type_str
+let mtd_to_lines name mtd =
+  match mtd.mtd_type with
+  | Some m ->
+      let buf = Buffer.create 256 in
+      let formatter = Format.formatter_of_buffer buf in
+      Printtyp.modtype formatter m;
+      Format.pp_print_flush formatter ();
+      let module_type_str =
+        "module type " ^ name ^ " = " ^ Buffer.contents buf
+      in
+      CCString.lines module_type_str
+  | None ->
+      let abstract_module_type_str = "module type " ^ name in
+      CCString.lines abstract_module_type_str
 
 let process_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name to_lines =
   match diff with
