@@ -41,29 +41,24 @@ let md_to_lines name md =
   let module_str = "module " ^ name ^ ": " ^ Buffer.contents buf in
   CCString.lines module_str
 
-let process_value_diff (val_diff : Diff.value) =
-  match val_diff.vdiff with
-  | Added vd -> [ { orig = []; new_ = vd_to_lines val_diff.vname vd } ]
-  | Removed vd -> [ { orig = vd_to_lines val_diff.vname vd; new_ = [] } ]
+let process_diff :
+    type a.
+    (string -> a -> string list) ->
+    (a, a Diff.atomic_modification) Diff.t ->
+    _ ->
+    _ =
+ fun to_lines (diff : (a, a Diff.atomic_modification) Diff.t) name ->
+  match diff with
+  | Added item -> [ { orig = []; new_ = to_lines name item } ]
+  | Removed item -> [ { orig = to_lines name item; new_ = [] } ]
   | Modified { reference; current } ->
-      [
-        {
-          orig = vd_to_lines val_diff.vname reference;
-          new_ = vd_to_lines val_diff.vname current;
-        };
-      ]
+      [ { orig = to_lines name reference; new_ = to_lines name current } ]
+
+let process_value_diff (val_diff : Diff.value) =
+  process_diff vd_to_lines val_diff.vdiff val_diff.vname
 
 let process_type_diff (type_diff : Diff.type_) =
-  match type_diff.tdiff with
-  | Added td -> [ { orig = []; new_ = td_to_lines type_diff.tname td } ]
-  | Removed td -> [ { orig = td_to_lines type_diff.tname td; new_ = [] } ]
-  | Modified { reference; current } ->
-      [
-        {
-          orig = td_to_lines type_diff.tname reference;
-          new_ = td_to_lines type_diff.tname current;
-        };
-      ]
+  process_diff td_to_lines type_diff.tdiff type_diff.tname
 
 let from_diff (diff : Diff.module_) : t =
   let rec process_module_diff module_path (module_diff : Diff.module_) acc =
