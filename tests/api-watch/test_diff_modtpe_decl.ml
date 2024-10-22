@@ -40,7 +40,7 @@ let%expect_test "Modified module type" =
   [%expect
     {| Some (Module Main: {Modified (Supported [ Module M: {Modified (Supported [ Value (b, Modified)])}])}) |}]
 
-let%expect_test "Concrete Module_type to abstract module_type change" =
+let%expect_test "Concrete to abstract module_type" =
   let reference =
     compile_interface {|
   module type P = sig val x : int end
