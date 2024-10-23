@@ -41,6 +41,21 @@ let md_to_lines name md =
   let module_str = "module " ^ name ^ ": " ^ Buffer.contents buf in
   CCString.lines module_str
 
+let mtd_to_lines name mtd =
+  match mtd.mtd_type with
+  | Some m ->
+      let buf = Buffer.create 256 in
+      let formatter = Format.formatter_of_buffer buf in
+      Printtyp.modtype formatter m;
+      Format.pp_print_flush formatter ();
+      let module_type_str =
+        "module type " ^ name ^ " = " ^ Buffer.contents buf
+      in
+      CCString.lines module_type_str
+  | None ->
+      let abstract_module_type_str = "module type " ^ name in
+      CCString.lines abstract_module_type_str
+
 let process_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name to_lines =
   match diff with
   | Added item -> [ { orig = []; new_ = to_lines name item } ]
@@ -54,54 +69,69 @@ let process_value_diff (val_diff : Diff.value) =
 let process_type_diff (type_diff : Diff.type_) =
   process_diff type_diff.tdiff type_diff.tname td_to_lines
 
-let from_diff (diff : Diff.module_) : t =
-  let rec process_module_diff module_path (module_diff : Diff.module_) acc =
-    match module_diff.mdiff with
-    | Modified Unsupported ->
-        String_map.add module_path
-          [ { orig = []; new_ = [ "<unsupported change>" ] } ]
-          acc
-    | Added curr_md ->
-        let diff =
-          [ { orig = []; new_ = md_to_lines module_diff.mname curr_md } ]
-        in
-        String_map.update module_path
-          (function
-            | None -> Some diff | Some existing -> Some (existing @ diff))
-          acc
-    | Removed ref_md ->
-        let diff =
-          [ { orig = md_to_lines module_diff.mname ref_md; new_ = [] } ]
-        in
-        String_map.update module_path
-          (function
-            | None -> Some diff | Some existing -> Some (existing @ diff))
-          acc
-    | Modified (Supported changes) ->
-        List.fold_left
-          (fun acc' change ->
-            match (change : Diff.sig_item) with
-            | Value val_diff ->
-                let diff = process_value_diff val_diff in
-                String_map.update module_path
-                  (function
-                    | None -> Some diff | Some existing -> Some (existing @ diff))
-                  acc'
-            | Type type_diff ->
-                let diff = process_type_diff type_diff in
-                String_map.update module_path
-                  (function
-                    | None -> Some diff | Some existing -> Some (existing @ diff))
-                  acc'
-            | Module sub_module_diff ->
-                let sub_module_path =
-                  match sub_module_diff.mdiff with
-                  | Modified _ -> module_path ^ "." ^ sub_module_diff.mname
-                  | Added _ | Removed _ -> module_path
-                in
-                process_module_diff sub_module_path sub_module_diff acc')
-          acc changes
-  in
+let rec process_sig_diff :
+    type a. _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
+ fun path to_lines ((diff : (a, _) Diff.t), name) acc ->
+  match diff with
+  | Added curr_mtd ->
+      let diff = [ { orig = []; new_ = to_lines name curr_mtd } ] in
+      String_map.update path
+        (function None -> Some diff | Some existing -> Some (existing @ diff))
+        acc
+  | Removed ref_mtd ->
+      let diff = [ { orig = to_lines name ref_mtd; new_ = [] } ] in
+      String_map.update path
+        (function None -> Some diff | Some existing -> Some (existing @ diff))
+        acc
+  | Modified Diff.Unsupported ->
+      String_map.add path
+        [ { orig = []; new_ = [ "<unsupported change>" ] } ]
+        acc
+  | Modified (Supported changes) -> signature_changes path changes acc
+
+and process_module_type_diff module_path (module_type_diff : Diff.modtype) acc =
+  process_sig_diff module_path mtd_to_lines
+    (module_type_diff.mtdiff, module_type_diff.mtname)
+    acc
+
+and process_module_diff module_path (module_diff : Diff.module_) acc =
+  process_sig_diff module_path md_to_lines
+    (module_diff.mdiff, module_diff.mname)
+    acc
+
+and signature_changes module_path items acc =
+  List.fold_left
+    (fun acc' change ->
+      match (change : Diff.sig_item) with
+      | Value val_diff ->
+          let diff = process_value_diff val_diff in
+          String_map.update module_path
+            (function
+              | None -> Some diff | Some existing -> Some (existing @ diff))
+            acc'
+      | Type type_diff ->
+          let diff = process_type_diff type_diff in
+          String_map.update module_path
+            (function
+              | None -> Some diff | Some existing -> Some (existing @ diff))
+            acc'
+      | Module sub_module_diff ->
+          let sub_module_path =
+            match sub_module_diff.mdiff with
+            | Modified _ -> module_path ^ "." ^ sub_module_diff.mname
+            | Added _ | Removed _ -> module_path
+          in
+          process_module_diff sub_module_path sub_module_diff acc'
+      | Modtype sub_module_type_diff ->
+          let sub_module_path =
+            match sub_module_type_diff.mtdiff with
+            | Modified _ -> module_path ^ "." ^ sub_module_type_diff.mtname
+            | Added _ | Removed _ -> module_path
+          in
+          process_module_type_diff sub_module_path sub_module_type_diff acc')
+    acc items
+
+and from_diff (diff : Diff.module_) : t =
   process_module_diff diff.mname diff String_map.empty
 
 let gen_pp pp_diff fmt t =

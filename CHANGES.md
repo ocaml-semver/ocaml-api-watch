@@ -4,6 +4,7 @@
 
 - Add detection of modified type declarations
 (#92, @azzsal) 
+- Add support for module_type declarations (#93, @NchamJosephMuam)
 
 ### Changed
 
