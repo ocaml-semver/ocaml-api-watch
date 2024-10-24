@@ -63,11 +63,34 @@ let process_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name to_lines =
   | Modified { reference; current } ->
       [ { orig = to_lines name reference; new_ = to_lines name current } ]
 
+let cd_to_lines name cd =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  Printtyp.class_declaration (Ident.create_local name) formatter cd;
+  Format.pp_print_flush formatter ();
+  let class_str = "class " ^ name ^ ": " ^ Buffer.contents buf in
+  CCString.lines class_str
+
 let process_value_diff (val_diff : Diff.value) =
   process_diff val_diff.vdiff val_diff.vname vd_to_lines
 
 let process_type_diff (type_diff : Diff.type_) =
-  process_diff type_diff.tdiff type_diff.tname td_to_lines
+  match type_diff.tdiff with
+  | Added td -> [ { orig = []; new_ = td_to_lines type_diff.tname td } ]
+  | Removed td -> [ { orig = td_to_lines type_diff.tname td; new_ = [] } ]
+  | Modified { reference; current } ->
+      [
+        {
+          orig = td_to_lines type_diff.tname reference;
+          new_ = td_to_lines type_diff.tname current;
+        };
+      ]
+
+let process_class_diff (class_diff : Diff.class_) =
+  match class_diff.cdiff with
+  | Added cd -> [ { orig = []; new_ = cd_to_lines class_diff.cname cd } ]
+  | Removed cd -> [ { orig = cd_to_lines class_diff.cname cd; new_ = [] } ]
+  | Modified _ -> []
 
 let rec process_sig_diff :
     type a. _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
@@ -111,6 +134,12 @@ and signature_changes module_path items acc =
             acc'
       | Type type_diff ->
           let diff = process_type_diff type_diff in
+          String_map.update module_path
+            (function
+              | None -> Some diff | Some existing -> Some (existing @ diff))
+            acc'
+      | Class class_diff ->
+          let diff = process_class_diff class_diff in
           String_map.update module_path
             (function
               | None -> Some diff | Some existing -> Some (existing @ diff))
