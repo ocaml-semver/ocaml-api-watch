@@ -43,25 +43,6 @@ and sig_item =
   | Modtype of modtype
   | Class of class_
 
-type item_type =
-  | Value_item
-  | Module_item
-  | Type_item
-  | Modtype_item
-  | Class_item
-[@@deriving ord]
-
-type sig_items =
-  | Val of value_description
-  | Mod of module_declaration
-  | Typ of type_declaration * Ident.t
-  | Modtype of modtype_declaration
-  | Cls of class_declaration
-
-module Sig_item_map = Map.Make (struct
-  type t = item_type * string [@@deriving ord]
-end)
-
 let extract_items items =
   List.fold_left
     (fun tbl item ->
@@ -77,8 +58,8 @@ let extract_items items =
       | Sig_type (id, type_decl, _, _) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
             (type_decl, id) tbl
-      | Sig_class (id, cls_desc, _, _) ->
-          Sig_item_map.add (Class_item, Ident.name id) (Cls cls_desc) tbl
+      | Sig_class (id, cls_decl, _, _) ->
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
       | _ -> tbl)
     Sig_item_map.empty items
 
@@ -138,36 +119,29 @@ let value_item ~typing_env ~name ~reference ~current =
       | exception Includecore.Dont_match _ ->
           Some (Value { vname = name; vdiff = Modified { reference; current } })
       )
-  | _ -> None
 
-let class_item ~name ~reference ~current =
+let class_item ~name ~(reference : class_declaration option)
+    ~(current : class_declaration option) =
   match (reference, current) with
   | None, None -> None
-  | None, Some (Cls current) ->
-      Some (Class { cname = name; cdiff = Added current })
-  | Some (Cls reference), None ->
-      Some (Class { cname = name; cdiff = Removed reference })
-  | Some (Cls _), Some (Cls _) -> None
-  | _ -> None
+  | None, Some curr_cls -> Some (Class { cname = name; cdiff = Added curr_cls })
+  | Some ref_cls, None -> Some (Class { cname = name; cdiff = Removed ref_cls })
+  | Some _, Some _ -> None
 
 let rec items ~reference ~current =
   let env = Typing_env.for_diff ~reference ~current in
   let ref_items = extract_items reference in
   let curr_items = extract_items current in
-  Sig_item_map.merge
-    (fun (item_type, name) ref_opt curr_opt ->
-      match (item_type, ref_opt, curr_opt) with
-      | Value_item, reference, current ->
-          value_item ~typing_env:env ~name ~reference ~current
-      | Module_item, reference, current ->
-          module_item ~typing_env:env ~name ~reference ~current
-      | Type_item, reference, current ->
-          type_item ~typing_env:env ~name ~reference ~current
-      | Modtype_item, reference, current ->
-          module_type_item ~typing_env:env ~name ~reference ~current
-      | Class_item, reference, current -> class_item ~name ~reference ~current)
-    ref_items curr_items
-  |> Sig_item_map.bindings |> List.map snd
+  let diff_item : type a. (a, 'diff) Sig_item_map.diff_item =
+   fun item_type name reference current ->
+    match item_type with
+    | Value -> value_item ~typing_env:env ~name ~reference ~current
+    | Module -> module_item ~typing_env:env ~name ~reference ~current
+    | Modtype -> module_type_item ~typing_env:env ~name ~reference ~current
+    | Type -> type_item ~typing_env:env ~name ~reference ~current
+    | Class -> class_item ~name ~reference ~current
+  in
+  Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 
 and module_item ~typing_env ~name ~(reference : module_declaration option)
     ~(current : module_declaration option) =

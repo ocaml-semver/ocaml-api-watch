@@ -56,19 +56,12 @@ let mtd_to_lines name mtd =
       let abstract_module_type_str = "module type " ^ name in
       CCString.lines abstract_module_type_str
 
-let process_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name to_lines =
-  match diff with
-  | Added item -> [ { orig = []; new_ = to_lines name item } ]
-  | Removed item -> [ { orig = to_lines name item; new_ = [] } ]
-  | Modified { reference; current } ->
-      [ { orig = to_lines name reference; new_ = to_lines name current } ]
-
 let cd_to_lines name cd =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
   Printtyp.class_declaration (Ident.create_local name) formatter cd;
   Format.pp_print_flush formatter ();
-  let class_str = "class " ^ name ^ ": " ^ Buffer.contents buf in
+  let class_str = Buffer.contents buf in
   CCString.lines class_str
 
 let process_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name to_lines =

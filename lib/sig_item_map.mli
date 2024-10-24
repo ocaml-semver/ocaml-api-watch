@@ -7,6 +7,7 @@ type _ item_type =
   | Module : module_declaration item_type
   | Modtype : modtype_declaration item_type
   | Type : (type_declaration * Ident.t) item_type
+  | Class : class_declaration item_type
 
 val empty : t
 val add : name:string -> 'a item_type -> 'a -> t -> t
