@@ -8,6 +8,8 @@
 
 ### Changed
 
+- Abstracted Sig_item_map into is own module (#98, @azzsal)
+
 ### Deprecated
 
 ### Fixed
