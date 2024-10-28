@@ -38,18 +38,28 @@ and sig_item =
 let extract_items items =
   List.fold_left
     (fun tbl item ->
+      let visibility = Types.item_visibility item in
       match item with
       | Sig_module (id, _, mod_decl, _, _) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
-            tbl
+          if visibility = Types.Hidden then tbl
+          else
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
+              tbl
       | Sig_modtype (id, mtd_decl, _) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Modtype mtd_decl
-            tbl
+          if visibility = Types.Hidden then tbl
+          else
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Modtype mtd_decl
+              tbl
       | Sig_value (id, val_des, _) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl
+          if visibility = Types.Hidden then tbl
+          else
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des
+              tbl
       | Sig_type (id, type_decl, _, _) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
-            (type_decl, id) tbl
+          if visibility = Types.Hidden then tbl
+          else
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
+              (type_decl, id) tbl
       | _ -> tbl)
     Sig_item_map.empty items
 
