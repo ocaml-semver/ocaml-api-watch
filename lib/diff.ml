@@ -17,6 +17,13 @@ type type_ = {
   tdiff : (type_declaration, type_declaration atomic_modification) t;
 }
 
+type class_modification = Unsupported
+
+and class_ = {
+  cname : string;
+  cdiff : (class_declaration, class_modification) t;
+}
+
 type module_ = {
   mname : string;
   mdiff : (module_declaration, signature_modification) t;
@@ -34,6 +41,7 @@ and sig_item =
   | Module of module_
   | Type of type_
   | Modtype of modtype
+  | Class of class_
 
 let extract_items items =
   List.fold_left
@@ -50,6 +58,8 @@ let extract_items items =
       | Sig_type (id, type_decl, _, _) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
             (type_decl, id) tbl
+      | Sig_class (id, cls_decl, _, _) ->
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
       | _ -> tbl)
     Sig_item_map.empty items
 
@@ -110,6 +120,14 @@ let value_item ~typing_env ~name ~reference ~current =
           Some (Value { vname = name; vdiff = Modified { reference; current } })
       )
 
+let class_item ~name ~(reference : class_declaration option)
+    ~(current : class_declaration option) =
+  match (reference, current) with
+  | None, None -> None
+  | None, Some curr_cls -> Some (Class { cname = name; cdiff = Added curr_cls })
+  | Some ref_cls, None -> Some (Class { cname = name; cdiff = Removed ref_cls })
+  | Some _, Some _ -> None
+
 let rec items ~reference ~current =
   let env = Typing_env.for_diff ~reference ~current in
   let ref_items = extract_items reference in
@@ -121,6 +139,7 @@ let rec items ~reference ~current =
     | Module -> module_item ~typing_env:env ~name ~reference ~current
     | Modtype -> module_type_item ~typing_env:env ~name ~reference ~current
     | Type -> type_item ~typing_env:env ~name ~reference ~current
+    | Class -> class_item ~name ~reference ~current
   in
   Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 
