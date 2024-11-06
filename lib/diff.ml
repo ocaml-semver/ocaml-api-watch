@@ -39,7 +39,7 @@ let extract_items items =
   List.fold_left
     (fun tbl item ->
       match item with
-      | Sig_module (id, _, mod_decl, _, Types.Exported) ->
+      | Sig_module (id, _, mod_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
             tbl
       | Sig_modtype (id, mtd_decl, Types.Exported) ->
