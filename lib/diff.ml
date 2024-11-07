@@ -42,12 +42,12 @@ let extract_items items =
       | Sig_module (id, _, mod_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
             tbl
-      | Sig_modtype (id, mtd_decl, Types.Exported) ->
+      | Sig_modtype (id, mtd_decl, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Modtype mtd_decl
             tbl
-      | Sig_value (id, val_des, Types.Exported) ->
+      | Sig_value (id, val_des, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl
-      | Sig_type (id, type_decl, _, Types.Exported) ->
+      | Sig_type (id, type_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
             (type_decl, id) tbl
       | _ -> tbl)
