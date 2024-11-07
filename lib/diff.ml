@@ -58,7 +58,7 @@ let extract_items items =
       | Sig_type (id, type_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
             (type_decl, id) tbl
-      | Sig_class (id, cls_decl, _, _) ->
+      | Sig_class (id, cls_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
       | _ -> tbl)
     Sig_item_map.empty items
