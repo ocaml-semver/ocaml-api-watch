@@ -5,13 +5,14 @@
 - Add detection of modified type declarations (#92, @azzsal)
 - Add detection of module_type declarations changes (#93, @NchamJosephMuam)
 - Add detection of classes addition and removal (#90, @marcndo)
-- Add checks for hidden values (#102, @NchamJosephMuam)
 
 ### Changed
 
 ### Deprecated
 
 ### Fixed
+
+- Ignore hidden signature items (#102, @NchamJosephMuam)
 
 ### Removed
 
