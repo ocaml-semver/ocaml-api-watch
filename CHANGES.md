@@ -12,6 +12,8 @@
 
 ### Fixed
 
+- Ignore hidden signature items (#102, @NchamJosephMuam)
+
 ### Removed
 
 ### Security
