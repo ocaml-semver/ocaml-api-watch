@@ -5,7 +5,7 @@
 - Add detection of type declarations changes (#92, @azzsal)
 - Add detection of module_type declarations changes (#93, @NchamJosephMuam)
 - Add detection of classes addition and removal (#90, @marcndo)
-- Add detection of addition and removal of class type declarations (#92, @azzsal)
+- Add detection of addition and removal of class type declarations (#103, @azzsal)
 
 ### Changed
 
