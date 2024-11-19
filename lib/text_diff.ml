@@ -64,6 +64,14 @@ let cd_to_lines name cd =
   let class_str = Buffer.contents buf in
   CCString.lines class_str
 
+let ctd_to_lines name cd =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  Printtyp.cltype_declaration (Ident.create_local name) formatter cd;
+  Format.pp_print_flush formatter ();
+  let class_str = Buffer.contents buf in
+  CCString.lines class_str
+
 let process_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name to_lines =
   match diff with
   | Added item -> [ { orig = []; new_ = to_lines name item } ]
@@ -81,6 +89,14 @@ let process_class_diff (class_diff : Diff.class_) =
   match class_diff.cdiff with
   | Added cd -> [ { orig = []; new_ = cd_to_lines class_diff.cname cd } ]
   | Removed cd -> [ { orig = cd_to_lines class_diff.cname cd; new_ = [] } ]
+  | Modified _ -> []
+
+let process_class_type_diff (class_type_diff : Diff.cltype) =
+  match class_type_diff.ctdiff with
+  | Added ctd ->
+      [ { orig = []; new_ = ctd_to_lines class_type_diff.ctname ctd } ]
+  | Removed ctd ->
+      [ { orig = ctd_to_lines class_type_diff.ctname ctd; new_ = [] } ]
   | Modified _ -> []
 
 let rec process_sig_diff :
@@ -131,6 +147,12 @@ and signature_changes module_path items acc =
             acc'
       | Class class_diff ->
           let diff = process_class_diff class_diff in
+          String_map.update module_path
+            (function
+              | None -> Some diff | Some existing -> Some (existing @ diff))
+            acc'
+      | Classtype class_type_diff ->
+          let diff = process_class_type_diff class_type_diff in
           String_map.update module_path
             (function
               | None -> Some diff | Some existing -> Some (existing @ diff))

@@ -35,9 +35,10 @@ let%expect_test "Class Addition" =
     Format.printf "%a" pp_diff_option result;
     [%expect
       {|
-    Some (Module Main: {Modified (Supported [ Type (cls3, Added);
-    Class (cls3, Added)])})
-    |}]
+      Some (Module Main: {Modified (Supported [ Type (cls3, Added);
+      Class (cls3, Added);
+      Class_type (cls3, Added)])})
+      |}]
   with e ->
     Format.printf "Error: %s" (Printexc.to_string e);
     [%expect.unreachable]
@@ -69,7 +70,8 @@ let%expect_test "Class Removal" =
     [%expect
       {|
     Some (Module Main: {Modified (Supported [ Type (cls2, Removed);
-    Class (cls2, Removed)])})
+    Class (cls2, Removed);
+    Class_type (cls2, Removed)])})
     |}]
   with e ->
     Format.printf "Error: %s" (Printexc.to_string e);

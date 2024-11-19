@@ -7,12 +7,19 @@ type value = {
     (Types.value_description, Types.value_description atomic_modification) t;
 }
 
-type class_ = {
+type class_modification = Unsupported
+
+and class_ = {
   cname : string;
   cdiff : (Types.class_declaration, class_modification) t;
 }
 
-and class_modification = Unsupported
+type class_type_modification = Unsupported
+
+and cltype = {
+  ctname : string;
+  ctdiff : (Types.class_type_declaration, class_type_modification) t;
+}
 
 type type_ = {
   tname : string;
@@ -37,6 +44,7 @@ and sig_item =
   | Type of type_
   | Modtype of modtype
   | Class of class_
+  | Classtype of cltype
 
 val interface :
   module_name:string ->

@@ -24,6 +24,13 @@ and class_ = {
   cdiff : (class_declaration, class_modification) t;
 }
 
+type class_type_modification = Unsupported
+
+and cltype = {
+  ctname : string;
+  ctdiff : (class_type_declaration, class_type_modification) t;
+}
+
 type module_ = {
   mname : string;
   mdiff : (module_declaration, signature_modification) t;
@@ -42,6 +49,7 @@ and sig_item =
   | Type of type_
   | Modtype of modtype
   | Class of class_
+  | Classtype of cltype
 
 let extract_items items =
   List.fold_left
@@ -60,6 +68,9 @@ let extract_items items =
             (type_decl, id) tbl
       | Sig_class (id, cls_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
+      | Sig_class_type (id, class_type_decl, _, Exported) ->
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Classtype
+            class_type_decl tbl
       | _ -> tbl)
     Sig_item_map.empty items
 
@@ -128,6 +139,16 @@ let class_item ~name ~(reference : class_declaration option)
   | Some ref_cls, None -> Some (Class { cname = name; cdiff = Removed ref_cls })
   | Some _, Some _ -> None
 
+let class_type_item ~name ~(reference : class_type_declaration option)
+    ~(current : class_type_declaration option) =
+  match (reference, current) with
+  | None, None -> None
+  | None, Some curr_class_type ->
+      Some (Classtype { ctname = name; ctdiff = Added curr_class_type })
+  | Some ref_class_type, None ->
+      Some (Classtype { ctname = name; ctdiff = Removed ref_class_type })
+  | Some _, Some _ -> None
+
 let rec items ~reference ~current =
   let env = Typing_env.for_diff ~reference ~current in
   let ref_items = extract_items reference in
@@ -140,6 +161,7 @@ let rec items ~reference ~current =
     | Modtype -> module_type_item ~typing_env:env ~name ~reference ~current
     | Type -> type_item ~typing_env:env ~name ~reference ~current
     | Class -> class_item ~name ~reference ~current
+    | Classtype -> class_type_item ~name ~reference ~current
   in
   Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 
