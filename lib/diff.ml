@@ -19,14 +19,14 @@ type type_ = {
 
 type class_modification = Unsupported
 
-and class_ = {
+type class_ = {
   cname : string;
   cdiff : (class_declaration, class_modification) t;
 }
 
 type class_type_modification = Unsupported
 
-and cltype = {
+type cltype = {
   ctname : string;
   ctdiff : (class_type_declaration, class_type_modification) t;
 }
