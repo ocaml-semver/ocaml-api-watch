@@ -34,6 +34,7 @@ Run api-diff and check the output
   diff module Add_class:
   +type add_class = < calculate : float -> float >
   +class add_class : object method calculate : float -> float end
+  +class type add_class = object method calculate : float -> float end
   
   [1]
 
@@ -51,5 +52,6 @@ Run api-diff and check the output
   diff module Remove_class:
   -type ref_class = < get : int; set : int -> unit >
   -class ref_class : object method get : int method set : int -> unit end
+  -class type ref_class = object method get : int method set : int -> unit end
   
   [1]

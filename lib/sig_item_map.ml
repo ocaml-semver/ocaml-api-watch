@@ -6,6 +6,7 @@ type t = {
   modtypes_map : modtype_declaration String_map.t;
   types_map : (type_declaration * Ident.t) String_map.t;
   class_map : class_declaration String_map.t;
+  class_type_map : class_type_declaration String_map.t;
 }
 
 type _ item_type =
@@ -14,6 +15,7 @@ type _ item_type =
   | Modtype : modtype_declaration item_type
   | Type : (type_declaration * Ident.t) item_type
   | Class : class_declaration item_type
+  | Classtype : class_type_declaration item_type
 
 let empty : t =
   {
@@ -22,6 +24,7 @@ let empty : t =
     modtypes_map = String_map.empty;
     types_map = String_map.empty;
     class_map = String_map.empty;
+    class_type_map = String_map.empty;
   }
 
 let add (type a) ~name (item_type : a item_type) (item : a) maps : t =
@@ -33,6 +36,11 @@ let add (type a) ~name (item_type : a item_type) (item : a) maps : t =
       { maps with modtypes_map = String_map.add name item maps.modtypes_map }
   | Type -> { maps with types_map = String_map.add name item maps.types_map }
   | Class -> { maps with class_map = String_map.add name item maps.class_map }
+  | Classtype ->
+      {
+        maps with
+        class_type_map = String_map.add name item maps.class_type_map;
+      }
 
 type ('a, 'diff) diff_item =
   'a item_type -> string -> 'a option -> 'a option -> 'diff option
@@ -70,4 +78,11 @@ let diff ~diff_item:{ diff_item } ref_maps curr_maps : 'diff list =
       ref_maps.class_map curr_maps.class_map
     |> String_map.bindings |> List.map snd
   in
+  let class_type_diffs =
+    String_map.merge
+      (fun name ref_opt curr_opt -> diff_item Classtype name ref_opt curr_opt)
+      ref_maps.class_type_map curr_maps.class_type_map
+    |> String_map.bindings |> List.map snd
+  in
   value_diffs @ module_diffs @ modtype_diffs @ type_diffs @ class_diffs
+  @ class_type_diffs
