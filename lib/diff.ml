@@ -64,13 +64,21 @@ let extract_items items =
       | Sig_value (id, val_des, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl
       | Sig_type (id, type_decl, _, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
-            (type_decl, id) tbl
+          if
+            Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl
+            || Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Classtype tbl
+          then tbl
+          else
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
+              (type_decl, id) tbl
       | Sig_class (id, cls_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
       | Sig_class_type (id, class_type_decl, _, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Classtype
-            class_type_decl tbl
+          if Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl then
+            tbl
+          else
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Classtype
+              class_type_decl tbl
       | _ -> tbl)
     Sig_item_map.empty items
 
