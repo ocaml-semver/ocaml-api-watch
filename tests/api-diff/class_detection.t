@@ -32,9 +32,7 @@ Compile the new .mli file to a .cmi file
 Run api-diff and check the output
   $ api-diff ref_class.cmi add_class.cmi
   diff module Add_class:
-  +type add_class = < calculate : float -> float >
   +class add_class : object method calculate : float -> float end
-  +class type add_class = object method calculate : float -> float end
   
   [1]
 
@@ -50,8 +48,6 @@ Compile the new .mli file to a .cmi file
 Run api-diff and check the output
   $ api-diff ref_class.cmi remove_class.cmi
   diff module Remove_class:
-  -type ref_class = < get : int; set : int -> unit >
   -class ref_class : object method get : int method set : int -> unit end
-  -class type ref_class = object method get : int method set : int -> unit end
   
   [1]
