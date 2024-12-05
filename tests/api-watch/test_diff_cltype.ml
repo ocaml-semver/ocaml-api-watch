@@ -16,10 +16,7 @@ let%expect_test "Class type addition" =
   let result = Diff.interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_option result;
   [%expect
-    {|
-      Some (Module Main: {Modified (Supported [ Type (cltype, Added);
-      Class_type (cltype, Added)])})
-    |}]
+    {| Some (Module Main: {Modified (Supported [ Class_type (cltype, Added)])}) |}]
 
 let%expect_test "Class type removal" =
   let reference =
@@ -36,7 +33,4 @@ let%expect_test "Class type removal" =
   let result = Diff.interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_option result;
   [%expect
-    {|
-        Some (Module Main: {Modified (Supported [ Type (cltype, Removed);
-        Class_type (cltype, Removed)])})
-      |}]
+    {| Some (Module Main: {Modified (Supported [ Class_type (cltype, Removed)])}) |}]
