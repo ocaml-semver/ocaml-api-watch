@@ -42,18 +42,6 @@ let add (type a) ~name (item_type : a item_type) (item : a) maps : t =
         class_type_map = String_map.add name item maps.class_type_map;
       }
 
-let remove (type a) ~name (item_type : a item_type) maps : t =
-  match item_type with
-  | Value -> { maps with values_map = String_map.remove name maps.values_map }
-  | Module ->
-      { maps with modules_map = String_map.remove name maps.modules_map }
-  | Modtype ->
-      { maps with modtypes_map = String_map.remove name maps.modtypes_map }
-  | Type -> { maps with types_map = String_map.remove name maps.types_map }
-  | Class -> { maps with class_map = String_map.remove name maps.class_map }
-  | Classtype ->
-      { maps with class_type_map = String_map.remove name maps.class_type_map }
-
 let has (type a) ~name (item_type : a item_type) maps : bool =
   match item_type with
   | Value -> String_map.mem name maps.values_map
