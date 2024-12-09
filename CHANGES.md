@@ -14,6 +14,7 @@
 ### Fixed
 
 - Ignore hidden signature items (#102, @NchamJosephMuam)
+- Remove duplicate items in class and class types
 
 ### Removed
 
