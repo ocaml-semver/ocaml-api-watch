@@ -42,6 +42,15 @@ let add (type a) ~name (item_type : a item_type) (item : a) maps : t =
         class_type_map = String_map.add name item maps.class_type_map;
       }
 
+let has (type a) ~name (item_type : a item_type) maps : bool =
+  match item_type with
+  | Value -> String_map.mem name maps.values_map
+  | Module -> String_map.mem name maps.modules_map
+  | Modtype -> String_map.mem name maps.modtypes_map
+  | Type -> String_map.mem name maps.types_map
+  | Class -> String_map.mem name maps.class_map
+  | Classtype -> String_map.mem name maps.class_type_map
+
 type ('a, 'diff) diff_item =
   'a item_type -> string -> 'a option -> 'a option -> 'diff option
 

@@ -12,6 +12,7 @@ type _ item_type =
 
 val empty : t
 val add : name:string -> 'a item_type -> 'a -> t -> t
+val has : name:string -> 'a item_type -> t -> bool
 
 type ('a, 'diff) diff_item =
   'a item_type -> string -> 'a option -> 'a option -> 'diff option
