@@ -33,7 +33,6 @@ Compile the new .mli file to a .cmi file
 Run api-diff and check the output
   $ api-diff ref_cltype.cmi add_cltype.cmi
   diff module Add_cltype:
-  +type new_cltype = < mk : int -> unit; mn : int -> int >
   +class type new_cltype =
   +  object method mk : int -> unit method mn : int -> int end
   
@@ -51,7 +50,6 @@ Compile the new .mli file to a .cmi file
 Run api-diff and check the output
   $ api-diff ref_cltype.cmi remove_cltype.cmi
   diff module Remove_cltype:
-  -type ref_cltype = < m1 : string; m2 : string -> unit >
   -class type ref_cltype =
   -  object method m1 : string method m2 : string -> unit end
   
