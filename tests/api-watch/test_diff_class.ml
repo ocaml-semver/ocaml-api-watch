@@ -68,3 +68,27 @@ let%expect_test "Class Removal" =
   with e ->
     Format.printf "Error: %s" (Printexc.to_string e);
     [%expect.unreachable]
+
+let%expect_test "Class Modification" =
+  let reference =
+    compile_interface
+      {|
+      class cls1 : object 
+        method m1: int -> int
+        method m2: int -> char
+      end 
+  |}
+  in
+  let current =
+    compile_interface
+      {|
+      class cls1 : object 
+        method m2: float -> float
+        method m3: char -> char
+      end 
+  |}
+  in
+  let result = Diff.interface ~module_name:"Main" ~reference ~current in
+  Format.printf "%a" pp_diff_option result;
+  [%expect
+    {| Some (Module Main: {Modified (Supported [ Class (cls1, Modified)])}) |}]

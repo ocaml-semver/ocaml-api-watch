@@ -138,19 +138,11 @@ and process_changed_labels (lbls_diffs : Diff.record_field list) =
        lbls_diffs)
 
 let process_class_diff (class_diff : Diff.class_) =
-  match class_diff.cdiff with
-  | Added cd -> [ Change { orig = []; new_ = cd_to_lines class_diff.cname cd } ]
-  | Removed cd ->
-      [ Change { orig = cd_to_lines class_diff.cname cd; new_ = [] } ]
-  | Modified _ -> []
+  process_atomic_diff class_diff.cdiff class_diff.cname cd_to_lines
+
 
 let process_class_type_diff (class_type_diff : Diff.cltype) =
-  match class_type_diff.ctdiff with
-  | Added ctd ->
-      [ Change { orig = []; new_ = ctd_to_lines class_type_diff.ctname ctd } ]
-  | Removed ctd ->
-      [ Change { orig = ctd_to_lines class_type_diff.ctname ctd; new_ = [] } ]
-  | Modified _ -> []
+  process_atomic_diff class_type_diff.ctdiff class_type_diff.ctname ctd_to_lines
 
 let rec process_sig_diff :
     type a. _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =

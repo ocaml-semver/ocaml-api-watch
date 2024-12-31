@@ -54,3 +54,27 @@ Run api-diff and check the output
   -  object method m1 : string method m2 : string -> unit end
   
   [1]
+
+### Modifing a class type:
+
+  $ cat > modify_cltype.mli << EOF
+  > class type ref_cltype = object
+  >   method m2 : float -> unit
+  >   method m3 : int -> float
+  > end
+  > EOF
+
+We generate a .cmi file
+
+  $ ocamlc modify_cltype.mli
+
+Run api-watcher on the two cmi files, there should be a difference
+
+  $ api-diff ref_cltype.cmi modify_cltype.cmi
+  diff module Modify_cltype:
+  -class type ref_cltype =
+  -  object method m1 : string method m2 : string -> unit end
+  +class type ref_cltype =
+  +  object method m2 : float -> unit method m3 : int -> float end
+  
+  [1]
