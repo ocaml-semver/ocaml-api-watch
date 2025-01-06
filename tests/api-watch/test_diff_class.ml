@@ -108,7 +108,7 @@ let%expect_test "Class Modification" =
       {|
       class cls1 : object 
         method m1: int -> int
-        method m2: int -> char
+        method m2: char -> int
         method m3: string -> string
       end 
   |}
