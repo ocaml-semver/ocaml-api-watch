@@ -2,23 +2,42 @@ let tool_name = "api-diff"
 
 type mode = Unwrapped | Wrapped of string | Cmi
 
-let rec mode ~reference ~current ~main_module ~unwrapped =
-  match (both_directories reference current, main_module, unwrapped) with
-  | Ok true, Some main_module, false -> Ok (Wrapped main_module)
-  | Ok true, None, true -> Ok Unwrapped
-  | Ok false, None, false -> Ok Cmi
-  | _ ->
-      Error
-        "Inconsistent arguments. Either --main-module, --unwrapped-library or \
-         two single $(b,.cmi) files should be provided."
-
-and both_directories reference current =
+let both_directories reference current =
   match (Sys.is_directory reference, Sys.is_directory current) with
   | true, true -> Ok true
   | false, false -> Ok false
   | _ ->
       Error
         "Arguments must either both be directories or both single .cmi files."
+
+let mode ~reference ~current ~main_module ~unwrapped =
+  match (both_directories reference current, main_module, unwrapped) with
+  | Ok true, Some main_module, false -> Ok (Wrapped main_module)
+  | Ok true, None, true -> Ok Unwrapped
+  | Ok false, main_module, unwrapped -> (
+      match (main_module, unwrapped) with
+      | None, false -> Ok Cmi
+      | Some _, false ->
+          Printf.eprintf
+            "%s: --main-module is ignored when diffing single .cmi files\n"
+            tool_name;
+          Ok Cmi
+      | None, true ->
+          Printf.eprintf
+            "%s: --unwrapped is ignored when diffing single .cmi files\n"
+            tool_name;
+          Ok Cmi
+      | Some _, true ->
+          Printf.eprintf
+            "%s: --main-module and --unwrapped are ignored when diffing single \
+             .cmi files\n"
+            tool_name;
+          Ok Cmi)
+  | (Error _ as e), _, _ -> e
+  | Ok true, _, _ ->
+      Error
+        "Either --main-module or --unwrapped must be provided when diffing \
+         entire libraries."
 
 let run (`Main_module main_module) (`Unwrapped_library unwrapped)
     (`Ref_cmi reference) (`Current_cmi current) =
