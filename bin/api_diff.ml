@@ -1,55 +1,42 @@
 let tool_name = "api-diff"
 
+type mode = Unwrapped | Wrapped of string | Cmi
+
+let rec mode ~reference ~current ~main_module ~unwrapped =
+  match (both_directories reference current, main_module, unwrapped) with
+  | Ok true, Some main_module, false -> Ok (Wrapped main_module)
+  | Ok true, None, true -> Ok Unwrapped
+  | Ok false, None, false -> Ok Cmi
+  | _ ->
+      Error
+        "Inconsistent arguments. Either --main-module, --unwrapped-library or \
+         two single $(b,.cmi) files should be provided."
+
+and both_directories reference current =
+  match (Sys.is_directory reference, Sys.is_directory current) with
+  | true, true -> Ok true
+  | false, false -> Ok false
+  | _ ->
+      Error
+        "Arguments must either both be directories or both single .cmi files."
+
 let run (`Main_module main_module) (`Unwrapped_library unwrapped)
     (`Ref_cmi reference) (`Current_cmi current) =
   let open CCResult.Infix in
   let* reference_sig, current_sig, module_name =
-    match
-      ( Sys.is_directory reference,
-        Sys.is_directory current,
-        main_module,
-        unwrapped )
-    with
-    | true, true, Some main_module, false ->
+    let* curr_mode = mode ~reference ~current ~main_module ~unwrapped in
+    match curr_mode with
+    | Wrapped main_module ->
         let main_module = String.capitalize_ascii main_module in
         let+ reference_sig = Api_watch.Library.load ~main_module reference
         and+ current_sig = Api_watch.Library.load ~main_module current in
         let module_name = String.capitalize_ascii main_module in
         (reference_sig, current_sig, module_name)
-    | true, true, Some _, true ->
-        Error
-          "--main-module and --unwrapped-library cannot be specidifed both \
-           together"
-    | false, false, main_module, unwrapped ->
-        let () =
-          match (main_module, unwrapped) with
-          | None, false -> ()
-          | None, true ->
-              Printf.eprintf
-                "%s: --unwrapped is ignored when diffing single .cmi files\n"
-                tool_name
-          | Some _, false ->
-              Printf.eprintf
-                "%s: --main-module is ignored when diffing single .cmi files\n"
-                tool_name
-          | Some _, true ->
-              Printf.eprintf
-                "%s: --main-module and --unwrapped are ignored when diffing \
-                 single .cmi files\n"
-                tool_name
-        in
+    | Unwrapped -> failwith "TODO: Call Api_watch.Library.load_unwrapped"
+    | Cmi ->
         let+ reference_cmi, _ = Api_watch.Library.load_cmi reference
         and+ current_cmi, module_name = Api_watch.Library.load_cmi current in
         (reference_cmi, current_cmi, module_name)
-    | true, false, _, _ | false, true, _, _ ->
-        Error
-          "Arguments must either both be directories or both single .cmi files."
-    | true, true, None, false ->
-        Error
-          "--main-module or --unwrapped must be provided when diffing entire \
-           libraries."
-    | true, true, None, true ->
-        failwith "TODO: Call Api_watch.Library.load_unwrapped"
   in
   let diff =
     Api_watch.Diff.interface ~module_name ~reference:reference_sig
