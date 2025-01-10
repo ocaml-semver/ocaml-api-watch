@@ -12,11 +12,16 @@ type value = {
   vdiff : (value_description, value_description atomic_modification) t;
 }
 
-type type_ = {
-  tname : string;
-  tdiff : (type_declaration, type_declaration atomic_modification) t;
-}
+type type_modification =
+  | Record of record_modification list
+  | Any of type_declaration atomic_modification
 
+and record_modification =
+  | Added of Ident.t * type_expr
+  | Removed of Ident.t * type_expr
+  | Modified of Ident.t * type_expr * type_expr
+
+type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
 type class_modification = Unsupported
 
 type class_ = {
@@ -95,7 +100,7 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
   | exception Includemod.Error _ ->
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
-let type_item ~typing_env ~name ~reference ~current =
+let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
   | Some (reference, _), None ->
@@ -113,8 +118,45 @@ let type_item ~typing_env ~name ~reference ~current =
       in
       match (type_coercion1 (), type_coercion2 ()) with
       | None, None -> None
-      | _, _ ->
-          Some (Type { tname = name; tdiff = Modified { reference; current } }))
+      | _, _ -> (
+          match (reference.type_kind, current.type_kind) with
+          | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) ->
+              Some
+                (Type
+                   {
+                     tname = name;
+                     tdiff =
+                       Modified
+                         (Record
+                            (modified_record_type ~ref_label_lst ~cur_label_lst));
+                   })
+          | _, _ ->
+              Some
+                (Type
+                   {
+                     tname = name;
+                     tdiff = Modified (Any { reference; current });
+                   })))
+
+and modified_record_type ~ref_label_lst ~cur_label_lst =
+  let ref_lbls = extract_lbls ref_label_lst in
+  let curr_lbls = extract_lbls cur_label_lst in
+  String_map.merge
+    (fun _ ref_lbl_opt cur_lbl_opt ->
+      match (ref_lbl_opt, cur_lbl_opt) with
+      | None, None -> None
+      | Some ref_lbl, None -> Some (Removed (ref_lbl.ld_id, ref_lbl.ld_type))
+      | None, Some cur_lbl -> Some (Added (cur_lbl.ld_id, cur_lbl.ld_type))
+      | Some ref_lbl, Some cur_lbl ->
+          if ref_lbl.ld_type = cur_lbl.ld_type then None
+          else Some (Modified (ref_lbl.ld_id, ref_lbl.ld_type, cur_lbl.ld_type)))
+    ref_lbls curr_lbls
+  |> String_map.bindings |> List.map snd
+
+and extract_lbls lbls =
+  List.fold_left
+    (fun map lbl -> String_map.add (Ident.name lbl.ld_id) lbl map)
+    String_map.empty lbls
 
 let value_item ~typing_env ~name ~reference ~current =
   match (reference, current) with

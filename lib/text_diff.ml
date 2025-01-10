@@ -82,8 +82,18 @@ let process_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name to_lines =
 let process_value_diff (val_diff : Diff.value) =
   process_diff val_diff.vdiff val_diff.vname vd_to_lines
 
-let process_type_diff (type_diff : Diff.type_) =
-  process_diff type_diff.tdiff type_diff.tname td_to_lines
+exception BadTypeModification of Diff.type_modification
+
+let rec process_type_diff (type_diff : Diff.type_) =
+  let type_diff_with_atomic_mod = convert_modification type_diff.tdiff in
+  process_diff type_diff_with_atomic_mod type_diff.tname td_to_lines
+
+and convert_modification diff =
+  match diff with
+  | Diff.Modified (Record mods) -> raise (BadTypeModification (Record mods))
+  | Diff.Modified (Any mods) -> Diff.Modified mods
+  | Diff.Added td -> Diff.Added td
+  | Diff.Removed td -> Diff.Removed td
 
 let process_class_diff (class_diff : Diff.class_) =
   match class_diff.cdiff with
