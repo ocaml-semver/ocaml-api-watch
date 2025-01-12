@@ -49,7 +49,9 @@ let run (`Main_module main_module) (`Unwrapped_library unwrapped)
         let main_module = String.capitalize_ascii main_module in
         let+ reference_map = Api_watch.Library.load ~main_module reference
         and+ current_map = Api_watch.Library.load ~main_module current in
-        let reference_sig = Api_watch.String_map.find main_module reference_map in
+        let reference_sig =
+          Api_watch.String_map.find main_module reference_map
+        in
         let current_sig = Api_watch.String_map.find main_module current_map in
         let module_name = String.capitalize_ascii main_module in
         (reference_sig, current_sig, module_name)
