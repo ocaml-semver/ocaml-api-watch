@@ -4,8 +4,8 @@ type ('item, 'diff) t = Added of 'item | Removed of 'item | Modified of 'diff
 
 type 'a atomic_modification = { reference : 'a; current : 'a }
 (** The simplest diff representation for the modification of a value of type 'a.
-     [reference] is the value before and [current] is the value after the change occured.
-     Use this type when there is no better representation available. *)
+    [reference] is the value before and [current] is the value after the change
+    occured. Use this type when there is no better representation available. *)
 
 type value = {
   vname : string;
@@ -235,3 +235,55 @@ let interface ~module_name ~reference ~current =
   let typing_env = Env.empty in
   let sig_out = signatures ~typing_env ~reference ~current in
   Option.map (fun mdiff -> { mname = module_name; mdiff }) sig_out
+
+let library ~reference ~current =
+  let mod_dec_of_sig sign =
+    {
+      md_type = Mty_signature sign;
+      md_attributes = [];
+      md_loc = Location.none;
+      md_uid = Uid.internal_not_actually_unique;
+    }
+  in
+  String_map.merge
+    (fun module_name ref_sig_opt cur_sig_opt ->
+      match (ref_sig_opt, cur_sig_opt) with
+      | None, None -> None
+      | Some ref_sig, None ->
+          Some
+            (Some
+               {
+                 mname = module_name;
+                 mdiff =
+                   Modified
+                     (Supported
+                        [
+                          Module
+                            {
+                              mname = module_name;
+                              mdiff = Removed (mod_dec_of_sig ref_sig);
+                            };
+                        ]);
+               })
+      | None, Some cur_sig ->
+          Some
+            (Some
+               {
+                 mname = module_name;
+                 mdiff =
+                   Modified
+                     (Supported
+                        [
+                          Module
+                            {
+                              mname = module_name;
+                              mdiff = Added (mod_dec_of_sig cur_sig);
+                            };
+                        ]);
+               })
+      | Some ref_sig, Some cur_sig -> (
+          let module_diff =
+            interface ~module_name ~reference:ref_sig ~current:cur_sig
+          in
+          match module_diff with None -> None | Some _ -> Some module_diff))
+    reference current
