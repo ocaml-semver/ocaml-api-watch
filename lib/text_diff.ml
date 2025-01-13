@@ -1,19 +1,24 @@
 open Types
 
-type conflict2 = { orig : string list; new_ : string list }
+type change = { orig : string list; new_ : string list }
+type conflict2 = Atomic of change | Record of string * change list
 type t = conflict2 list String_map.t
 type printer = { same : string Fmt.t; diff : conflict2 Fmt.t }
 
 let printer ~same ~diff = { same; diff }
 
+let rec git_diff_printer ppf c =
+  match c with
+  | Atomic { orig; new_ } ->
+      List.iter (fun line -> Fmt.pf ppf "-%s\n" line) orig;
+      List.iter (fun line -> Fmt.pf ppf "+%s\n" line) new_
+  | Record (name, changes) ->
+      Fmt.pf ppf "*type %s = {\n" name;
+      List.iter (fun ch -> git_diff_printer ppf (Atomic ch)) changes;
+      Fmt.pf ppf "}"
+
 let git_printer =
-  {
-    same = (fun ppf -> Fmt.pf ppf " %s\n");
-    diff =
-      (fun ppf { orig; new_ } ->
-        List.iter (fun line -> Fmt.pf ppf "-%s\n" line) orig;
-        List.iter (fun line -> Fmt.pf ppf "+%s\n" line) new_);
-  }
+  { same = (fun ppf -> Fmt.pf ppf " %s\n"); diff = git_diff_printer }
 
 let pp_ diff_printer =
   let pp_dh ppf dh = match dh with c -> diff_printer.diff ppf c in
@@ -30,6 +35,13 @@ let td_to_lines name vd =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
   Printtyp.type_declaration (Ident.create_local name) formatter vd;
+  Format.pp_print_flush formatter ();
+  CCString.lines (Buffer.contents buf)
+
+let lbl_to_lines ld =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  Printtyp.label formatter ld;
   Format.pp_print_flush formatter ();
   CCString.lines (Buffer.contents buf)
 
@@ -74,58 +86,81 @@ let ctd_to_lines name cd =
 
 let process_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name to_lines =
   match diff with
-  | Added item -> [ { orig = []; new_ = to_lines name item } ]
-  | Removed item -> [ { orig = to_lines name item; new_ = [] } ]
+  | Added item -> [ Atomic { orig = []; new_ = to_lines name item } ]
+  | Removed item -> [ Atomic { orig = to_lines name item; new_ = [] } ]
   | Modified { reference; current } ->
-      [ { orig = to_lines name reference; new_ = to_lines name current } ]
+      [
+        Atomic { orig = to_lines name reference; new_ = to_lines name current };
+      ]
+
+let process_lbl_diff (diff : (_, _ Diff.atomic_modification) Diff.t) =
+  match diff with
+  | Added item -> { orig = []; new_ = lbl_to_lines item }
+  | Removed item -> { orig = lbl_to_lines item; new_ = [] }
+  | Modified { reference; current } ->
+      { orig = lbl_to_lines reference; new_ = lbl_to_lines current }
 
 let process_value_diff (val_diff : Diff.value) =
   process_diff val_diff.vdiff val_diff.vname vd_to_lines
 
-exception BadTypeModification of Diff.type_modification
+(* exception BadTypeModification of Diff.type_modification *)
 
-let rec process_type_diff (type_diff : Diff.type_) =
-  let type_diff_with_atomic_mod = convert_modification type_diff.tdiff in
-  process_diff type_diff_with_atomic_mod type_diff.tname td_to_lines
+let process_lbl_diff (lbl_diff : Diff.label_) = process_lbl_diff lbl_diff.ldiff
 
-and convert_modification diff =
-  match diff with
-  | Diff.Modified (Record mods) -> raise (BadTypeModification (Record mods))
-  | Diff.Modified (Any mods) -> Diff.Modified mods
-  | Diff.Added td -> Diff.Added td
-  | Diff.Removed td -> Diff.Removed td
+let rec process_modified_record_type_diff name diff =
+  let changes = process_labels diff in
+  [ Record (name, changes) ]
+
+and process_labels (lbls_diffs : Diff.label_ list) =
+  let rec helper x =
+    match x with
+    | [] -> []
+    | lbl_diff :: x' -> process_lbl_diff lbl_diff :: helper x'
+  in
+  helper lbls_diffs
+
+let process_type_diff (type_diff : Diff.type_) =
+  match type_diff.tdiff with
+  | Diff.Modified (Record mods) ->
+      process_modified_record_type_diff type_diff.tname mods
+  | Diff.Modified (Any mods) ->
+      process_diff (Diff.Modified mods) type_diff.tname td_to_lines
+  | Diff.Added td -> process_diff (Diff.Added td) type_diff.tname td_to_lines
+  | Diff.Removed td ->
+      process_diff (Diff.Removed td) type_diff.tname td_to_lines
 
 let process_class_diff (class_diff : Diff.class_) =
   match class_diff.cdiff with
-  | Added cd -> [ { orig = []; new_ = cd_to_lines class_diff.cname cd } ]
-  | Removed cd -> [ { orig = cd_to_lines class_diff.cname cd; new_ = [] } ]
+  | Added cd -> [ Atomic { orig = []; new_ = cd_to_lines class_diff.cname cd } ]
+  | Removed cd ->
+      [ Atomic { orig = cd_to_lines class_diff.cname cd; new_ = [] } ]
   | Modified _ -> []
 
 let process_class_type_diff (class_type_diff : Diff.cltype) =
   match class_type_diff.ctdiff with
   | Added ctd ->
-      [ { orig = []; new_ = ctd_to_lines class_type_diff.ctname ctd } ]
+      [ Atomic { orig = []; new_ = ctd_to_lines class_type_diff.ctname ctd } ]
   | Removed ctd ->
-      [ { orig = ctd_to_lines class_type_diff.ctname ctd; new_ = [] } ]
+      [ Atomic { orig = ctd_to_lines class_type_diff.ctname ctd; new_ = [] } ]
   | Modified _ -> []
 
-let rec process_sig_diff :
-    type a. _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
+let rec process_sig_diff : type a.
+    _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
  fun path to_lines ((diff : (a, _) Diff.t), name) acc ->
   match diff with
   | Added curr_mtd ->
-      let diff = [ { orig = []; new_ = to_lines name curr_mtd } ] in
+      let diff = [ Atomic { orig = []; new_ = to_lines name curr_mtd } ] in
       String_map.update path
         (function None -> Some diff | Some existing -> Some (existing @ diff))
         acc
   | Removed ref_mtd ->
-      let diff = [ { orig = to_lines name ref_mtd; new_ = [] } ] in
+      let diff = [ Atomic { orig = to_lines name ref_mtd; new_ = [] } ] in
       String_map.update path
         (function None -> Some diff | Some existing -> Some (existing @ diff))
         acc
   | Modified Diff.Unsupported ->
       String_map.add path
-        [ { orig = []; new_ = [ "<unsupported change>" ] } ]
+        [ Atomic { orig = []; new_ = [ "<unsupported change>" ] } ]
         acc
   | Modified (Supported changes) -> signature_changes path changes acc
 
@@ -210,9 +245,15 @@ module With_colors = struct
   let pp_keep fmt line = Format.fprintf fmt " %s\n" line
 
   let printer =
-    printer ~same:pp_keep ~diff:(fun fmt { orig; new_ } ->
-        List.iter (pp_remove fmt) orig;
-        List.iter (pp_add fmt) new_)
+    printer ~same:pp_keep ~diff:(fun fmt c ->
+        match c with
+        | Atomic { orig; new_ } ->
+            List.iter (pp_remove fmt) orig;
+            List.iter (pp_add fmt) new_
+        | Record (name, changes) ->
+            (pp_keep fmt) (Printf.sprintf "*type %s = {\n" name);
+            List.iter (fun ch -> git_diff_printer fmt (Atomic ch)) changes;
+            (pp_keep fmt) "}")
 
   let pp_diff fmt diff = pp_ printer fmt diff
   let pp fmt t = gen_pp pp_diff fmt t
