@@ -104,6 +104,11 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
   | exception Includemod.Error _ ->
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
+let extract_lbls lbls =
+  List.fold_left
+    (fun map lbl -> String_map.add (Ident.name lbl.ld_id) lbl map)
+    String_map.empty lbls
+
 let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
@@ -174,11 +179,6 @@ and modified_record_type ~ref_label_lst ~cur_label_lst =
     |> String_map.bindings |> List.map snd
   in
   (common_lbls, changed_lbls)
-
-and extract_lbls lbls =
-  List.fold_left
-    (fun map lbl -> String_map.add (Ident.name lbl.ld_id) lbl map)
-    String_map.empty lbls
 
 let value_item ~typing_env ~name ~reference ~current =
   match (reference, current) with

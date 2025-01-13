@@ -1,8 +1,6 @@
 (** Utilities for custom diff printing *)
 
-type conflict2
-
-type t = conflict2 list String_map.t
+type t
 (** Type for representing library interface diffs as text diff.
 
     Changes are arranged per fully qualified module path. Keys are module path,

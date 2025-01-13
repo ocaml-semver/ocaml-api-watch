@@ -29,10 +29,10 @@ let vd_to_lines name vd =
   Format.pp_print_flush formatter ();
   CCString.lines (Buffer.contents buf)
 
-let td_to_lines name vd =
+let td_to_lines name td =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
-  Printtyp.type_declaration (Ident.create_local name) formatter vd;
+  Printtyp.type_declaration (Ident.create_local name) formatter td;
   Format.pp_print_flush formatter ();
   CCString.lines (Buffer.contents buf)
 
@@ -95,7 +95,9 @@ let process_atomic_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name
 let process_value_diff (val_diff : Diff.value) =
   process_atomic_diff val_diff.vdiff val_diff.vname vd_to_lines
 
-let process_lbl_diff (diff : (_, _ Diff.atomic_modification) Diff.t) =
+let process_lbl_diff
+    (diff :
+      (label_declaration, label_declaration Diff.atomic_modification) Diff.t) =
   match diff with
   | Added item -> Change { orig = []; new_ = lbl_to_lines item }
   | Removed item -> Change { orig = lbl_to_lines item; new_ = [] }
@@ -116,7 +118,8 @@ let rec process_type_diff (type_diff : Diff.type_) =
 and process_modified_record_type_diff name same diff =
   let changes = process_changed_labels diff in
   let not_changes = process_same_labels same in
-  [ Same [ name ] ] @ not_changes @ changes
+  [ Same [ "type " ^ name ^ " = {" ] ]
+  @ not_changes @ changes @ [ Same [ "}" ] ]
 
 and process_same_labels same =
   List.map (fun lbl -> Same (lbl_to_lines lbl)) same
@@ -141,8 +144,8 @@ let process_class_type_diff (class_type_diff : Diff.cltype) =
       [ Change { orig = ctd_to_lines class_type_diff.ctname ctd; new_ = [] } ]
   | Modified _ -> []
 
-let rec process_sig_diff :
-    type a. _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
+let rec process_sig_diff : type a.
+    _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
  fun path to_lines ((diff : (a, _) Diff.t), name) acc ->
   match diff with
   | Added curr_mtd ->
@@ -247,10 +250,7 @@ module With_colors = struct
         | Change { orig; new_ } ->
             List.iter (pp_remove fmt) orig;
             List.iter (pp_add fmt) new_
-        | Same common ->
-            (pp_keep fmt) (Printf.sprintf "*type %s = {\n" name);
-            List.iter (fun ch -> git_diff_printer fmt (Atomic ch)) changes;
-            (pp_keep fmt) "}")
+        | Same common -> List.iter (pp_keep fmt) common)
 
   let pp_diff fmt diff = pp_ printer fmt diff
   let pp fmt t = gen_pp pp_diff fmt t
