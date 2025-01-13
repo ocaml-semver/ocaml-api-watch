@@ -25,10 +25,13 @@ type type_modification =
   | Record of record_modification list
   | Any of Types.type_declaration atomic_modification
 
-and record_modification =
-  | Added of Ident.t * Types.type_expr
-  | Removed of Ident.t * Types.type_expr
-  | Modified of Ident.t * Types.type_expr * Types.type_expr
+and record_modification = label_
+
+and label_ = {
+  lname : string;
+  ldiff :
+    (Types.label_declaration, Types.label_declaration atomic_modification) t;
+}
 
 type type_ = {
   tname : string;

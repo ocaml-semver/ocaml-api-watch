@@ -4,8 +4,8 @@ type ('item, 'diff) t = Added of 'item | Removed of 'item | Modified of 'diff
 
 type 'a atomic_modification = { reference : 'a; current : 'a }
 (** The simplest diff representation for the modification of a value of type 'a.
-     [reference] is the value before and [current] is the value after the change occured.
-     Use this type when there is no better representation available. *)
+    [reference] is the value before and [current] is the value after the change
+    occured. Use this type when there is no better representation available. *)
 
 type value = {
   vname : string;
@@ -16,10 +16,12 @@ type type_modification =
   | Record of record_modification list
   | Any of type_declaration atomic_modification
 
-and record_modification =
-  | Added of Ident.t * type_expr
-  | Removed of Ident.t * type_expr
-  | Modified of Ident.t * type_expr * type_expr
+and record_modification = label_
+
+and label_ = {
+  lname : string;
+  ldiff : (label_declaration, label_declaration atomic_modification) t;
+}
 
 type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
 type class_modification = Unsupported
@@ -142,14 +144,19 @@ and modified_record_type ~ref_label_lst ~cur_label_lst =
   let ref_lbls = extract_lbls ref_label_lst in
   let curr_lbls = extract_lbls cur_label_lst in
   String_map.merge
-    (fun _ ref_lbl_opt cur_lbl_opt ->
-      match (ref_lbl_opt, cur_lbl_opt) with
+    (fun name ref cur ->
+      match (ref, cur) with
       | None, None -> None
-      | Some ref_lbl, None -> Some (Removed (ref_lbl.ld_id, ref_lbl.ld_type))
-      | None, Some cur_lbl -> Some (Added (cur_lbl.ld_id, cur_lbl.ld_type))
-      | Some ref_lbl, Some cur_lbl ->
-          if ref_lbl.ld_type = cur_lbl.ld_type then None
-          else Some (Modified (ref_lbl.ld_id, ref_lbl.ld_type, cur_lbl.ld_type)))
+      | Some ref, None -> Some { lname = name; ldiff = Removed ref }
+      | None, Some cur -> Some { lname = name; ldiff = Added cur }
+      | Some ref, Some cur ->
+          if ref.ld_type = cur.ld_type then None
+          else
+            Some
+              {
+                lname = name;
+                ldiff = Modified { reference = ref; current = cur };
+              })
     ref_lbls curr_lbls
   |> String_map.bindings |> List.map snd
 
