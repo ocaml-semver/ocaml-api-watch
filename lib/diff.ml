@@ -12,18 +12,20 @@ type value = {
   vdiff : (value_description, value_description atomic_modification) t;
 }
 
-type type_modification =
-  | Record of record_modification list
-  | Any of type_declaration atomic_modification
-
-and record_modification = label_
+type ('common, 'changed) type_modification =
+  | Compound of 'common list * 'changed list
+  | Atomic of type_declaration atomic_modification
 
 and label_ = {
   lname : string;
   ldiff : (label_declaration, label_declaration atomic_modification) t;
 }
 
-type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
+type type_ = {
+  tname : string;
+  tdiff : (type_declaration, (label_declaration, label_) type_modification) t;
+}
+
 type class_modification = Unsupported
 
 type class_ = {
@@ -123,42 +125,55 @@ let rec type_item ~typing_env ~name ~reference ~current =
       | _, _ -> (
           match (reference.type_kind, current.type_kind) with
           | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) ->
+              let common_lbls, changed_lbls =
+                modified_record_type ~ref_label_lst ~cur_label_lst
+              in
               Some
                 (Type
                    {
                      tname = name;
-                     tdiff =
-                       Modified
-                         (Record
-                            (modified_record_type ~ref_label_lst ~cur_label_lst));
+                     tdiff = Modified (Compound (common_lbls, changed_lbls));
                    })
           | _, _ ->
               Some
                 (Type
                    {
                      tname = name;
-                     tdiff = Modified (Any { reference; current });
+                     tdiff = Modified (Atomic { reference; current });
                    })))
 
 and modified_record_type ~ref_label_lst ~cur_label_lst =
   let ref_lbls = extract_lbls ref_label_lst in
   let curr_lbls = extract_lbls cur_label_lst in
-  String_map.merge
-    (fun name ref cur ->
-      match (ref, cur) with
-      | None, None -> None
-      | Some ref, None -> Some { lname = name; ldiff = Removed ref }
-      | None, Some cur -> Some { lname = name; ldiff = Added cur }
-      | Some ref, Some cur ->
-          if ref.ld_type = cur.ld_type then None
-          else
-            Some
-              {
-                lname = name;
-                ldiff = Modified { reference = ref; current = cur };
-              })
-    ref_lbls curr_lbls
-  |> String_map.bindings |> List.map snd
+  let common_lbls =
+    String_map.merge
+      (fun _ ref cur ->
+        match (ref, cur) with
+        | Some ref, Some cur ->
+            if ref.ld_type = cur.ld_type then Some ref else None
+        | _ -> None)
+      ref_lbls curr_lbls
+    |> String_map.bindings |> List.map snd
+  in
+  let changed_lbls =
+    String_map.merge
+      (fun name ref cur ->
+        match (ref, cur) with
+        | None, None -> None
+        | Some ref, None -> Some { lname = name; ldiff = Removed ref }
+        | None, Some cur -> Some { lname = name; ldiff = Added cur }
+        | Some ref, Some cur ->
+            if ref.ld_type = cur.ld_type then None
+            else
+              Some
+                {
+                  lname = name;
+                  ldiff = Modified { reference = ref; current = cur };
+                })
+      ref_lbls curr_lbls
+    |> String_map.bindings |> List.map snd
+  in
+  (common_lbls, changed_lbls)
 
 and extract_lbls lbls =
   List.fold_left
