@@ -1,5 +1,3 @@
-open Types
-
 type conflict2 = { orig : string list; new_ : string list }
 type common = string list
 type context = Change of conflict2 | Same of common
@@ -46,13 +44,13 @@ let lbl_to_lines ld =
 let md_to_lines name md =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
-  Printtyp.modtype formatter md.md_type;
+  Printtyp.modtype formatter Types.(md.md_type);
   Format.pp_print_flush formatter ();
   let module_str = "module " ^ name ^ ": " ^ Buffer.contents buf in
   CCString.lines module_str
 
 let mtd_to_lines name mtd =
-  match mtd.mtd_type with
+  match Types.(mtd.mtd_type) with
   | Some m ->
       let buf = Buffer.create 256 in
       let formatter = Format.formatter_of_buffer buf in
@@ -97,7 +95,9 @@ let process_value_diff (val_diff : Diff.value) =
 
 let process_lbl_diff
     (diff :
-      (label_declaration, label_declaration Diff.atomic_modification) Diff.t) =
+      ( Types.label_declaration,
+        Types.label_declaration Diff.atomic_modification )
+      Diff.t) =
   match diff with
   | Added item -> Change { orig = []; new_ = lbl_to_lines item }
   | Removed item -> Change { orig = lbl_to_lines item; new_ = [] }
@@ -116,10 +116,22 @@ let rec process_type_diff (type_diff : Diff.type_) =
       process_atomic_diff (Diff.Removed td) type_diff.tname td_to_lines
 
 and process_modified_record_type_diff name same diff =
+  let indent_lbl c =
+    match c with
+    | Same c -> Same (List.map (fun s -> "  " ^ s) c)
+    | Change { orig; new_ } ->
+        Change
+          {
+            orig = List.map (fun s -> "  " ^ s) orig;
+            new_ = List.map (fun s -> "  " ^ s) new_;
+          }
+  in
   let changes = process_changed_labels diff in
   let not_changes = process_same_labels same in
   [ Same [ "type " ^ name ^ " = {" ] ]
-  @ not_changes @ changes @ [ Same [ "}" ] ]
+  @ List.map (fun c -> indent_lbl c) not_changes
+  @ List.map (fun c -> indent_lbl c) changes
+  @ [ Same [ "}" ] ]
 
 and process_same_labels same =
   List.map (fun lbl -> Same (lbl_to_lines lbl)) same
@@ -144,8 +156,8 @@ let process_class_type_diff (class_type_diff : Diff.cltype) =
       [ Change { orig = ctd_to_lines class_type_diff.ctname ctd; new_ = [] } ]
   | Modified _ -> []
 
-let rec process_sig_diff : type a.
-    _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
+let rec process_sig_diff :
+    type a. _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
  fun path to_lines ((diff : (a, _) Diff.t), name) acc ->
   match diff with
   | Added curr_mtd ->
