@@ -12,8 +12,8 @@ type value = {
   vdiff : (value_description, value_description atomic_modification) t;
 }
 
-type ('common, 'changed) type_modification =
-  | Compound of 'common list * 'changed list
+type 'changed type_modification =
+  | Compound of 'changed list
   | Atomic of type_declaration atomic_modification
 
 and label_ = {
@@ -23,7 +23,7 @@ and label_ = {
 
 type type_ = {
   tname : string;
-  tdiff : (type_declaration, (label_declaration, label_) type_modification) t;
+  tdiff : (type_declaration, label_ type_modification) t;
 }
 
 type class_modification = Unsupported
@@ -130,15 +130,11 @@ let rec type_item ~typing_env ~name ~reference ~current =
       | _, _ -> (
           match (reference.type_kind, current.type_kind) with
           | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) ->
-              let common_lbls, changed_lbls =
+              let changed_lbls =
                 modified_record_type ~ref_label_lst ~cur_label_lst
               in
               Some
-                (Type
-                   {
-                     tname = name;
-                     tdiff = Modified (Compound (common_lbls, changed_lbls));
-                   })
+                (Type { tname = name; tdiff = Modified (Compound changed_lbls) })
           | _, _ ->
               Some
                 (Type
@@ -150,16 +146,6 @@ let rec type_item ~typing_env ~name ~reference ~current =
 and modified_record_type ~ref_label_lst ~cur_label_lst =
   let ref_lbls = extract_lbls ref_label_lst in
   let curr_lbls = extract_lbls cur_label_lst in
-  let common_lbls =
-    String_map.merge
-      (fun _ ref cur ->
-        match (ref, cur) with
-        | Some ref, Some cur ->
-            if ref.ld_type = cur.ld_type then Some ref else None
-        | _ -> None)
-      ref_lbls curr_lbls
-    |> String_map.bindings |> List.map snd
-  in
   let changed_lbls =
     String_map.merge
       (fun name ref cur ->
@@ -178,7 +164,7 @@ and modified_record_type ~ref_label_lst ~cur_label_lst =
       ref_lbls curr_lbls
     |> String_map.bindings |> List.map snd
   in
-  (common_lbls, changed_lbls)
+  changed_lbls
 
 let value_item ~typing_env ~name ~reference ~current =
   match (reference, current) with

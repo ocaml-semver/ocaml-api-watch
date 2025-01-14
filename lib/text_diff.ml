@@ -1,8 +1,7 @@
 type conflict2 = { orig : string list; new_ : string list }
-type common = string list
-type context = Change of conflict2 | Same of common
-type t = context list String_map.t
-type printer = { same : string Fmt.t; diff : context Fmt.t }
+type hunk = Change of conflict2 | Same of string
+type t = hunk list String_map.t
+type printer = { same : string Fmt.t; diff : hunk Fmt.t }
 
 let printer ~same ~diff = { same; diff }
 
@@ -11,7 +10,7 @@ let git_diff_printer ppf c =
   | Change { orig; new_ } ->
       List.iter (fun line -> Fmt.pf ppf "-%s\n" line) orig;
       List.iter (fun line -> Fmt.pf ppf "+%s\n" line) new_
-  | Same common -> List.iter (fun line -> Fmt.pf ppf "%s\n" line) common
+  | Same common -> Fmt.pf ppf "%s\n" common
 
 let git_printer =
   { same = (fun ppf -> Fmt.pf ppf " %s\n"); diff = git_diff_printer }
@@ -99,15 +98,15 @@ let process_lbl_diff
         Types.label_declaration Diff.atomic_modification )
       Diff.t) =
   match diff with
-  | Added item -> Change { orig = []; new_ = lbl_to_lines item }
-  | Removed item -> Change { orig = lbl_to_lines item; new_ = [] }
+  | Added item -> [ Change { orig = []; new_ = lbl_to_lines item } ]
+  | Removed item -> [ Change { orig = lbl_to_lines item; new_ = [] } ]
   | Modified { reference; current } ->
-      Change { orig = lbl_to_lines reference; new_ = lbl_to_lines current }
+      [ Change { orig = lbl_to_lines reference; new_ = lbl_to_lines current } ]
 
 let rec process_type_diff (type_diff : Diff.type_) =
   match type_diff.tdiff with
-  | Diff.Modified (Compound (common_lst, change_lst)) ->
-      process_modified_record_type_diff type_diff.tname common_lst change_lst
+  | Diff.Modified (Compound change_lst) ->
+      process_modified_record_type_diff type_diff.tname change_lst
   | Diff.Modified (Atomic mods) ->
       process_atomic_diff (Diff.Modified mods) type_diff.tname td_to_lines
   | Diff.Added td ->
@@ -115,10 +114,10 @@ let rec process_type_diff (type_diff : Diff.type_) =
   | Diff.Removed td ->
       process_atomic_diff (Diff.Removed td) type_diff.tname td_to_lines
 
-and process_modified_record_type_diff name same diff =
+and process_modified_record_type_diff name diff =
   let indent_lbl c =
     match c with
-    | Same c -> Same (List.map (fun s -> "  " ^ s) c)
+    | Same c -> Same ("  " ^ c)
     | Change { orig; new_ } ->
         Change
           {
@@ -127,19 +126,16 @@ and process_modified_record_type_diff name same diff =
           }
   in
   let changes = process_changed_labels diff in
-  let not_changes = process_same_labels same in
-  [ Same [ "type " ^ name ^ " = {" ] ]
-  @ List.map (fun c -> indent_lbl c) not_changes
+  [ Same ("type " ^ name ^ " = {") ]
+  @ [ indent_lbl (Same "...") ]
   @ List.map (fun c -> indent_lbl c) changes
-  @ [ Same [ "}" ] ]
-
-and process_same_labels same =
-  List.map (fun lbl -> Same (lbl_to_lines lbl)) same
+  @ [ Same "}" ]
 
 and process_changed_labels (lbls_diffs : Diff.label_ list) =
-  List.map
-    (fun (lbl_diff : Diff.label_) -> process_lbl_diff lbl_diff.ldiff)
-    lbls_diffs
+  List.flatten
+    (List.map
+       (fun (lbl_diff : Diff.label_) -> process_lbl_diff lbl_diff.ldiff)
+       lbls_diffs)
 
 let process_class_diff (class_diff : Diff.class_) =
   match class_diff.cdiff with
@@ -262,7 +258,7 @@ module With_colors = struct
         | Change { orig; new_ } ->
             List.iter (pp_remove fmt) orig;
             List.iter (pp_add fmt) new_
-        | Same common -> List.iter (pp_keep fmt) common)
+        | Same common -> (pp_keep fmt) common)
 
   let pp_diff fmt diff = pp_ printer fmt diff
   let pp fmt t = gen_pp pp_diff fmt t

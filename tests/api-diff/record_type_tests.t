@@ -25,9 +25,7 @@ Run the api-watcher on the two cmi files
   $ api-diff ref.cmi add_field.cmi
   diff module Add_field:
    type student = {
-     first_name : string;
-     id : int option;
-     last_name : string;
+     ...
   +  level : int;
    }
   
@@ -48,8 +46,7 @@ Run the api-watcher on the two cmi files
   $ api-diff ref.cmi remove_field.cmi
   diff module Remove_field:
    type student = {
-     first_name : string;
-     last_name : string;
+     ...
   -  id : int option;
    }
   
@@ -70,8 +67,7 @@ Run api-watcher on the two cmi files
   $ api-diff ref.cmi modify_field_type.cmi
   diff module Modify_field_type:
    type student = {
-     first_name : string;
-     last_name : string;
+     ...
   -  id : int option;
   +  id : int;
    }
