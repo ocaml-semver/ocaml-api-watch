@@ -70,15 +70,13 @@ let run (`Main_module main_module) (`Unwrapped_library unwrapped)
     |> Api_watch.String_map.bindings
     |> List.filter_map (fun (_, v) -> v)
   in
-  let has_diff =
-    List.exists
-      (fun diff ->
-        let text_diff = Api_watch.Text_diff.from_diff diff in
-        Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff;
-        true)
-      diff_map
-  in
-  if has_diff then Ok 1 else Ok 0
+  let has_changes = not (List.is_empty diff_map) in
+  List.iter
+    (fun diff ->
+      let text_diff = Api_watch.Text_diff.from_diff diff in
+      Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff)
+    diff_map;
+  if has_changes then Ok 1 else Ok 0
 
 let named f = Cmdliner.Term.(app (const f))
 
