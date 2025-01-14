@@ -10,29 +10,29 @@ let both_directories reference current =
       Error
         "Arguments must either both be directories or both single .cmi files."
 
+let print_warning main_module unwrapped =
+  match (main_module, unwrapped) with
+  | None, false -> ()
+  | Some _, false ->
+      Printf.eprintf
+        "%s: --main-module is ignored when diffing single .cmi files\n"
+        tool_name
+  | None, true ->
+      Printf.eprintf
+        "%s: --unwrapped is ignored when diffing single .cmi files\n" tool_name
+  | Some _, true ->
+      Printf.eprintf
+        "%s: --main-module and --unwrapped are ignored when diffing single \
+         .cmi files\n"
+        tool_name
+
 let mode ~reference ~current ~main_module ~unwrapped =
   match (both_directories reference current, main_module, unwrapped) with
   | Ok true, Some main_module, false -> Ok (Wrapped main_module)
   | Ok true, None, true -> Ok Unwrapped
-  | Ok false, main_module, unwrapped -> (
-      match (main_module, unwrapped) with
-      | None, false -> Ok Cmi
-      | Some _, false ->
-          Printf.eprintf
-            "%s: --main-module is ignored when diffing single .cmi files\n"
-            tool_name;
-          Ok Cmi
-      | None, true ->
-          Printf.eprintf
-            "%s: --unwrapped is ignored when diffing single .cmi files\n"
-            tool_name;
-          Ok Cmi
-      | Some _, true ->
-          Printf.eprintf
-            "%s: --main-module and --unwrapped are ignored when diffing single \
-             .cmi files\n"
-            tool_name;
-          Ok Cmi)
+  | Ok false, main_module, unwrapped ->
+      print_warning main_module unwrapped;
+      Ok Cmi
   | (Error _ as e), _, _ -> e
   | Ok true, _, _ ->
       Error

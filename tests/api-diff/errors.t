@@ -24,13 +24,13 @@ that it is ignored
   [123]
 
   $ touch test2.cmi
-  $ api-diff --unwrapped main test.cmi test2.cmi
+  $ api-diff --unwrapped test.cmi test2.cmi
   api-diff: --unwrapped is ignored when diffing single .cmi files
   api-diff: Cmi_format.Error(_)
   [123]
 
   $ touch test2.cmi
-  $ api-diff --main-module --unwrapped main test.cmi test2.cmi
+  $ api-diff --main-module main --unwrapped test.cmi test2.cmi
   api-diff: --main-module and --unwrapped are ignored when diffing single .cmi files
   api-diff: Cmi_format.Error(_)
   [123]
