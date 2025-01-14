@@ -42,35 +42,43 @@ let mode ~reference ~current ~main_module ~unwrapped =
 let run (`Main_module main_module) (`Unwrapped_library unwrapped)
     (`Ref_cmi reference) (`Current_cmi current) =
   let open CCResult.Infix in
-  let* reference_sig, current_sig, module_name =
+  let* reference_sig, current_sig =
     let* curr_mode = mode ~reference ~current ~main_module ~unwrapped in
     match curr_mode with
     | Wrapped main_module ->
         let main_module = String.capitalize_ascii main_module in
-        let+ reference_map = Api_watch.Library.load ~main_module reference
-        and+ current_map = Api_watch.Library.load ~main_module current in
-        let reference_sig =
-          Api_watch.String_map.find main_module reference_map
-        in
-        let current_sig = Api_watch.String_map.find main_module current_map in
-        let module_name = String.capitalize_ascii main_module in
-        (reference_sig, current_sig, module_name)
-    | Unwrapped -> failwith "TODO: Call Api_watch.Library.load_unwrapped"
+        let+ reference_sig = Api_watch.Library.load ~main_module reference
+        and+ current_sig = Api_watch.Library.load ~main_module current in
+        (reference_sig, current_sig)
+    | Unwrapped ->
+        let+ reference_map = Api_watch.Library.load_unwrapped reference
+        and+ current_map = Api_watch.Library.load_unwrapped current in
+        (reference_map, current_map)
     | Cmi ->
         let+ reference_cmi, _ = Api_watch.Library.load_cmi reference
         and+ current_cmi, module_name = Api_watch.Library.load_cmi current in
-        (reference_cmi, current_cmi, module_name)
+        let reference_sig =
+          Api_watch.String_map.singleton module_name reference_cmi
+        in
+        let current_sig =
+          Api_watch.String_map.singleton module_name current_cmi
+        in
+        (reference_sig, current_sig)
   in
-  let diff =
-    Api_watch.Diff.interface ~module_name ~reference:reference_sig
-      ~current:current_sig
+  let diff_map =
+    Api_watch.Diff.library ~reference:reference_sig ~current:current_sig
+    |> Api_watch.String_map.bindings
+    |> List.filter_map (fun (_, v) -> v)
   in
-  match diff with
-  | None -> Ok 0
-  | Some diff ->
-      let text_diff = Api_watch.Text_diff.from_diff diff in
-      Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff;
-      Ok 1
+  let has_diff =
+    List.exists
+      (fun diff ->
+        let text_diff = Api_watch.Text_diff.from_diff diff in
+        Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff;
+        true)
+      diff_map
+  in
+  if has_diff then Ok 1 else Ok 0
 
 let named f = Cmdliner.Term.(app (const f))
 
