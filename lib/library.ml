@@ -178,20 +178,17 @@ let rec expand_sig ~library_modules sig_ =
       | _ -> Ok item)
     sig_
 
-let load_unwrapped project_path =
+type t = Types.signature String_map.t
+
+let load_unwrapped project_path : (t, string) result =
   let open CCResult.Infix in
   let* library_modules = collect_modules project_path in
   let module_map =
-    String_map.map
-      (fun sig_ ->
-        match expand_sig ~library_modules (Lazy.force sig_) with
-        | Ok expanded_sig -> expanded_sig
-        | Error e -> failwith e)
-      library_modules
+    String_map.map (fun sig_ -> Lazy.force sig_) library_modules
   in
   Ok module_map
 
-let load ~main_module project_path =
+let load ~main_module project_path : (t, string) result =
   let open CCResult.Infix in
   let* library_modules = collect_modules project_path in
   let* main_sig =

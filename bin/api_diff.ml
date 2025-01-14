@@ -42,14 +42,14 @@ let mode ~reference ~current ~main_module ~unwrapped =
 let run (`Main_module main_module) (`Unwrapped_library unwrapped)
     (`Ref_cmi reference) (`Current_cmi current) =
   let open CCResult.Infix in
-  let* reference_sig, current_sig =
+  let* reference_map, current_map =
     let* curr_mode = mode ~reference ~current ~main_module ~unwrapped in
     match curr_mode with
     | Wrapped main_module ->
         let main_module = String.capitalize_ascii main_module in
-        let+ reference_sig = Api_watch.Library.load ~main_module reference
-        and+ current_sig = Api_watch.Library.load ~main_module current in
-        (reference_sig, current_sig)
+        let+ reference_map = Api_watch.Library.load ~main_module reference
+        and+ current_map = Api_watch.Library.load ~main_module current in
+        (reference_map, current_map)
     | Unwrapped ->
         let+ reference_map = Api_watch.Library.load_unwrapped reference
         and+ current_map = Api_watch.Library.load_unwrapped current in
@@ -57,16 +57,16 @@ let run (`Main_module main_module) (`Unwrapped_library unwrapped)
     | Cmi ->
         let+ reference_cmi, _ = Api_watch.Library.load_cmi reference
         and+ current_cmi, module_name = Api_watch.Library.load_cmi current in
-        let reference_sig =
+        let reference_map =
           Api_watch.String_map.singleton module_name reference_cmi
         in
-        let current_sig =
+        let current_map =
           Api_watch.String_map.singleton module_name current_cmi
         in
-        (reference_sig, current_sig)
+        (reference_map, current_map)
   in
   let diff_map =
-    Api_watch.Diff.library ~reference:reference_sig ~current:current_sig
+    Api_watch.Diff.library ~reference:reference_map ~current:current_map
     |> Api_watch.String_map.bindings
     |> List.filter_map (fun (_, v) -> v)
   in
