@@ -13,12 +13,19 @@ type value = {
 }
 
 type type_modification =
-  | Compound of record_field list
+  | Record_diff of record_field list
+  | Variant_diff of constructor_ list
   | Atomic of type_declaration atomic_modification
 
+and constructor_ = {
+  csname : string;
+  csdiff :
+    (constructor_declaration, constructor_declaration atomic_modification) t;
+}
+
 and record_field = {
-  lname : string;
-  ldiff : (label_declaration, label_declaration atomic_modification) t;
+  rname : string;
+  rdiff : (label_declaration, label_declaration atomic_modification) t;
 }
 
 type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
@@ -103,6 +110,11 @@ let extract_lbls lbls =
     (fun map lbl -> String_map.add (Ident.name lbl.ld_id) lbl map)
     String_map.empty lbls
 
+let extract_cstrs cstrs =
+  List.fold_left
+    (fun map cstr -> String_map.add (Ident.name cstr.cd_id) cstr map)
+    String_map.empty cstrs
+
 let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
@@ -128,8 +140,21 @@ let rec type_item ~typing_env ~name ~reference ~current =
                 modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
               in
               Some
-                (Type { tname = name; tdiff = Modified (Compound changed_lbls) })
-          | _, _ ->
+                (Type
+                   { tname = name; tdiff = Modified (Record_diff changed_lbls) })
+          | ( Type_variant (ref_constructor_lst, _),
+              Type_variant (cur_constructor_lst, _) ) ->
+              let changed_constrs =
+                modified_variant_type ~typing_env ~ref_constructor_lst
+                  ~cur_constructor_lst
+              in
+              Some
+                (Type
+                   {
+                     tname = name;
+                     tdiff = Modified (Variant_diff changed_constrs);
+                   })
+          | _ ->
               Some
                 (Type
                    {
@@ -137,7 +162,8 @@ let rec type_item ~typing_env ~name ~reference ~current =
                      tdiff = Modified (Atomic { reference; current });
                    })))
 
-and modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst =
+and modified_record_type ~typing_env ~(ref_label_lst : label_declaration list)
+    ~(cur_label_lst : label_declaration list) =
   let ref_lbls = extract_lbls ref_label_lst in
   let curr_lbls = extract_lbls cur_label_lst in
   let changed_lbls =
@@ -145,20 +171,61 @@ and modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst =
       (fun name ref cur ->
         match (ref, cur) with
         | None, None -> None
-        | Some ref, None -> Some { lname = name; ldiff = Removed ref }
-        | None, Some cur -> Some { lname = name; ldiff = Added cur }
+        | Some ref, None -> Some { rname = name; rdiff = Removed ref }
+        | None, Some cur -> Some { rname = name; rdiff = Added cur }
         | Some ref, Some cur ->
             if Ctype.does_match typing_env ref.ld_type cur.ld_type then None
             else
               Some
                 {
-                  lname = name;
-                  ldiff = Modified { reference = ref; current = cur };
+                  rname = name;
+                  rdiff = Modified { reference = ref; current = cur };
                 })
       ref_lbls curr_lbls
     |> String_map.bindings |> List.map snd
   in
   changed_lbls
+
+and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
+    =
+  let same_args cstr1_args cstr2_args =
+    match (cstr1_args, cstr2_args) with
+    | Cstr_tuple type_lst1, Cstr_tuple type_lst2 -> (
+        try
+          List.for_all2
+            (fun type1 type2 -> Ctype.does_match typing_env type1 type2)
+            type_lst1 type_lst2
+        with _ -> false)
+    | Cstr_record lbl_lst1, Cstr_record lbl_lst2 -> (
+        try
+          List.for_all2
+            (fun lbl1 lbl2 ->
+              Ctype.does_match typing_env lbl1.ld_type lbl2.ld_type)
+            lbl_lst1 lbl_lst2
+        with _ -> false)
+    | _ -> false
+  in
+  let ref_cstrs = extract_cstrs ref_constructor_lst in
+  let curr_cstrs = extract_cstrs cur_constructor_lst in
+  let modified_cstrs =
+    String_map.merge
+      (fun name ref cur ->
+        match (ref, cur) with
+        | None, None -> None
+        | Some ref, None -> Some { csname = name; csdiff = Removed ref }
+        | None, Some cur -> Some { csname = name; csdiff = Added cur }
+        | Some ref, Some cur ->
+            if same_args ref.cd_args cur.cd_args then None
+            else
+              Some
+                {
+                  csname = name;
+                  csdiff = Modified { reference = ref; current = cur };
+                })
+      ref_cstrs curr_cstrs
+    |> String_map.bindings |> List.map snd
+  in
+  modified_cstrs
 
 let value_item ~typing_env ~name ~reference ~current =
   match (reference, current) with

@@ -24,15 +24,15 @@ Run the api-watcher on the two cmi files
 
   $ api-diff ref.cmi add_constructor.cmi
   diff module Add_constructor:
-  type rank = 
-  ...
+   type rank =
+    ...
   + | Jack
-
+  
   [1]
 
 ### Removing a constructor from a variant type:
 
-  $ cat > remove_constructor.cmi << EOF
+  $ cat > remove_constructor.mli << EOF
   > type rank = Ace | King | Queen
   > EOF
 
@@ -44,13 +44,13 @@ Run the api-watcher on the two cmi files
 
   $ api-diff ref.cmi remove_constructor.cmi
   diff module Remove_constructor:
-  type rank =
-  ...
+   type rank =
+    ...
   - | Number of int
-
+  
   [1]
 
-### Modifying a constructor's type in a variant type: 
+### Modifying a constructor's arguments in a variant type: 
 
   $ cat > modify_constructor_type.mli << EOF
   > type rank = Ace | King | Queen | Number of float
@@ -64,9 +64,9 @@ Run the api-watcher on the two cmi files
 
   $ api-diff ref.cmi modify_constructor_type.cmi
   diff module Modify_constructor_type:
-  type rank = 
-  ...
+   type rank =
+    ...
   - | Number of int
   + | Number of float
-
+  
   [1]

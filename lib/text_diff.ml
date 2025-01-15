@@ -40,6 +40,13 @@ let lbl_to_lines ld =
   Format.pp_print_flush formatter ();
   CCString.lines (Buffer.contents buf)
 
+let cstr_to_lines ld =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  Printtyp.constructor formatter ld;
+  Format.pp_print_flush formatter ();
+  CCString.lines (Buffer.contents buf)
+
 let md_to_lines name md =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
@@ -103,10 +110,25 @@ let process_lbl_diff
   | Modified { reference; current } ->
       [ Change { orig = lbl_to_lines reference; new_ = lbl_to_lines current } ]
 
+let process_cstr_diff
+    (diff :
+      ( Types.constructor_declaration,
+        Types.constructor_declaration Diff.atomic_modification )
+      Diff.t) =
+  match diff with
+  | Added item -> [ Change { orig = []; new_ = cstr_to_lines item } ]
+  | Removed item -> [ Change { orig = cstr_to_lines item; new_ = [] } ]
+  | Modified { reference; current } ->
+      [
+        Change { orig = cstr_to_lines reference; new_ = cstr_to_lines current };
+      ]
+
 let rec process_type_diff (type_diff : Diff.type_) =
   match type_diff.tdiff with
-  | Diff.Modified (Compound change_lst) ->
+  | Diff.Modified (Record_diff change_lst) ->
       process_modified_record_type_diff type_diff.tname change_lst
+  | Diff.Modified (Variant_diff change_lst) ->
+      process_modified_variant_type_diff type_diff.tname change_lst
   | Diff.Modified (Atomic mods) ->
       process_atomic_diff (Diff.Modified mods) type_diff.tname td_to_lines
   | Diff.Added td ->
@@ -134,7 +156,29 @@ and process_modified_record_type_diff name diff =
 and process_changed_labels (lbls_diffs : Diff.record_field list) =
   List.flatten
     (List.map
-       (fun (lbl_diff : Diff.record_field) -> process_lbl_diff lbl_diff.ldiff)
+       (fun (lbl_diff : Diff.record_field) -> process_lbl_diff lbl_diff.rdiff)
+       lbls_diffs)
+
+and process_modified_variant_type_diff name diff =
+  let indent_cstr c =
+    match c with
+    | Same c -> Same (" " ^ c)
+    | Change { orig; new_ } ->
+        Change
+          {
+            orig = List.map (fun s -> " | " ^ s) orig;
+            new_ = List.map (fun s -> " | " ^ s) new_;
+          }
+  in
+  let changes = process_changed_cstrs diff in
+  [ Same ("type " ^ name ^ " =") ]
+  @ [ indent_cstr (Same "...") ]
+  @ List.map (fun c -> indent_cstr c) changes
+
+and process_changed_cstrs (lbls_diffs : Diff.constructor_ list) =
+  List.flatten
+    (List.map
+       (fun (lbl_diff : Diff.constructor_) -> process_cstr_diff lbl_diff.csdiff)
        lbls_diffs)
 
 let process_class_diff (class_diff : Diff.class_) =
@@ -143,8 +187,8 @@ let process_class_diff (class_diff : Diff.class_) =
 let process_class_type_diff (class_type_diff : Diff.cltype) =
   process_atomic_diff class_type_diff.ctdiff class_type_diff.ctname ctd_to_lines
 
-let rec process_sig_diff :
-    type a. _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
+let rec process_sig_diff : type a.
+    _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
  fun path to_lines ((diff : (a, _) Diff.t), name) acc ->
   match diff with
   | Added curr_mtd ->

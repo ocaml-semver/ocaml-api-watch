@@ -21,15 +21,24 @@ and cltype = {
     t;
 }
 
-type type_modification =
-  | Compound of record_field list
-  | Atomic of Types.type_declaration atomic_modification
-
 and record_field = {
-  lname : string;
-  ldiff :
+  rname : string;
+  rdiff :
     (Types.label_declaration, Types.label_declaration atomic_modification) t;
 }
+
+and constructor_ = {
+  csname : string;
+  csdiff :
+    ( Types.constructor_declaration,
+      Types.constructor_declaration atomic_modification )
+    t;
+}
+
+type type_modification =
+  | Record_diff of record_field list
+  | Variant_diff of constructor_ list
+  | Atomic of Types.type_declaration atomic_modification
 
 type type_ = {
   tname : string;
