@@ -77,7 +77,7 @@ Run api-watcher on the two cmi files
 ### Modifying a field's type in a record type to a same alias type:
 
   $ cat > alias_field_type.mli << EOF
-  > type y = int
+  > type y = int option
   > type student = {first_name: string; last_name: string; id: y}
   > EOF
 
@@ -89,6 +89,6 @@ Run api-watcher on the two cmi files
 
   $ api-diff ref.cmi alias_field_type.cmi
   diff module Alias_field_type:
-  +type y = int
+  +type y = int option
   
   [1]

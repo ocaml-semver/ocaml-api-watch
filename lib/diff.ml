@@ -131,7 +131,7 @@ let rec type_item ~typing_env ~name ~reference ~current =
           match (reference.type_kind, current.type_kind) with
           | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) ->
               let changed_lbls =
-                modified_record_type ~ref_label_lst ~cur_label_lst
+                modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
               in
               Some
                 (Type { tname = name; tdiff = Modified (Compound changed_lbls) })
@@ -143,7 +143,8 @@ let rec type_item ~typing_env ~name ~reference ~current =
                      tdiff = Modified (Atomic { reference; current });
                    })))
 
-and modified_record_type ~ref_label_lst ~cur_label_lst =
+and modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst =
+  let _ = typing_env in
   let ref_lbls = extract_lbls ref_label_lst in
   let curr_lbls = extract_lbls cur_label_lst in
   let changed_lbls =
@@ -154,7 +155,7 @@ and modified_record_type ~ref_label_lst ~cur_label_lst =
         | Some ref, None -> Some { lname = name; ldiff = Removed ref }
         | None, Some cur -> Some { lname = name; ldiff = Added cur }
         | Some ref, Some cur ->
-            if ref.ld_type = cur.ld_type then None
+            if Ctype.does_match typing_env ref.ld_type cur.ld_type then None
             else
               Some
                 {
