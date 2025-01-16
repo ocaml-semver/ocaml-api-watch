@@ -178,7 +178,17 @@ let rec expand_sig ~library_modules sig_ =
       | _ -> Ok item)
     sig_
 
-let load ~main_module project_path =
+type t = Types.signature String_map.t
+
+let load_unwrapped project_path : (t, string) result =
+  let open CCResult.Infix in
+  let* library_modules = collect_modules project_path in
+  let module_map =
+    String_map.map (fun sig_ -> Lazy.force sig_) library_modules
+  in
+  Ok module_map
+
+let load ~main_module project_path : (t, string) result =
   let open CCResult.Infix in
   let* library_modules = collect_modules project_path in
   let* main_sig =
@@ -189,4 +199,9 @@ let load ~main_module project_path =
           (Printf.sprintf "Could not find main module %s in %s" main_module
              project_path)
   in
-  expand_sig ~library_modules main_sig
+  let expanded_main_sig =
+    match expand_sig ~library_modules main_sig with
+    | Ok expanded_sig -> expanded_sig
+    | Error e -> failwith e
+  in
+  Ok (String_map.singleton main_module expanded_main_sig)

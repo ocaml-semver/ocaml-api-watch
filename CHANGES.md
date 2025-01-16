@@ -6,6 +6,7 @@
 - Add detection of module_type declarations changes (#93, @NchamJosephMuam)
 - Add detection of classes addition and removal (#90, @marcndo)
 - Add detection of addition and removal of class type declarations (#103, @azzsal)
+- Add initial support for unwrapped libraries (#107, @Siddhi-agg, @azzsal)
 
 ### Changed
 

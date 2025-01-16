@@ -21,7 +21,8 @@ let run (`Main_module main_module) (`Input fn) =
       List.iter print_cmi cmi_files;
       Ok ()
   | true, Some main_module ->
-      let+ sig_ = Api_watch.Library.load ~main_module fn in
+      let+ sig_map = Api_watch.Library.load ~main_module fn in
+      let sig_ = Api_watch.String_map.find main_module sig_map in
       Printtyp.signature Format.std_formatter sig_;
       Format.printf "\n"
 

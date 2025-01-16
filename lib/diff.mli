@@ -51,3 +51,6 @@ val interface :
   reference:Types.signature ->
   current:Types.signature ->
   module_ option
+
+val library :
+  reference:Library.t -> current:Library.t -> module_ option String_map.t
