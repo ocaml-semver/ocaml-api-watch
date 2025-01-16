@@ -27,14 +27,15 @@ let print_warning main_module unwrapped =
         tool_name
 
 let mode ~reference ~current ~main_module ~unwrapped =
-  match (both_directories reference current, main_module, unwrapped) with
-  | Ok true, Some main_module, false -> Ok (Wrapped main_module)
-  | Ok true, None, true -> Ok Unwrapped
-  | Ok false, main_module, unwrapped ->
+  let open CCResult.Infix in
+  let* both_dirs = both_directories reference current in
+  match (both_dirs, main_module, unwrapped) with
+  | true, Some main_module, false -> Ok (Wrapped main_module)
+  | true, None, true -> Ok Unwrapped
+  | false, main_module, unwrapped ->
       print_warning main_module unwrapped;
       Ok Cmi
-  | (Error _ as e), _, _ -> e
-  | Ok true, _, _ ->
+  | true, _, _ ->
       Error
         "Either --main-module or --unwrapped must be provided when diffing \
          entire libraries."
