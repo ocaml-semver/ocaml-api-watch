@@ -9,6 +9,8 @@
 
 ### Changed
 
+  - Improve diff representation of modified record types (#109, @azzsal)
+
 ### Deprecated
 
 ### Fixed
