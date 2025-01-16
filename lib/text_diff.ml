@@ -131,10 +131,10 @@ and process_modified_record_type_diff name diff =
   @ List.map (fun c -> indent_lbl c) changes
   @ [ Same "}" ]
 
-and process_changed_labels (lbls_diffs : Diff.label_ list) =
+and process_changed_labels (lbls_diffs : Diff.record_field list) =
   List.flatten
     (List.map
-       (fun (lbl_diff : Diff.label_) -> process_lbl_diff lbl_diff.ldiff)
+       (fun (lbl_diff : Diff.record_field) -> process_lbl_diff lbl_diff.ldiff)
        lbls_diffs)
 
 let process_class_diff (class_diff : Diff.class_) =

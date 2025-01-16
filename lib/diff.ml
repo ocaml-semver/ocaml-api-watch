@@ -12,20 +12,16 @@ type value = {
   vdiff : (value_description, value_description atomic_modification) t;
 }
 
-type 'changed type_modification =
-  | Compound of 'changed list
+type type_modification =
+  | Compound of record_field list
   | Atomic of type_declaration atomic_modification
 
-and label_ = {
+and record_field = {
   lname : string;
   ldiff : (label_declaration, label_declaration atomic_modification) t;
 }
 
-type type_ = {
-  tname : string;
-  tdiff : (type_declaration, label_ type_modification) t;
-}
-
+type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
 type class_modification = Unsupported
 
 type class_ = {
@@ -144,7 +140,6 @@ let rec type_item ~typing_env ~name ~reference ~current =
                    })))
 
 and modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst =
-  let _ = typing_env in
   let ref_lbls = extract_lbls ref_label_lst in
   let curr_lbls = extract_lbls cur_label_lst in
   let changed_lbls =

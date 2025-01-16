@@ -21,11 +21,11 @@ and cltype = {
   ctdiff : (Types.class_type_declaration, class_type_modification) t;
 }
 
-type 'changed type_modification =
-  | Compound of 'changed list
+type type_modification =
+  | Compound of record_field list
   | Atomic of Types.type_declaration atomic_modification
 
-and label_ = {
+and record_field = {
   lname : string;
   ldiff :
     (Types.label_declaration, Types.label_declaration atomic_modification) t;
@@ -33,7 +33,7 @@ and label_ = {
 
 type type_ = {
   tname : string;
-  tdiff : (Types.type_declaration, label_ type_modification) t;
+  tdiff : (Types.type_declaration, type_modification) t;
 }
 
 type module_ = {
