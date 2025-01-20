@@ -140,27 +140,39 @@ let rec type_item ~typing_env ~name ~reference ~current =
       in
       match (type_coercion1 (), type_coercion2 ()) with
       | None, None -> None
-      | _, _ -> (
+      | ref_mismatch, cur_mismatch -> (
           match (reference.type_kind, current.type_kind) with
-          | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) ->
-              let changed_lbls =
-                modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
-              in
-              Some
-                (Type
-                   { tname = name; tdiff = Modified (Record_diff changed_lbls) })
+          | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) -> (
+              match (ref_mismatch, cur_mismatch) with
+              | ( Some (Includecore.Record_mismatch _),
+                  Some (Includecore.Record_mismatch _) ) ->
+                  let changed_lbls =
+                    modified_record_type ~typing_env ~ref_label_lst
+                      ~cur_label_lst
+                  in
+                  Some
+                    (Type
+                       {
+                         tname = name;
+                         tdiff = Modified (Record_diff changed_lbls);
+                       })
+              | _, _ -> None)
           | ( Type_variant (ref_constructor_lst, _),
-              Type_variant (cur_constructor_lst, _) ) ->
-              let changed_constrs =
-                modified_variant_type ~typing_env ~ref_constructor_lst
-                  ~cur_constructor_lst
-              in
-              Some
-                (Type
-                   {
-                     tname = name;
-                     tdiff = Modified (Variant_diff changed_constrs);
-                   })
+              Type_variant (cur_constructor_lst, _) ) -> (
+              match (ref_mismatch, cur_mismatch) with
+              | ( Some (Includecore.Variant_mismatch _),
+                  Some (Includecore.Variant_mismatch _) ) ->
+                  let changed_constrs =
+                    modified_variant_type ~typing_env ~ref_constructor_lst
+                      ~cur_constructor_lst
+                  in
+                  Some
+                    (Type
+                       {
+                         tname = name;
+                         tdiff = Modified (Variant_diff changed_constrs);
+                       })
+              | _, _ -> None)
           | _ ->
               Some
                 (Type
