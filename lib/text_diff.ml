@@ -1,22 +1,25 @@
 type conflict2 = { orig : string list; new_ : string list }
 type hunk = Change of conflict2 | Same of string
 type t = hunk list String_map.t
-type printer = { same : string Fmt.t; diff : hunk Fmt.t }
+type printer = { same : string Fmt.t; diff : conflict2 Fmt.t }
 
 let printer ~same ~diff = { same; diff }
 
-let git_diff_printer ppf c =
-  match c with
-  | Change { orig; new_ } ->
-      List.iter (fun line -> Fmt.pf ppf "-%s\n" line) orig;
-      List.iter (fun line -> Fmt.pf ppf "+%s\n" line) new_
-  | Same common -> Fmt.pf ppf "%s\n" common
-
 let git_printer =
-  { same = (fun ppf -> Fmt.pf ppf " %s\n"); diff = git_diff_printer }
+  {
+    same = (fun ppf -> Fmt.pf ppf " %s\n");
+    diff =
+      (fun ppf { orig; new_ } ->
+        List.iter (fun line -> Fmt.pf ppf "-%s\n" line) orig;
+        List.iter (fun line -> Fmt.pf ppf "+%s\n" line) new_);
+  }
 
 let pp_ diff_printer =
-  let pp_dh ppf dh = match dh with c -> diff_printer.diff ppf c in
+  let pp_dh ppf dh =
+    match dh with
+    | Change c -> diff_printer.diff ppf c
+    | Same s -> diff_printer.same ppf s
+  in
   Fmt.list ~sep:Fmt.nop pp_dh
 
 let vd_to_lines name vd =
@@ -37,6 +40,13 @@ let lbl_to_lines ld =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
   Printtyp.label formatter ld;
+  Format.pp_print_flush formatter ();
+  CCString.lines (Buffer.contents buf)
+
+let te_to_lines te =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  Printtyp.type_expr formatter te;
   Format.pp_print_flush formatter ();
   CCString.lines (Buffer.contents buf)
 
@@ -86,6 +96,17 @@ let ctd_to_lines name cd =
   let class_str = Buffer.contents buf in
   CCString.lines class_str
 
+let indent n h =
+  let indentation = String.init n (fun _ -> ' ') in
+  match h with
+  | Same s -> Same (indentation ^ s)
+  | Change { orig; new_ } ->
+      Change
+        {
+          orig = List.map (fun s -> indentation ^ s) orig;
+          new_ = List.map (fun s -> indentation ^ s) new_;
+        }
+
 let process_atomic_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name
     to_lines =
   match diff with
@@ -94,33 +115,6 @@ let process_atomic_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name
   | Modified { reference; current } ->
       [
         Change { orig = to_lines name reference; new_ = to_lines name current };
-      ]
-
-let process_value_diff (val_diff : Diff.value) =
-  process_atomic_diff val_diff.vdiff val_diff.vname vd_to_lines
-
-let process_lbl_diff
-    (diff :
-      ( Types.label_declaration,
-        Types.label_declaration Diff.atomic_modification )
-      Diff.t) =
-  match diff with
-  | Added item -> [ Change { orig = []; new_ = lbl_to_lines item } ]
-  | Removed item -> [ Change { orig = lbl_to_lines item; new_ = [] } ]
-  | Modified { reference; current } ->
-      [ Change { orig = lbl_to_lines reference; new_ = lbl_to_lines current } ]
-
-let process_cstr_diff
-    (diff :
-      ( Types.constructor_declaration,
-        Types.constructor_declaration Diff.atomic_modification )
-      Diff.t) =
-  match diff with
-  | Added item -> [ Change { orig = []; new_ = cstr_to_lines item } ]
-  | Removed item -> [ Change { orig = cstr_to_lines item; new_ = [] } ]
-  | Modified { reference; current } ->
-      [
-        Change { orig = cstr_to_lines reference; new_ = cstr_to_lines current };
       ]
 
 let rec process_type_diff (type_diff : Diff.type_) =
@@ -147,17 +141,28 @@ and process_modified_record_type_diff name diff =
             new_ = List.map (fun s -> "  " ^ s) new_;
           }
   in
-  let changes = process_changed_labels diff in
+  let changes = process_modified_labels diff in
   [ Same ("type " ^ name ^ " = {") ]
   @ [ indent_lbl (Same "...") ]
   @ List.map (fun c -> indent_lbl c) changes
   @ [ Same "}" ]
 
-and process_changed_labels (lbls_diffs : Diff.record_field list) =
-  List.flatten
-    (List.map
-       (fun (lbl_diff : Diff.record_field) -> process_lbl_diff lbl_diff.rdiff)
-       lbls_diffs)
+and process_modified_labels (lbls_diffs : Diff.record_field list) =
+  List.map
+    (fun (lbl_diff : Diff.record_field) -> process_lbl_diff lbl_diff.rdiff)
+    lbls_diffs
+  |> List.flatten
+
+and process_lbl_diff
+    (diff :
+      ( Types.label_declaration,
+        Types.label_declaration Diff.atomic_modification )
+      Diff.t) =
+  match diff with
+  | Added item -> [ Change { orig = []; new_ = lbl_to_lines item } ]
+  | Removed item -> [ Change { orig = lbl_to_lines item; new_ = [] } ]
+  | Modified { reference; current } ->
+      [ Change { orig = lbl_to_lines reference; new_ = lbl_to_lines current } ]
 
 and process_modified_variant_type_diff name diff =
   let indent_cstr c =
@@ -178,8 +183,64 @@ and process_modified_variant_type_diff name diff =
 and process_changed_cstrs (lbls_diffs : Diff.constructor_ list) =
   List.flatten
     (List.map
-       (fun (lbl_diff : Diff.constructor_) -> process_cstr_diff lbl_diff.csdiff)
+       (fun (cstr_diff : Diff.constructor_) -> process_cstr_diff cstr_diff)
        lbls_diffs)
+
+and process_cstr_diff cstr_diff =
+  match cstr_diff.csdiff with
+  | Diff.Added cd -> process_cstr_atomic_diff (Diff.Added cd)
+  | Diff.Removed cd -> process_cstr_atomic_diff (Diff.Removed cd)
+  | Diff.Modified (Diff.Atomic_c cd) ->
+      process_cstr_atomic_diff (Diff.Modified cd)
+  | Diff.Modified (Diff.Tuple_c tc_lst) ->
+      Same (cstr_diff.csname ^ " of (")
+      :: process_modified_tuple_type_diff tc_lst
+      @ [ Same ")" ]
+  | Diff.Modified (Diff.Record_c rc_lst) ->
+      Same (cstr_diff.csname ^ " of ")
+      :: process_modified_record_type_diff "" rc_lst
+
+and process_cstr_atomic_diff
+    (diff :
+      ( Types.constructor_declaration,
+        Types.constructor_declaration Diff.atomic_modification )
+      Diff.t) =
+  match diff with
+  | Added item -> [ Change { orig = []; new_ = cstr_to_lines item } ]
+  | Removed item -> [ Change { orig = cstr_to_lines item; new_ = [] } ]
+  | Modified { reference; current } ->
+      [
+        Change { orig = cstr_to_lines reference; new_ = cstr_to_lines current };
+      ]
+
+and process_modified_tuple_type_diff diff =
+  List.mapi
+    (fun i t ->
+      let star = if i < List.length diff - 1 then " *" else "" in
+      match t with
+      | Either.Left te -> Same (String.concat " " (te_to_lines te) ^ star)
+      | Either.Right diff -> (
+          match process_typ_expr_atomic_diff diff with
+          | Same s -> Same (s ^ star)
+          | Change { orig; new_ } ->
+              Change
+                {
+                  orig = [ String.concat "" orig ^ star ];
+                  new_ = [ String.concat "" new_ ^ star ];
+                }))
+    diff
+  |> List.map (indent 2)
+
+and process_typ_expr_atomic_diff
+    (b : (Types.type_expr, Types.type_expr Diff.atomic_modification) Diff.t) =
+  match b with
+  | Added item -> Change { orig = []; new_ = te_to_lines item }
+  | Removed item -> Change { orig = te_to_lines item; new_ = [] }
+  | Modified { reference; current } ->
+      Change { orig = te_to_lines reference; new_ = te_to_lines current }
+
+let process_value_diff (val_diff : Diff.value) =
+  process_atomic_diff val_diff.vdiff val_diff.vname vd_to_lines
 
 let process_class_diff (class_diff : Diff.class_) =
   process_atomic_diff class_diff.cdiff class_diff.cname cd_to_lines
@@ -288,12 +349,9 @@ module With_colors = struct
   let pp_keep fmt line = Format.fprintf fmt " %s\n" line
 
   let printer =
-    printer ~same:pp_keep ~diff:(fun fmt c ->
-        match c with
-        | Change { orig; new_ } ->
-            List.iter (pp_remove fmt) orig;
-            List.iter (pp_add fmt) new_
-        | Same common -> (pp_keep fmt) common)
+    printer ~same:pp_keep ~diff:(fun fmt { orig; new_ } ->
+        List.iter (pp_remove fmt) orig;
+        List.iter (pp_add fmt) new_)
 
   let pp_diff fmt diff = pp_ printer fmt diff
   let pp fmt t = gen_pp pp_diff fmt t

@@ -247,6 +247,18 @@ and modified_tuple_type ~typing_env (ref_tuple : type_expr list)
       | [] -> raise (Invalid_argument "n")
       | _ :: t -> tail_after (n - 1) t
   in
+  let first_of n lst1 lst2 =
+    let rec helper n lst1 lst2 acc =
+      if n = 0 then acc
+      else
+        match (lst1, lst2) with
+        | h1 :: t1, h2 :: t2 ->
+            helper (n - 1) t1 t2 (h1 :: fst acc, h2 :: snd acc)
+        | _ -> raise (Invalid_argument "n")
+    in
+    let first_n_of_lst1, first_n_of_lst2 = helper n lst1 lst2 ([], []) in
+    (List.rev first_n_of_lst1, List.rev first_n_of_lst2)
+  in
   let added_or_removed_types =
     if List.length ref_tuple <> List.length cur_tuple then
       if List.length ref_tuple > List.length cur_tuple then
@@ -259,12 +271,17 @@ and modified_tuple_type ~typing_env (ref_tuple : type_expr list)
           (tail_after (List.length ref_tuple) cur_tuple)
     else []
   in
+  let ref_tuple', cur_tuple' =
+    first_of
+      (Int.min (List.length ref_tuple) (List.length cur_tuple))
+      ref_tuple cur_tuple
+  in
   let same_or_changed_types =
     List.map2
       (fun t1 t2 ->
         if Ctype.does_match typing_env t1 t2 then Either.left t1
         else Either.right (Modified { reference = t1; current = t2 }))
-      ref_tuple cur_tuple
+      ref_tuple' cur_tuple'
   in
   same_or_changed_types @ added_or_removed_types
 
