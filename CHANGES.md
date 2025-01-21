@@ -12,6 +12,7 @@
 ### Changed
 
   - Improve diff representation of modified record types (#109, @azzsal)
+  - Improve diff representation of modified variant types (#111, @azzsal)
 
 ### Deprecated
 
