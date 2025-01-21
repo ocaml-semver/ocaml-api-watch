@@ -140,39 +140,36 @@ let rec type_item ~typing_env ~name ~reference ~current =
       in
       match (type_coercion1 (), type_coercion2 ()) with
       | None, None -> None
-      | ref_mismatch, cur_mismatch -> (
+      | _, _ -> (
           match (reference.type_kind, current.type_kind) with
           | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) -> (
-              match (ref_mismatch, cur_mismatch) with
-              | ( Some (Includecore.Record_mismatch _),
-                  Some (Includecore.Record_mismatch _) ) ->
-                  let changed_lbls =
-                    modified_record_type ~typing_env ~ref_label_lst
-                      ~cur_label_lst
-                  in
+              let changed_lbls =
+                modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
+              in
+              match changed_lbls with
+              | [] -> None
+              | _ ->
                   Some
                     (Type
                        {
                          tname = name;
                          tdiff = Modified (Record_diff changed_lbls);
-                       })
-              | _, _ -> None)
+                       }))
           | ( Type_variant (ref_constructor_lst, _),
               Type_variant (cur_constructor_lst, _) ) -> (
-              match (ref_mismatch, cur_mismatch) with
-              | ( Some (Includecore.Variant_mismatch _),
-                  Some (Includecore.Variant_mismatch _) ) ->
-                  let changed_constrs =
-                    modified_variant_type ~typing_env ~ref_constructor_lst
-                      ~cur_constructor_lst
-                  in
+              let changed_constrs =
+                modified_variant_type ~typing_env ~ref_constructor_lst
+                  ~cur_constructor_lst
+              in
+              match changed_constrs with
+              | [] -> None
+              | _ ->
                   Some
                     (Type
                        {
                          tname = name;
                          tdiff = Modified (Variant_diff changed_constrs);
-                       })
-              | _, _ -> None)
+                       }))
           | _ ->
               Some
                 (Type
@@ -183,32 +180,34 @@ let rec type_item ~typing_env ~name ~reference ~current =
 
 and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
     =
-  let same_args cstr1_args cstr2_args =
-    match (cstr1_args, cstr2_args) with
-    | Cstr_tuple type_lst1, Cstr_tuple type_lst2 -> (
-        try
-          if
-            List.for_all2
-              (fun type1 type2 -> Ctype.does_match typing_env type1 type2)
-              type_lst1 type_lst2
-          then `Yes
-          else `Tuple (modified_tuple_type ~typing_env type_lst1 type_lst2)
-        with _ -> `Tuple (modified_tuple_type ~typing_env type_lst1 type_lst2))
-    | Cstr_record ref_label_lst, Cstr_record cur_label_lst -> (
-        try
-          if
-            List.for_all2
-              (fun lbl1 lbl2 ->
-                Ctype.does_match typing_env lbl1.ld_type lbl2.ld_type)
-              ref_label_lst cur_label_lst
-          then `Yes
-          else
-            `Record
-              (modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst)
-        with _ ->
-          `Record
-            (modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst))
-    | _ -> `No
+  let diff_cstrs name cstr1 cstr2 =
+    match (cstr1.cd_args, cstr2.cd_args) with
+    | Cstr_tuple type_lst1, Cstr_tuple type_lst2
+      when not
+             ((List.length type_lst1 = 1 && List.length type_lst2 = 1)
+             && not
+                  (Ctype.does_match typing_env (List.hd type_lst1)
+                     (List.hd type_lst2))) ->
+        let tuple_diff = modified_tuple_type ~typing_env type_lst1 type_lst2 in
+        if
+          List.for_all
+            (fun t ->
+              match t with Either.Left _ -> true | Either.Right _ -> false)
+            tuple_diff
+        then None
+        else Some { csname = name; csdiff = Modified (Tuple_c tuple_diff) }
+    | Cstr_record ref_label_lst, Cstr_record cur_label_lst ->
+        let record_diff =
+          modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
+        in
+        if List.length record_diff = 0 then None
+        else Some { csname = name; csdiff = Modified (Record_c record_diff) }
+    | _ ->
+        Some
+          {
+            csname = name;
+            csdiff = Modified (Atomic_c { reference = cstr1; current = cstr2 });
+          }
   in
   let ref_cstrs = extract_cstrs ref_constructor_lst in
   let curr_cstrs = extract_cstrs cur_constructor_lst in
@@ -219,20 +218,7 @@ and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
         | None, None -> None
         | Some ref, None -> Some { csname = name; csdiff = Removed ref }
         | None, Some cur -> Some { csname = name; csdiff = Added cur }
-        | Some ref, Some cur -> (
-            match same_args ref.cd_args cur.cd_args with
-            | `Yes -> None
-            | `Record record_diff ->
-                Some { csname = name; csdiff = Modified (Record_c record_diff) }
-            | `Tuple tuple_diff ->
-                Some { csname = name; csdiff = Modified (Tuple_c tuple_diff) }
-            | `No ->
-                Some
-                  {
-                    csname = name;
-                    csdiff =
-                      Modified (Atomic_c { reference = ref; current = cur });
-                  }))
+        | Some ref, Some cur -> diff_cstrs name ref cur)
       ref_cstrs curr_cstrs
     |> String_map.bindings |> List.map snd
   in

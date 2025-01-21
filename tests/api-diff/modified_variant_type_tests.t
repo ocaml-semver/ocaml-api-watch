@@ -66,10 +66,8 @@ Run the api-watcher on the two cmi files
   diff module Modify_constructor_type:
    type rank =
     ...
-  - | Number of (
-  -    int
-  +    float
-    )
+  - | Number of int
+  + | Number of float
   
   [1]
 
@@ -105,15 +103,15 @@ Run the api-watcher on the two cmi files
   diff module Add_field:
    type shape =
     ...
-    | Circle of { 
-        ... 
-  +     color : int; 
+    | Circle of {
+       ...
+  +    color : int;
     }
-    | Rectangle of { 
-        ... 
-  +     color : int; 
+    | Rectangle of {
+       ...
+  +    color : int;
     }
-     
+  
   [1]
 
 ### Removing a field from a record type in a constructor argument:
@@ -135,8 +133,11 @@ Run the api-watcher on the two cmi files
   diff module Remove_field:
    type shape =
     ...
-    | Circle of { ...; -raduis : int; }
-     
+    | Circle of {
+       ...
+  -    raduis : int;
+    }
+  
   [1]
 
 ### Modifying a field in a record type in a constructor argument:
@@ -158,8 +159,12 @@ Run the api-watcher on the two cmi files
   diff module Modify_field:
    type shape =
     ...
-    | Circle of { ...; -raduis : int; +raduis : float; }
-     
+    | Circle of {
+       ...
+  -    raduis : int;
+  +    raduis : float;
+    }
+  
   [1]
 
 Tests for modifying constructor's tuple argument
@@ -194,17 +199,15 @@ Run the api-watcher on the two cmi files
   diff module Add_component:
    type shape =
     ...
-    | Circle of (
+    | Circle of
        point *
        int *
-  +    int 
-    )
-    | Rectangle of (
-        point *
-        point *
-  +     int; 
-    )
-     
+  +    int
+    | Rectangle of
+       point *
+       point *
+  +    int
+  
   [1]
 
 ### Removing a component from a tuple type in a constructor argument:
@@ -226,11 +229,10 @@ Run the api-watcher on the two cmi files
   diff module Remove_component:
    type shape =
     ...
-    | Circle of (
-      point *
-  -   int
-    )
-     
+    | Circle of
+       point *
+  -    int
+  
   [1]
 
 ### Modifying a component in a tuple type in a constructor argument:
@@ -252,10 +254,9 @@ Run the api-watcher on the two cmi files
   diff module Modify_component:
    type shape =
     ...
-    | Circle of (
-      point *
-  -   int
-  +   float
-    )
-     
+    | Circle of
+       point *
+  -    int
+  +    float
+  
   [1]
