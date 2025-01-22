@@ -224,52 +224,27 @@ and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
   in
   modified_cstrs
 
+and diff_list (diff_one : 'a option -> 'a option -> ('a, 'diff) Either.t)
+    (ref : 'a list) (curr : 'a list) : ('a, 'diff) Either.t list =
+  match (ref, curr) with
+  | [], [] -> []
+  | h1 :: t1, [] -> diff_one (Some h1) None :: diff_list diff_one t1 []
+  | [], h2 :: t2 -> diff_one None (Some h2) :: diff_list diff_one [] t2
+  | h1 :: t1, h2 :: t2 ->
+      diff_one (Some h1) (Some h2) :: diff_list diff_one t1 t2
+
 and modified_tuple_type ~typing_env (ref_tuple : type_expr list)
     (cur_tuple : type_expr list) : tuple_component list =
-  let rec tail_after n l =
-    if n = 0 then l
-    else
-      match l with
-      | [] -> raise (Invalid_argument "n")
-      | _ :: t -> tail_after (n - 1) t
-  in
-  let first_of n lst1 lst2 =
-    let rec helper n lst1 lst2 acc =
-      if n = 0 then acc
-      else
-        match (lst1, lst2) with
-        | h1 :: t1, h2 :: t2 ->
-            helper (n - 1) t1 t2 (h1 :: fst acc, h2 :: snd acc)
-        | _ -> raise (Invalid_argument "n")
-    in
-    let first_n_of_lst1, first_n_of_lst2 = helper n lst1 lst2 ([], []) in
-    (List.rev first_n_of_lst1, List.rev first_n_of_lst2)
-  in
-  let added_or_removed_types =
-    if List.length ref_tuple <> List.length cur_tuple then
-      if List.length ref_tuple > List.length cur_tuple then
-        List.map
-          (fun typ -> Either.right (Removed typ))
-          (tail_after (List.length cur_tuple) ref_tuple)
-      else
-        List.map
-          (fun typ -> Either.right (Added typ))
-          (tail_after (List.length ref_tuple) cur_tuple)
-    else []
-  in
-  let ref_tuple', cur_tuple' =
-    first_of
-      (Int.min (List.length ref_tuple) (List.length cur_tuple))
-      ref_tuple cur_tuple
-  in
-  let same_or_changed_types =
-    List.map2
-      (fun t1 t2 ->
-        if Ctype.does_match typing_env t1 t2 then Either.left t1
-        else Either.right (Modified { reference = t1; current = t2 }))
-      ref_tuple' cur_tuple'
-  in
-  same_or_changed_types @ added_or_removed_types
+  diff_list
+    (fun t1 t2 ->
+      match (t1, t2) with
+      | None, None -> failwith "unreachable"
+      | Some t1, None -> Either.right (Removed t1)
+      | None, Some t2 -> Either.right (Added t2)
+      | Some t1, Some t2 ->
+          if Ctype.does_match typing_env t1 t2 then Either.left t1
+          else Either.right (Modified { reference = t1; current = t2 }))
+    ref_tuple cur_tuple
 
 and modified_record_type ~typing_env ~(ref_label_lst : label_declaration list)
     ~(cur_label_lst : label_declaration list) =
