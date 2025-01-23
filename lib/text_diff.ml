@@ -140,7 +140,6 @@ and process_changed_labels (lbls_diffs : Diff.record_field list) =
 let process_class_diff (class_diff : Diff.class_) =
   process_atomic_diff class_diff.cdiff class_diff.cname cd_to_lines
 
-
 let process_class_type_diff (class_type_diff : Diff.cltype) =
   process_atomic_diff class_type_diff.ctdiff class_type_diff.ctname ctd_to_lines
 
