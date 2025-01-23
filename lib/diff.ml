@@ -182,12 +182,7 @@ and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
     =
   let diff_cstrs name cstr1 cstr2 =
     match (cstr1.cd_args, cstr2.cd_args) with
-    | Cstr_tuple type_lst1, Cstr_tuple type_lst2
-      when not
-             ((List.length type_lst1 = 1 && List.length type_lst2 = 1)
-             && not
-                  (Ctype.does_match typing_env (List.hd type_lst1)
-                     (List.hd type_lst2))) ->
+    | Cstr_tuple type_lst1, Cstr_tuple type_lst2 ->
         let tuple_diff = modified_tuple_type ~typing_env type_lst1 type_lst2 in
         if
           List.for_all

@@ -172,8 +172,7 @@ and process_cstr_diff cstr_diff =
   | Diff.Modified (Diff.Atomic_c cd) ->
       process_cstr_atomic_diff (Diff.Modified cd)
   | Diff.Modified (Diff.Tuple_c tc_lst) ->
-      Same ("| " ^ cstr_diff.csname ^ " of")
-      :: process_modified_tuple_type_diff ~indent_n:3 tc_lst
+      process_modified_tuple_type_diff cstr_diff.csname tc_lst
   | Diff.Modified (Diff.Record_c rc_lst) ->
       Same ("| " ^ cstr_diff.csname ^ " of {")
       :: process_modified_record_type_diff ~indent_n:3 rc_lst
@@ -192,38 +191,41 @@ and process_cstr_atomic_diff
         Change { orig = cstr_to_lines reference; new_ = cstr_to_lines current };
       ]
 
-and process_modified_tuple_type_diff ~indent_n diff =
-  List.mapi
-    (fun i t ->
-      let star = if i < List.length diff - 1 then " *" else "" in
-      match t with
-      | Either.Left te -> Same (String.concat " " (typ_expr_to_lines te) ^ star)
-      | Either.Right diff -> (
-          match process_typ_expr_atomic_diff diff with
-          | Same s -> Same (s ^ star)
-          | Change { orig; new_ } ->
-              Change
-                {
-                  orig =
-                    (match orig with
-                    | [] -> []
-                    | _ -> [ String.concat "" orig ^ star ]);
-                  new_ =
-                    (match new_ with
-                    | [] -> []
-                    | _ -> [ String.concat "" new_ ^ star ]);
-                }))
+and process_modified_tuple_type_diff name diff =
+  let starify typ_opts =
+    let typs =
+      List.fold_right
+        (fun t_opt acc ->
+          match t_opt with
+          | None -> acc
+          | Some t -> String.concat "" (typ_expr_to_lines t) :: acc)
+        typ_opts []
+    in
+    List.mapi
+      (fun i t ->
+        let star = if i < List.length typs - 1 then " *" else "" in
+        t ^ star)
+      typs
+    |> String.concat " "
+  in
+  let cstr1_tpl_args, cstr2_tpl_args =
     diff
-  |> List.map (indent indent_n)
-
-and process_typ_expr_atomic_diff
-    (b : (Types.type_expr, Types.type_expr Diff.atomic_modification) Diff.t) =
-  match b with
-  | Added item -> Change { orig = []; new_ = typ_expr_to_lines item }
-  | Removed item -> Change { orig = typ_expr_to_lines item; new_ = [] }
-  | Modified { reference; current } ->
-      Change
-        { orig = typ_expr_to_lines reference; new_ = typ_expr_to_lines current }
+    |> List.map (fun (c : Diff.tuple_component) ->
+           match c with
+           | Either.Left t -> (Some t, Some t)
+           | Either.Right (Diff.Added t) -> (None, Some t)
+           | Either.Right (Diff.Removed t) -> (Some t, None)
+           | Either.Right (Diff.Modified { reference; current }) ->
+               (Some reference, Some current))
+    |> List.split
+  in
+  [
+    Change
+      {
+        orig = [ "| " ^ name ^ " of " ^ starify cstr1_tpl_args ];
+        new_ = [ "| " ^ name ^ " of " ^ starify cstr2_tpl_args ];
+      };
+  ]
 
 let process_value_diff (val_diff : Diff.value) =
   process_atomic_diff val_diff.vdiff val_diff.vname vd_to_lines
@@ -234,8 +236,8 @@ let process_class_diff (class_diff : Diff.class_) =
 let process_class_type_diff (class_type_diff : Diff.cltype) =
   process_atomic_diff class_type_diff.ctdiff class_type_diff.ctname ctd_to_lines
 
-let rec process_sig_diff : type a.
-    _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
+let rec process_sig_diff :
+    type a. _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
  fun path to_lines ((diff : (a, _) Diff.t), name) acc ->
   match diff with
   | Added curr_mtd ->
