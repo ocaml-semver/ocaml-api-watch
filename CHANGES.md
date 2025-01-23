@@ -7,6 +7,7 @@
 - Add detection of classes addition and removal (#90, @marcndo)
 - Add detection of addition and removal of class type declarations (#103, @azzsal)
 - Add initial support for unwrapped libraries (#107, @Siddhi-agg, @azzsal)
+- Add detection of modified class declarations and class types (#106, @azzsal)
 
 ### Changed
 

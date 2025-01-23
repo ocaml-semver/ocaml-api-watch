@@ -51,3 +51,25 @@ Run api-diff and check the output
   -class ref_class : object method get : int method set : int -> unit end
   
   [1]
+
+### Modifing a class:
+
+  $ cat > modify_class.mli <<EOF
+  > class ref_class : object
+  >   method set : int -> int
+  >   method size : int 
+  > end 
+  > EOF
+
+We generate a .cmi file
+
+  $ ocamlc modify_class.mli
+
+Run api-watcher on the two cmi files, there should be a difference
+
+  $ api-diff ref_class.cmi modify_class.cmi
+  diff module Modify_class:
+  -class ref_class : object method get : int method set : int -> unit end
+  +class ref_class : object method set : int -> int method size : int end
+  
+  [1]

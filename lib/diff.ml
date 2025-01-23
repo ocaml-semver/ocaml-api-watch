@@ -22,18 +22,16 @@ and record_field = {
 }
 
 type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
-type class_modification = Unsupported
 
 type class_ = {
   cname : string;
-  cdiff : (class_declaration, class_modification) t;
+  cdiff : (class_declaration, class_declaration atomic_modification) t;
 }
-
-type class_type_modification = Unsupported
 
 type cltype = {
   ctname : string;
-  ctdiff : (class_type_declaration, class_type_modification) t;
+  ctdiff :
+    (class_type_declaration, class_type_declaration atomic_modification) t;
 }
 
 type module_ = {
@@ -185,15 +183,28 @@ let value_item ~typing_env ~name ~reference ~current =
           Some (Value { vname = name; vdiff = Modified { reference; current } })
       )
 
-let class_item ~name ~(reference : class_declaration option)
+let class_item ~typing_env ~name ~(reference : class_declaration option)
     ~(current : class_declaration option) =
   match (reference, current) with
   | None, None -> None
   | None, Some curr_cls -> Some (Class { cname = name; cdiff = Added curr_cls })
   | Some ref_cls, None -> Some (Class { cname = name; cdiff = Removed ref_cls })
-  | Some _, Some _ -> None
+  | Some ref_cls, Some curr_cls -> (
+      let cls_mismatch_lst =
+        Includeclass.class_declarations typing_env ref_cls curr_cls
+      in
+      match cls_mismatch_lst with
+      | [] -> None
+      | _ ->
+          Some
+            (Class
+               {
+                 cname = name;
+                 cdiff = Modified { reference = ref_cls; current = curr_cls };
+               }))
 
-let class_type_item ~name ~(reference : class_type_declaration option)
+let class_type_item ~typing_env ~name
+    ~(reference : class_type_declaration option)
     ~(current : class_type_declaration option) =
   match (reference, current) with
   | None, None -> None
@@ -201,7 +212,22 @@ let class_type_item ~name ~(reference : class_type_declaration option)
       Some (Classtype { ctname = name; ctdiff = Added curr_class_type })
   | Some ref_class_type, None ->
       Some (Classtype { ctname = name; ctdiff = Removed ref_class_type })
-  | Some _, Some _ -> None
+  | Some ref_class_type, Some curr_class_type -> (
+      let cls_type_mismatch_lst =
+        Includeclass.class_type_declarations ~loc:ref_class_type.clty_loc
+          typing_env ref_class_type curr_class_type
+      in
+      match cls_type_mismatch_lst with
+      | [] -> None
+      | _ ->
+          Some
+            (Classtype
+               {
+                 ctname = name;
+                 ctdiff =
+                   Modified
+                     { reference = ref_class_type; current = curr_class_type };
+               }))
 
 let rec items ~reference ~current =
   let env = Typing_env.for_diff ~reference ~current in
@@ -214,8 +240,8 @@ let rec items ~reference ~current =
     | Module -> module_item ~typing_env:env ~name ~reference ~current
     | Modtype -> module_type_item ~typing_env:env ~name ~reference ~current
     | Type -> type_item ~typing_env:env ~name ~reference ~current
-    | Class -> class_item ~name ~reference ~current
-    | Classtype -> class_type_item ~name ~reference ~current
+    | Class -> class_item ~typing_env:env ~name ~reference ~current
+    | Classtype -> class_type_item ~typing_env:env ~name ~reference ~current
   in
   Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 
