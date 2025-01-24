@@ -48,7 +48,7 @@ let typ_expr_to_line typ_exp =
   let formatter = Format.formatter_of_buffer buf in
   Printtyp.type_expr formatter typ_exp;
   Format.pp_print_flush formatter ();
-  String.map (fun c -> if c = '\n' then ' ' else c) (Buffer.contents buf)
+  String.map (function '\n' -> ' ' | c -> c) (Buffer.contents buf)
 
 let cstr_to_lines ld =
   let buf = Buffer.create 256 in
