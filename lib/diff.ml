@@ -233,7 +233,7 @@ and modified_tuple_type ~typing_env (ref_tuple : type_expr list)
   diff_list
     (fun t1 t2 ->
       match (t1, t2) with
-      | None, None -> failwith "unreachable"
+      | None, None -> assert false
       | Some t1, None -> Either.right (Removed t1)
       | None, Some t2 -> Either.right (Added t2)
       | Some t1, Some t2 ->

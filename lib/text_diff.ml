@@ -43,12 +43,12 @@ let lbl_to_lines ld =
   Format.pp_print_flush formatter ();
   CCString.lines (Buffer.contents buf)
 
-let typ_expr_to_lines typ_exp =
+let typ_expr_to_line typ_exp =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
   Printtyp.type_expr formatter typ_exp;
   Format.pp_print_flush formatter ();
-  CCString.lines (Buffer.contents buf)
+  String.map (fun c -> if c = '\n' then ' ' else c) (Buffer.contents buf)
 
 let cstr_to_lines ld =
   let buf = Buffer.create 256 in
@@ -193,20 +193,10 @@ and process_cstr_atomic_diff
 
 and process_modified_tuple_type_diff name diff =
   let starify typ_opts =
-    let typs =
-      List.fold_right
-        (fun t_opt acc ->
-          match t_opt with
-          | None -> acc
-          | Some t -> String.concat "" (typ_expr_to_lines t) :: acc)
-        typ_opts []
-    in
-    List.mapi
-      (fun i t ->
-        let star = if i < List.length typs - 1 then " *" else "" in
-        t ^ star)
-      typs
-    |> String.concat " "
+    List.filter_map
+      (fun t_opt -> Option.map (fun t -> typ_expr_to_line t) t_opt)
+      typ_opts
+    |> String.concat " * "
   in
   let cstr1_tpl_args, cstr2_tpl_args =
     diff
@@ -222,8 +212,8 @@ and process_modified_tuple_type_diff name diff =
   [
     Change
       {
-        orig = [ "| " ^ name ^ " of " ^ starify cstr1_tpl_args ];
-        new_ = [ "| " ^ name ^ " of " ^ starify cstr2_tpl_args ];
+        orig = [ Printf.sprintf "| %s of %s" name (starify cstr1_tpl_args) ];
+        new_ = [ Printf.sprintf "| %s of %s" name (starify cstr2_tpl_args) ];
       };
   ]
 

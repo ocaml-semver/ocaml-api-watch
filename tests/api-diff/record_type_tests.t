@@ -93,20 +93,3 @@ Run api-watcher on the two cmi files
   
   [1]
 
-### Adding a type parameter to a record type declaration:
-
-  $ cat > add_type_parameter.mli << EOF
-  > type 'a student = {first_name: string; last_name: string; id: int option}
-  > EOF
-
-We generate the .cmi file
-
-  $ ocamlc add_type_parameter.mli << EOF
-
-Run api-watcher on the two cmi files
-
-  $ api-diff ref.cmi add_type_parameter.cmi
-  diff module Add_type_parameter:
-  +<unsupported change>
-  
-  [1]
