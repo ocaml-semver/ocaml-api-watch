@@ -7,7 +7,38 @@ type value = {
     (Types.value_description, Types.value_description atomic_modification) t;
 }
 
-and class_ = {
+type type_ = {
+  tname : string;
+  tdiff : (Types.type_declaration, type_modification) t;
+}
+
+and type_modification =
+  | Record_diff of record_field list
+  | Variant_diff of constructor_ list
+  | Atomic of Types.type_declaration atomic_modification
+
+and record_field = {
+  rname : string;
+  rdiff :
+    (Types.label_declaration, Types.label_declaration atomic_modification) t;
+}
+
+and constructor_ = {
+  csname : string;
+  csdiff : (Types.constructor_declaration, constructor_modification) t;
+}
+
+and constructor_modification =
+  | Record_c of record_field list
+  | Tuple_c of tuple_component list
+  | Atomic_c of Types.constructor_declaration atomic_modification
+
+and tuple_component =
+  ( Types.type_expr,
+    (Types.type_expr, Types.type_expr atomic_modification) t )
+  Either.t
+
+type class_ = {
   cname : string;
   cdiff :
     (Types.class_declaration, Types.class_declaration atomic_modification) t;
@@ -19,21 +50,6 @@ and cltype = {
     ( Types.class_type_declaration,
       Types.class_type_declaration atomic_modification )
     t;
-}
-
-type type_modification =
-  | Compound of record_field list
-  | Atomic of Types.type_declaration atomic_modification
-
-and record_field = {
-  lname : string;
-  ldiff :
-    (Types.label_declaration, Types.label_declaration atomic_modification) t;
-}
-
-type type_ = {
-  tname : string;
-  tdiff : (Types.type_declaration, type_modification) t;
 }
 
 type module_ = {

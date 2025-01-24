@@ -12,16 +12,30 @@ type value = {
   vdiff : (value_description, value_description atomic_modification) t;
 }
 
-type type_modification =
-  | Compound of record_field list
+type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
+
+and type_modification =
+  | Record_diff of record_field list
+  | Variant_diff of constructor_ list
   | Atomic of type_declaration atomic_modification
 
 and record_field = {
-  lname : string;
-  ldiff : (label_declaration, label_declaration atomic_modification) t;
+  rname : string;
+  rdiff : (label_declaration, label_declaration atomic_modification) t;
 }
 
-type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
+and constructor_ = {
+  csname : string;
+  csdiff : (constructor_declaration, constructor_modification) t;
+}
+
+and constructor_modification =
+  | Record_c of record_field list
+  | Tuple_c of tuple_component list
+  | Atomic_c of constructor_declaration atomic_modification
+
+and tuple_component =
+  (type_expr, (type_expr, type_expr atomic_modification) t) Either.t
 
 type class_ = {
   cname : string;
@@ -103,6 +117,11 @@ let extract_lbls lbls =
     (fun map lbl -> String_map.add (Ident.name lbl.ld_id) lbl map)
     String_map.empty lbls
 
+let extract_cstrs cstrs =
+  List.fold_left
+    (fun map cstr -> String_map.add (Ident.name cstr.cd_id) cstr map)
+    String_map.empty cstrs
+
 let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
@@ -123,13 +142,35 @@ let rec type_item ~typing_env ~name ~reference ~current =
       | None, None -> None
       | _, _ -> (
           match (reference.type_kind, current.type_kind) with
-          | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) ->
+          | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) -> (
               let changed_lbls =
                 modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
               in
-              Some
-                (Type { tname = name; tdiff = Modified (Compound changed_lbls) })
-          | _, _ ->
+              match changed_lbls with
+              | [] -> None
+              | _ ->
+                  Some
+                    (Type
+                       {
+                         tname = name;
+                         tdiff = Modified (Record_diff changed_lbls);
+                       }))
+          | ( Type_variant (ref_constructor_lst, _),
+              Type_variant (cur_constructor_lst, _) ) -> (
+              let changed_constrs =
+                modified_variant_type ~typing_env ~ref_constructor_lst
+                  ~cur_constructor_lst
+              in
+              match changed_constrs with
+              | [] -> None
+              | _ ->
+                  Some
+                    (Type
+                       {
+                         tname = name;
+                         tdiff = Modified (Variant_diff changed_constrs);
+                       }))
+          | _ ->
               Some
                 (Type
                    {
@@ -137,7 +178,71 @@ let rec type_item ~typing_env ~name ~reference ~current =
                      tdiff = Modified (Atomic { reference; current });
                    })))
 
-and modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst =
+and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
+    =
+  let diff_cstrs name cstr1 cstr2 =
+    match (cstr1.cd_args, cstr2.cd_args) with
+    | Cstr_tuple type_lst1, Cstr_tuple type_lst2 ->
+        let tuple_diff = modified_tuple_type ~typing_env type_lst1 type_lst2 in
+        if
+          List.for_all
+            (fun t ->
+              match t with Either.Left _ -> true | Either.Right _ -> false)
+            tuple_diff
+        then None
+        else Some { csname = name; csdiff = Modified (Tuple_c tuple_diff) }
+    | Cstr_record ref_label_lst, Cstr_record cur_label_lst ->
+        let record_diff =
+          modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
+        in
+        if List.length record_diff = 0 then None
+        else Some { csname = name; csdiff = Modified (Record_c record_diff) }
+    | _ ->
+        Some
+          {
+            csname = name;
+            csdiff = Modified (Atomic_c { reference = cstr1; current = cstr2 });
+          }
+  in
+  let ref_cstrs = extract_cstrs ref_constructor_lst in
+  let curr_cstrs = extract_cstrs cur_constructor_lst in
+  let modified_cstrs =
+    String_map.merge
+      (fun name ref cur ->
+        match (ref, cur) with
+        | None, None -> None
+        | Some ref, None -> Some { csname = name; csdiff = Removed ref }
+        | None, Some cur -> Some { csname = name; csdiff = Added cur }
+        | Some ref, Some cur -> diff_cstrs name ref cur)
+      ref_cstrs curr_cstrs
+    |> String_map.bindings |> List.map snd
+  in
+  modified_cstrs
+
+and diff_list (diff_one : 'a option -> 'a option -> ('a, 'diff) Either.t)
+    (ref : 'a list) (curr : 'a list) : ('a, 'diff) Either.t list =
+  match (ref, curr) with
+  | [], [] -> []
+  | h1 :: t1, [] -> diff_one (Some h1) None :: diff_list diff_one t1 []
+  | [], h2 :: t2 -> diff_one None (Some h2) :: diff_list diff_one [] t2
+  | h1 :: t1, h2 :: t2 ->
+      diff_one (Some h1) (Some h2) :: diff_list diff_one t1 t2
+
+and modified_tuple_type ~typing_env (ref_tuple : type_expr list)
+    (cur_tuple : type_expr list) : tuple_component list =
+  diff_list
+    (fun t1 t2 ->
+      match (t1, t2) with
+      | None, None -> assert false
+      | Some t1, None -> Either.right (Removed t1)
+      | None, Some t2 -> Either.right (Added t2)
+      | Some t1, Some t2 ->
+          if Ctype.does_match typing_env t1 t2 then Either.left t1
+          else Either.right (Modified { reference = t1; current = t2 }))
+    ref_tuple cur_tuple
+
+and modified_record_type ~typing_env ~(ref_label_lst : label_declaration list)
+    ~(cur_label_lst : label_declaration list) =
   let ref_lbls = extract_lbls ref_label_lst in
   let curr_lbls = extract_lbls cur_label_lst in
   let changed_lbls =
@@ -145,15 +250,15 @@ and modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst =
       (fun name ref cur ->
         match (ref, cur) with
         | None, None -> None
-        | Some ref, None -> Some { lname = name; ldiff = Removed ref }
-        | None, Some cur -> Some { lname = name; ldiff = Added cur }
+        | Some ref, None -> Some { rname = name; rdiff = Removed ref }
+        | None, Some cur -> Some { rname = name; rdiff = Added cur }
         | Some ref, Some cur ->
             if Ctype.does_match typing_env ref.ld_type cur.ld_type then None
             else
               Some
                 {
-                  lname = name;
-                  ldiff = Modified { reference = ref; current = cur };
+                  rname = name;
+                  rdiff = Modified { reference = ref; current = cur };
                 })
       ref_lbls curr_lbls
     |> String_map.bindings |> List.map snd
