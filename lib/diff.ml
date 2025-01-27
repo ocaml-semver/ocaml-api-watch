@@ -15,9 +15,15 @@ type value = {
 type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
 
 and type_modification =
-  | Record_diff of record_field list
-  | Variant_diff of constructor_ list
-  | Atomic of type_declaration atomic_modification
+  type_kind_mismatch * type_args_mismatch option * type_param list
+
+and type_kind_mismatch = type_kind * type_kind
+and type_kind = Kind_record | Kind_variant | Kind_abstract | Kind_open
+
+and type_args_mismatch =
+  | Record_mismatch of record_field list
+  | Variant_mismatch of constructor_ list
+  | Atomic_mismatch of type_declaration atomic_modification
 
 and record_field = {
   rname : string;
@@ -36,6 +42,9 @@ and constructor_modification =
 
 and tuple_component =
   (type_expr, (type_expr, type_expr atomic_modification) t) Either.t
+
+and type_param = (type_expr, type_param_diff) Either.t
+and type_param_diff = Added_tp of type_expr | Removed_tp of type_expr
 
 type class_ = {
   cname : string;
@@ -129,54 +138,76 @@ let rec type_item ~typing_env ~name ~reference ~current =
       Some (Type { tname = name; tdiff = Removed reference })
   | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
-  | Some (reference, refId), Some (current, curId) -> (
-      let type_coercion1 () =
-        Includecore.type_declarations ~loc:current.type_loc typing_env
-          ~mark:false name current (Pident curId) reference
+  | Some (reference, _), Some (current, _) -> (
+      match type_decls ~typing_env ~reference ~current with
+      | (ref_tk, cur_tk), None, [] when ref_tk = cur_tk -> None
+      | (ref_tk, cur_tk), args_diff, type_params ->
+          Some
+            (Type
+               {
+                 tname = name;
+                 tdiff = Modified ((ref_tk, cur_tk), args_diff, type_params);
+               }))
+
+and type_decls ~typing_env ~reference ~current =
+  let type_kind_diff, type_args_diff =
+    type_kind ~typing_env ~reference ~current
+  in
+  let type_params_diff = [] in
+  (type_kind_diff, type_args_diff, type_params_diff)
+
+and type_kind ~typing_env ~reference ~current =
+  match (reference.type_kind, current.type_kind) with
+  | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) -> (
+      let changed_lbls =
+        modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
       in
-      let type_coercion2 () =
-        Includecore.type_declarations ~loc:reference.type_loc typing_env
-          ~mark:false name reference (Pident refId) current
+      match changed_lbls with
+      | [] -> ((Kind_record, Kind_record), None)
+      | _ -> ((Kind_record, Kind_record), Some (Record_mismatch changed_lbls)))
+  | Type_record _, Type_variant _ ->
+      ( (Kind_record, Kind_variant),
+        Some (Atomic_mismatch { reference; current }) )
+  | Type_record _, Type_abstract _ ->
+      ( (Kind_record, Kind_abstract),
+        Some (Atomic_mismatch { reference; current }) )
+  | Type_record _, Type_open ->
+      ((Kind_record, Kind_open), Some (Atomic_mismatch { reference; current }))
+  | Type_variant _, Type_record _ ->
+      ( (Kind_variant, Kind_record),
+        Some (Atomic_mismatch { reference; current }) )
+  | Type_variant (ref_constructor_lst, _), Type_variant (cur_constructor_lst, _)
+    -> (
+      let changed_constrs =
+        modified_variant_type ~typing_env ~ref_constructor_lst
+          ~cur_constructor_lst
       in
-      match (type_coercion1 (), type_coercion2 ()) with
-      | None, None -> None
-      | _, _ -> (
-          match (reference.type_kind, current.type_kind) with
-          | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) -> (
-              let changed_lbls =
-                modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
-              in
-              match changed_lbls with
-              | [] -> None
-              | _ ->
-                  Some
-                    (Type
-                       {
-                         tname = name;
-                         tdiff = Modified (Record_diff changed_lbls);
-                       }))
-          | ( Type_variant (ref_constructor_lst, _),
-              Type_variant (cur_constructor_lst, _) ) -> (
-              let changed_constrs =
-                modified_variant_type ~typing_env ~ref_constructor_lst
-                  ~cur_constructor_lst
-              in
-              match changed_constrs with
-              | [] -> None
-              | _ ->
-                  Some
-                    (Type
-                       {
-                         tname = name;
-                         tdiff = Modified (Variant_diff changed_constrs);
-                       }))
-          | _ ->
-              Some
-                (Type
-                   {
-                     tname = name;
-                     tdiff = Modified (Atomic { reference; current });
-                   })))
+      match changed_constrs with
+      | [] -> ((Kind_variant, Kind_variant), None)
+      | _ ->
+          ((Kind_variant, Kind_variant), Some (Variant_mismatch changed_constrs))
+      )
+  | Type_variant _, Type_abstract _ ->
+      ( (Kind_variant, Kind_abstract),
+        Some (Atomic_mismatch { reference; current }) )
+  | Type_variant _, Type_open ->
+      ((Kind_variant, Kind_open), Some (Atomic_mismatch { reference; current }))
+  | Type_abstract _, Type_record _ ->
+      ( (Kind_abstract, Kind_record),
+        Some (Atomic_mismatch { reference; current }) )
+  | Type_abstract _, Type_variant _ ->
+      ( (Kind_abstract, Kind_variant),
+        Some (Atomic_mismatch { reference; current }) )
+  | Type_abstract _, Type_abstract _ -> ((Kind_abstract, Kind_abstract), None)
+  | Type_abstract _, Type_open ->
+      ((Kind_abstract, Kind_open), Some (Atomic_mismatch { reference; current }))
+  | Type_open, Type_record _ ->
+      ((Kind_open, Kind_record), Some (Atomic_mismatch { reference; current }))
+  | Type_open, Type_variant _ ->
+      ((Kind_open, Kind_variant), Some (Atomic_mismatch { reference; current }))
+  | Type_open, Type_abstract _ ->
+      ((Kind_open, Kind_abstract), Some (Atomic_mismatch { reference; current }))
+  | Type_open, Type_open -> ((Kind_open, Kind_open), None)
 
 and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
     =
