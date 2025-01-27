@@ -21,12 +21,15 @@ and type_modification = {
     ( type_expr option,
       (type_expr, type_expr atomic_modification) t )
     maybe_changed;
+  type_params : (type_expr list, type_param list) maybe_changed;
 }
 
 and ('same, 'different) maybe_changed =
   | Same of 'same
   | Different of 'different
 
+and type_param = (type_expr, type_param_diff) maybe_changed
+and type_param_diff = Added_tp of type_expr | Removed_tp of type_expr
 and type_privacy = Added_p | Removed_p
 
 and type_kind =
@@ -128,8 +131,13 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
 let type_expr typing_env reference current =
-  if Ctype.does_match typing_env reference current then None
-  else Some (Modified { reference; current })
+  let equal =
+    match (get_desc reference, get_desc current) with
+    | Tvar (Some ref_name), Tvar (Some cur_name) ->
+        Ctype.does_match typing_env reference current && ref_name = cur_name
+    | _, _ -> Ctype.does_match typing_env reference current
+  in
+  if equal then None else Some (Modified { reference; current })
 
 let extract_lbls lbls =
   List.fold_left
@@ -149,7 +157,207 @@ let rec type_item ~typing_env ~name ~reference ~current =
   | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
   | Some (reference, _), Some (current, _) ->
-      type_decls ~typing_env ~name ~reference ~current
+      let normalized_ref_type_decl, normalized_cur_type_decl =
+        normalize_type_decls reference current
+      in
+      type_decls ~typing_env ~name ~reference:normalized_ref_type_decl
+        ~current:normalized_cur_type_decl
+
+and normalize_type_decls ref_type_decl cur_type_decl =
+  let rec normalize_type_params ref_type_params cur_type_params =
+    match (ref_type_params, cur_type_params) with
+    | [], [] ->
+        let _ = gen_unique_type_var_name true in
+        ([], [], String_map.empty, String_map.empty)
+    | ref_type_param :: ref_type_params', [] ->
+        let ref_type_param_name = get_type_param_name ref_type_param in
+        let unique_name = gen_unique_type_var_name false in
+        let normalized_ref_type_param =
+          create_expr (Tvar (Some unique_name))
+            ~level:(get_level ref_type_param) ~scope:(get_scope ref_type_param)
+            ~id:(get_id ref_type_param)
+        in
+        let ( normalized_ref_type_params',
+              normalized_cur_type_params,
+              ref_type_var_map',
+              cur_type_var_map ) =
+          normalize_type_params ref_type_params' []
+        in
+        ( normalized_ref_type_param :: normalized_ref_type_params',
+          normalized_cur_type_params,
+          String_map.add ref_type_param_name unique_name ref_type_var_map',
+          cur_type_var_map )
+    | [], cur_type_param :: cur_type_params' ->
+        let cur_type_param_name = get_type_param_name cur_type_param in
+        let unique_name = gen_unique_type_var_name false in
+        let normalized_cur_type_param =
+          create_expr (Tvar (Some unique_name))
+            ~level:(get_level cur_type_param) ~scope:(get_scope cur_type_param)
+            ~id:(get_id cur_type_param)
+        in
+        let ( normalized_ref_type_params,
+              normalized_cur_type_params',
+              ref_type_var_map,
+              cur_type_var_map' ) =
+          normalize_type_params [] cur_type_params'
+        in
+        ( normalized_ref_type_params,
+          normalized_cur_type_param :: normalized_cur_type_params',
+          ref_type_var_map,
+          String_map.add cur_type_param_name unique_name cur_type_var_map' )
+    | ref_type_param :: ref_type_params', cur_type_param :: cur_type_params' ->
+        let ref_type_param_name = get_type_param_name ref_type_param in
+        let cur_type_param_name = get_type_param_name cur_type_param in
+        let unique_name = gen_unique_type_var_name false in
+        let normalized_ref_type_param =
+          create_expr (Tvar (Some unique_name))
+            ~level:(get_level ref_type_param) ~scope:(get_scope ref_type_param)
+            ~id:(get_id ref_type_param)
+        in
+        let normalized_cur_type_param =
+          create_expr (Tvar (Some unique_name))
+            ~level:(get_level cur_type_param) ~scope:(get_scope cur_type_param)
+            ~id:(get_id cur_type_param)
+        in
+        let ( normalized_ref_type_params',
+              normalized_cur_type_params',
+              ref_type_var_map',
+              cur_type_var_map' ) =
+          normalize_type_params ref_type_params' cur_type_params'
+        in
+        ( normalized_ref_type_param :: normalized_ref_type_params',
+          normalized_cur_type_param :: normalized_cur_type_params',
+          String_map.add ref_type_param_name unique_name ref_type_var_map',
+          String_map.add cur_type_param_name unique_name cur_type_var_map' )
+  in
+  let ( normalized_ref_type_params,
+        normalized_cur_type_params,
+        ref_type_var_name_map,
+        cur_type_var_name_map ) =
+    normalize_type_params
+      Types.(ref_type_decl.type_params)
+      Types.(cur_type_decl.type_params)
+  in
+  let normalized_ref_type_manifest =
+    normalize_type_manifest ref_type_decl.type_manifest ref_type_var_name_map
+  in
+  let normalized_cur_type_manifest =
+    normalize_type_manifest cur_type_decl.type_manifest cur_type_var_name_map
+  in
+  let normalized_ref_type_kind =
+    normalize_type_kind ref_type_decl.type_kind ref_type_var_name_map
+  in
+  let normalized_cur_type_kind =
+    normalize_type_kind cur_type_decl.type_kind cur_type_var_name_map
+  in
+  ( {
+      ref_type_decl with
+      type_params = normalized_ref_type_params;
+      type_manifest = normalized_ref_type_manifest;
+      type_kind = normalized_ref_type_kind;
+    },
+    {
+      cur_type_decl with
+      type_params = normalized_cur_type_params;
+      type_manifest = normalized_cur_type_manifest;
+      type_kind = normalized_cur_type_kind;
+    } )
+
+and normalize_type_expr tvmap type_expr =
+  match get_desc type_expr with
+  | Tvar None -> type_expr
+  | Tvar (Some name) ->
+      let nname = String_map.find name tvmap in
+      create_expr (Tvar (Some nname)) ~level:(get_level type_expr)
+        ~scope:(get_scope type_expr) ~id:(get_id type_expr)
+  | Tarrow (x, te1, te2, y) ->
+      create_expr
+        (Tarrow
+           (x, normalize_type_expr tvmap te1, normalize_type_expr tvmap te2, y))
+        ~level:(get_level type_expr) ~scope:(get_scope type_expr)
+        ~id:(get_id type_expr)
+  | Ttuple te_list ->
+      create_expr
+        (Ttuple (List.map (normalize_type_expr tvmap) te_list))
+        ~level:(get_level type_expr) ~scope:(get_scope type_expr)
+        ~id:(get_id type_expr)
+  | Tconstr (x, te_list, y) ->
+      create_expr
+        (Tconstr (x, List.map (normalize_type_expr tvmap) te_list, y))
+        ~level:(get_level type_expr) ~scope:(get_scope type_expr)
+        ~id:(get_id type_expr)
+  | Tobject (te, x) ->
+      create_expr
+        (Tobject (normalize_type_expr tvmap te, x))
+        ~level:(get_level te) ~scope:(get_scope te) ~id:(get_id te)
+  | Tfield (x, y, te1, te2) ->
+      create_expr
+        (Tfield
+           (x, y, normalize_type_expr tvmap te1, normalize_type_expr tvmap te2))
+        ~level:(get_level type_expr) ~scope:(get_scope type_expr)
+        ~id:(get_id type_expr)
+  | Tnil -> type_expr
+  | Tsubst (te1, te2_opt) ->
+      create_expr
+        (Tsubst
+           ( normalize_type_expr tvmap te1,
+             Option.map (normalize_type_expr tvmap) te2_opt ))
+        ~level:(get_level type_expr) ~scope:(get_scope type_expr)
+        ~id:(get_id type_expr)
+  | _ -> type_expr
+
+and normalize_type_manifest type_manifest tvmap =
+  match type_manifest with
+  | None -> None
+  | Some te -> Some (normalize_type_expr tvmap te)
+
+and normalize_type_kind type_kind tvmap =
+  match type_kind with
+  | Type_record (lbls, x) ->
+      let normalized_lbls =
+        List.map
+          (fun lbl ->
+            { lbl with ld_type = normalize_type_expr tvmap lbl.ld_type })
+          lbls
+      in
+      Type_record (normalized_lbls, x)
+  | Type_variant (cstrs, x) ->
+      let normalized_cstrs =
+        List.map
+          (fun cstr ->
+            match cstr.cd_args with
+            | Cstr_tuple type_exprs ->
+                let normalized_type_exprs =
+                  List.map (normalize_type_expr tvmap) type_exprs
+                in
+                { cstr with cd_args = Cstr_tuple normalized_type_exprs }
+            | Cstr_record lbls ->
+                let normalized_lbls =
+                  List.map
+                    (fun lbl ->
+                      {
+                        lbl with
+                        ld_type = normalize_type_expr tvmap lbl.ld_type;
+                      })
+                    lbls
+                in
+                { cstr with cd_args = Cstr_record normalized_lbls })
+          cstrs
+      in
+      Type_variant (normalized_cstrs, x)
+  | Type_abstract _ -> type_kind
+  | Type_open -> type_kind
+
+and get_type_param_name param =
+  match get_desc param with Tvar (Some name) -> name | _ -> assert false
+
+and gen_unique_type_var_name =
+  let counter = ref 1 in
+  fun reset ->
+    if reset then counter := 0 else ();
+    let unique_name = Printf.sprintf "t%d" !counter in
+    counter := !counter + 1;
+    unique_name
 
 and type_decls ~typing_env ~name ~reference ~current =
   let type_kind =
@@ -164,10 +372,33 @@ and type_decls ~typing_env ~name ~reference ~current =
     type_manifest ~typing_env ~ref_type_manifest:reference.type_manifest
       ~cur_type_manifest:current.type_manifest
   in
-  match { type_kind; type_privacy; type_manifest } with
-  | { type_kind = Same _; type_privacy = Same _; type_manifest = Same _ } ->
+  let type_params =
+    type_params ~ref_type_params:reference.type_params
+      ~cur_type_params:current.type_params
+  in
+  match { type_kind; type_privacy; type_manifest; type_params } with
+  | {
+   type_kind = Same _;
+   type_privacy = Same _;
+   type_manifest = Same _;
+   type_params = Same _;
+  } ->
       None
   | diff -> Some (Type { tname = name; tdiff = Modified diff })
+
+and type_params ~ref_type_params ~cur_type_params =
+  if List.length ref_type_params = List.length cur_type_params then
+    Same ref_type_params
+  else
+    Different
+      (diff_list
+         (fun t1 t2 ->
+           match (t1, t2) with
+           | None, None -> assert false
+           | Some t1, None -> Different (Removed_tp t1)
+           | None, Some t2 -> Different (Added_tp t2)
+           | Some t1, Some _ -> Same t1)
+         ref_type_params cur_type_params)
 
 and type_privacy ~ref_type_privacy ~cur_type_privacy =
   match (ref_type_privacy, cur_type_privacy) with
@@ -179,7 +410,7 @@ and type_privacy ~ref_type_privacy ~cur_type_privacy =
 and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
   match (ref_type_kind, cur_type_kind) with
   | (Type_record (ref_label_lst, _) as td), Type_record (cur_label_lst, _) -> (
-      let changed_lbls =
+     let changed_lbls =
         modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
       in
       match changed_lbls with
@@ -187,7 +418,7 @@ and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
       | _ -> Different (Record_tk changed_lbls))
   | ( (Type_variant (ref_constructor_lst, _) as td),
       Type_variant (cur_constructor_lst, _) ) -> (
-      let changed_constrs =
+     let changed_constrs =
         modified_variant_type ~typing_env ~ref_constructor_lst
           ~cur_constructor_lst
       in
@@ -250,8 +481,13 @@ and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
   in
   modified_cstrs
 
-and diff_list (diff_one : 'a option -> 'a option -> ('a, 'diff) maybe_changed)
-    (ref : 'a list) (curr : 'a list) : ('a, 'diff) maybe_changed list =
+and diff_list :
+      'a 'diff.
+      ('a option -> 'a option -> ('a, 'diff) maybe_changed) ->
+      'a list ->
+      'a list ->
+      ('a, 'diff) maybe_changed list =
+ fun diff_one ref curr ->
   match (ref, curr) with
   | [], [] -> []
   | h1 :: t1, [] -> diff_one (Some h1) None :: diff_list diff_one t1 []

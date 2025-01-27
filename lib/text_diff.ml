@@ -126,15 +126,17 @@ let process_atomic_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name
 
 let rec process_type_diff (type_diff : Diff.type_) =
   match type_diff.tdiff with
-  | Modified { type_kind; type_privacy; type_manifest } ->
+  | Modified { type_kind; type_privacy; type_manifest; type_params } ->
       process_modified_type_diff type_diff.tname type_kind type_privacy
-        type_manifest
+        type_manifest type_params
   | Added td -> process_atomic_diff (Added td) type_diff.tname td_to_lines
   | Removed td -> process_atomic_diff (Removed td) type_diff.tname td_to_lines
 
-and process_modified_type_diff name type_kind type_privacy type_manifest =
+and process_modified_type_diff name type_kind type_privacy type_manifest
+    type_params =
   let type_header_diff =
-    process_type_header_diff name type_privacy type_manifest type_kind
+    process_type_header_diff name type_privacy type_manifest type_params
+      type_kind
   in
   let type_kind_diff = process_type_kind_diff type_kind in
   order_type_diffs type_header_diff type_kind_diff
@@ -155,10 +157,12 @@ and order_type_diffs type_header_diff type_kind_diff =
   | `Atomic_change type_header_change, `Compound_change type_kind_change ->
       type_header_change @ type_kind_change
 
-and process_type_header_diff name type_privacy type_manifest type_kind =
-  match (type_privacy, type_manifest, type_kind) with
+and process_type_header_diff name type_privacy type_manifest type_params
+    type_kind =
+  match (type_privacy, type_manifest, type_params, type_kind) with
   | ( Same private_flag,
       Same te_opt,
+      Same same_params,
       Different
         ( Record_tk _ | Variant_tk _
         | Atomic_tk
@@ -166,8 +170,11 @@ and process_type_header_diff name type_privacy type_manifest type_kind =
               reference = Type_record _ | Type_variant _ | Type_open;
               current = Type_record _ | Type_variant _ | Type_open;
             } ) ) ->
-      `Same [ Same (type_header_to_line name private_flag te_opt false) ]
-  | type_privacy_diff, type_manifest_diff, type_kind_diff ->
+      `Same
+        [
+          Same (type_header_to_line name private_flag te_opt same_params false);
+        ]
+  | type_privacy_diff, type_manifest_diff, type_params_diff, type_kind_diff ->
       let ref_private_flag, cur_private_flag =
         match type_privacy_diff with
         | Same private_flag -> (private_flag, private_flag)
@@ -187,11 +194,32 @@ and process_type_header_diff name type_privacy type_manifest type_kind =
             (false, true)
         | _ -> (false, false)
       in
+      let ref_params, cur_params =
+        match type_params_diff with
+        | Same same_params -> (same_params, same_params)
+        | Different changed_params ->
+            List.fold_right
+              (fun p (ref_params, cur_params) ->
+                match p with
+                | Diff.Same same_param ->
+                    (same_param :: ref_params, same_param :: cur_params)
+                | Different (Diff.Added_tp param) ->
+                    (ref_params, param :: cur_params)
+                | Different (Diff.Removed_tp param) ->
+                    (param :: ref_params, cur_params))
+              changed_params ([], [])
+      in
       let orig =
-        [ type_header_to_line name ref_private_flag ref_manifest ref_abstract ]
+        [
+          type_header_to_line name ref_private_flag ref_manifest ref_params
+            ref_abstract;
+        ]
       in
       let new_ =
-        [ type_header_to_line name cur_private_flag cur_manifest cur_abstract ]
+        [
+          type_header_to_line name cur_private_flag cur_manifest cur_params
+            cur_abstract;
+        ]
       in
       `Atomic_change [ Change { orig; new_ = [] }; Change { orig = []; new_ } ]
 
@@ -206,19 +234,33 @@ and pair_of_manifest_diff manifest_diff =
   | Removed te -> (Some te, None)
   | Modified { reference; current } -> (Some reference, Some current)
 
-and type_header_to_line name private_flag type_expr_opt abstract =
+and type_header_to_line name private_flag type_expr_opt type_params abstract =
   let private_flag_str = string_of_private_flag private_flag in
   let manifest_str = string_of_manifest type_expr_opt in
+  let type_params_str = string_of_type_params type_params in
   let equal_sign =
     if abstract && private_flag_str = "" && manifest_str = "" then "" else " ="
   in
-  Printf.sprintf "type %s%s%s%s" name equal_sign private_flag_str manifest_str
+  Printf.sprintf "type %s%s%s%s%s" type_params_str name equal_sign
+    private_flag_str manifest_str
 
 and string_of_private_flag private_flag =
   match private_flag with Public -> "" | Private -> " private"
 
 and string_of_manifest manifest =
   match manifest with None -> "" | Some te -> " " ^ typ_expr_to_line te
+
+and string_of_type_params (type_params : Types.type_expr list) =
+  let wrap = if List.length type_params > 1 then true else false in
+  (if wrap then "(" else "")
+  ^ String.concat ", " (List.map get_type_param_name type_params)
+  ^ (if wrap then ") " else "")
+  ^ if List.length type_params = 1 then " " else ""
+
+and get_type_param_name param =
+  match Types.get_desc param with
+  | Types.Tvar (Some name) -> "'" ^ name
+  | _ -> assert false
 
 and process_type_kind_diff type_kind =
   match type_kind with
