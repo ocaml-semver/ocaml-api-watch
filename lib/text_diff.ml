@@ -43,6 +43,13 @@ let lbl_to_lines ld =
   Format.pp_print_flush formatter ();
   CCString.lines (Buffer.contents buf)
 
+let lbl_to_line ld =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  Printtyp.label formatter ld;
+  Format.pp_print_flush formatter ();
+  String.map (function '\n' -> ' ' | c -> c) (Buffer.contents buf)
+
 let typ_expr_to_line typ_exp =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
@@ -56,6 +63,13 @@ let cstr_to_lines ld =
   Printtyp.constructor formatter ld;
   Format.pp_print_flush formatter ();
   CCString.lines ("| " ^ Buffer.contents buf)
+
+let cstr_to_line ld =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  Printtyp.constructor formatter ld;
+  Format.pp_print_flush formatter ();
+  String.map (function '\n' -> ' ' | c -> c) (Buffer.contents buf)
 
 let md_to_lines name md =
   let buf = Buffer.create 256 in
@@ -119,20 +133,47 @@ let process_atomic_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name
 
 let rec process_type_diff (type_diff : Diff.type_) =
   match type_diff.tdiff with
-  | Diff.Modified (_, Some (Record_mismatch change_lst), _) ->
+  | Diff.Modified { type_kind_mismatch = Some (Record_mismatch change_lst) } ->
       Same ("type " ^ type_diff.tname ^ " = {")
       :: process_modified_record_type_diff ~indent_n:2 change_lst
       @ [ Same "}" ]
-  | Diff.Modified (_, Some (Variant_mismatch change_lst), _) ->
+  | Diff.Modified { type_kind_mismatch = Some (Variant_mismatch change_lst) } ->
       Same ("type " ^ type_diff.tname ^ " =")
       :: process_modified_variant_type_diff change_lst
-  | Diff.Modified (_, Some (Atomic_mismatch mods), _) ->
-      process_atomic_diff (Diff.Modified mods) type_diff.tname td_to_lines
+  | Diff.Modified
+      { type_kind_mismatch = Some (Atomic_mismatch { reference; current }) } ->
+      process_atomic_type_kind_diff type_diff.tname reference current
   | Diff.Added td ->
       process_atomic_diff (Diff.Added td) type_diff.tname td_to_lines
   | Diff.Removed td ->
       process_atomic_diff (Diff.Removed td) type_diff.tname td_to_lines
   | _ -> assert false
+
+and process_atomic_type_kind_diff name reference current =
+  [
+    Change
+      {
+        orig = type_kind_to_lines name reference;
+        new_ = type_kind_to_lines name current;
+      };
+  ]
+
+and type_kind_to_lines name type_kind =
+  match type_kind with
+  | Types.Type_record (lbl_lst, _) ->
+      [
+        Printf.sprintf "type %s = { " name
+        ^ (List.map (fun lbl -> lbl_to_line lbl) lbl_lst |> String.concat " ; ")
+        ^ " }";
+      ]
+  | Types.Type_variant (cstr_lst, _) ->
+      [
+        Printf.sprintf "type %s = " name
+        ^ (List.map (fun cstr -> cstr_to_line cstr) cstr_lst
+          |> String.concat " | ");
+      ]
+  | Types.Type_abstract _ -> [ Printf.sprintf "type %s" name ]
+  | Types.Type_open -> [ Printf.sprintf "type %s = .." name ]
 
 and process_modified_record_type_diff ~indent_n diff =
   let changes = process_modified_labels diff in
