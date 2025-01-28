@@ -13,8 +13,16 @@ type type_ = {
 }
 
 and type_modification =
-  | Compound_tm of { type_kind_mismatch : type_kind_mismatch option }
+  | Compound_tm of {
+      type_kind_mismatch : type_kind_mismatch option;
+      type_privacy_mismatch :
+        (Asttypes.private_flag, type_privacy_diff) Either.t;
+    }
   | Atomic_tm of Types.type_declaration atomic_modification
+
+and type_privacy_diff =
+  | Added_p of Asttypes.private_flag
+  | Removed_p of Asttypes.private_flag
 
 and type_kind_mismatch =
   | Record_mismatch of record_field list

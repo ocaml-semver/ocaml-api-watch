@@ -15,8 +15,16 @@ type value = {
 type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
 
 and type_modification =
-  | Compound_tm of { type_kind_mismatch : type_kind_mismatch option }
+  | Compound_tm of {
+      type_kind_mismatch : type_kind_mismatch option;
+      type_privacy_mismatch :
+        (Asttypes.private_flag, type_privacy_diff) Either.t;
+    }
   | Atomic_tm of type_declaration atomic_modification
+
+and type_privacy_diff =
+  | Added_p of Asttypes.private_flag
+  | Removed_p of Asttypes.private_flag
 
 and type_kind_mismatch =
   | Record_mismatch of record_field list
@@ -151,25 +159,42 @@ and type_decls ~typing_env ~name ~reference ~ref_id ~current ~cur_id =
   match (type_coercion1 (), type_coercion2 ()) with
   | None, None -> None
   | _, _ -> (
-      let type_kind_diff = type_kind ~typing_env ~reference ~current in
-      match type_kind_diff with
-      | None ->
+      let type_kind_diff =
+        type_kind ~typing_env ~ref_type_kind:reference.type_kind
+          ~cur_type_kind:current.type_kind
+      in
+      let type_privacy_diff =
+        type_privacy ~ref_type_privacy:reference.type_private
+          ~cur_type_privacy:current.type_private
+      in
+      match (type_kind_diff, type_privacy_diff) with
+      | None, Either.Left _ ->
           Some
             (Type
                {
                  tname = name;
                  tdiff = Modified (Atomic_tm { reference; current });
                })
-      | type_kind_mismatch ->
+      | type_kind_mismatch, type_privacy_mismatch ->
           Some
             (Type
                {
                  tname = name;
-                 tdiff = Modified (Compound_tm { type_kind_mismatch });
+                 tdiff =
+                   Modified
+                     (Compound_tm { type_kind_mismatch; type_privacy_mismatch });
                }))
 
-and type_kind ~typing_env ~reference ~current =
-  match (reference.type_kind, current.type_kind) with
+and type_privacy ~ref_type_privacy ~cur_type_privacy =
+  match (ref_type_privacy, cur_type_privacy) with
+  | Asttypes.Public, Asttypes.Public -> Either.Left Asttypes.Public
+  | Asttypes.Public, Asttypes.Private -> Either.Right (Added_p Asttypes.Private)
+  | Asttypes.Private, Asttypes.Public ->
+      Either.Right (Removed_p Asttypes.Private)
+  | Asttypes.Private, Asttypes.Private -> Either.Left Asttypes.Private
+
+and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
+  match (ref_type_kind, cur_type_kind) with
   | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) -> (
       let changed_lbls =
         modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
