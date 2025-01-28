@@ -12,16 +12,12 @@ type type_ = {
   tdiff : (Types.type_declaration, type_modification) t;
 }
 
-and type_modification =
-  type_kind_mismatch * type_args_mismatch option * type_param list
+and type_modification = { type_kind_mismatch : type_kind_mismatch option }
 
-and type_kind_mismatch = type_kind * type_kind
-and type_kind = Kind_record | Kind_variant | Kind_abstract | Kind_open
-
-and type_args_mismatch =
+and type_kind_mismatch =
   | Record_mismatch of record_field list
   | Variant_mismatch of constructor_ list
-  | Atomic_mismatch of Types.type_declaration atomic_modification
+  | Atomic_mismatch of Types.type_decl_kind atomic_modification
 
 and record_field = {
   rname : string;
