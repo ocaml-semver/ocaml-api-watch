@@ -24,7 +24,7 @@ Run the api-watcher on the two cmi files
 
   $ api-diff ref.cmi add_constructor.cmi
   diff module Add_constructor:
-   type rank =
+   type rank = 
     ...
   + | Jack
   
