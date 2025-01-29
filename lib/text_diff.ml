@@ -135,35 +135,43 @@ let rec process_type_diff (type_diff : Diff.type_) =
   match type_diff.tdiff with
   | Diff.Modified
       (Compound_tm
-        {
-          type_kind_mismatch = Some (Record_mismatch change_lst);
-          type_privacy_mismatch;
-        }) ->
+         {
+           type_kind_mismatch = Some (Record_mismatch change_lst);
+           type_privacy_mismatch;
+           type_manifest_mismatch;
+         }) ->
       let s = string_of_type_privacy_mismatch type_privacy_mismatch in
-      Same ("type " ^ type_diff.tname ^ " = " ^ s ^ "{")
+      let m = string_of_type_manifest_mismatch type_manifest_mismatch in
+      Same ("type " ^ type_diff.tname ^ " = " ^ s ^ m ^ "{")
       :: process_modified_record_type_diff ~indent_n:2 change_lst
       @ [ Same "}" ]
   | Diff.Modified
       (Compound_tm
-        {
-          type_kind_mismatch = Some (Variant_mismatch change_lst);
-          type_privacy_mismatch;
-        }) ->
+         {
+           type_kind_mismatch = Some (Variant_mismatch change_lst);
+           type_privacy_mismatch;
+           type_manifest_mismatch;
+         }) ->
       let s = string_of_type_privacy_mismatch type_privacy_mismatch in
-      Same ("type " ^ type_diff.tname ^ " = " ^ s)
+      let m = string_of_type_manifest_mismatch type_manifest_mismatch in
+      Same ("type " ^ type_diff.tname ^ " = " ^ s ^ m)
       :: process_modified_variant_type_diff change_lst
   | Diff.Modified
       (Compound_tm
-        {
-          type_kind_mismatch = Some (Atomic_mismatch { reference; current });
-          type_privacy_mismatch;
-        }) ->
+         {
+           type_kind_mismatch = Some (Atomic_mismatch { reference; current });
+           type_privacy_mismatch;
+           type_manifest_mismatch;
+         }) ->
       process_atomic_type_kind_diff type_diff.tname type_privacy_mismatch
         reference current
   | Diff.Modified
       (Compound_tm
-        { type_kind_mismatch = None; type_privacy_mismatch = Either.Right pm })
-    ->
+         {
+           type_kind_mismatch = None;
+           type_privacy_mismatch = Either.Right pm;
+           type_manifest_mismatch;
+         }) ->
       let privacy_str = string_of_type_privacy_mismatch (Either.Right pm) in
       [ Same (Printf.sprintf "type %s = %s...." type_diff.tname privacy_str) ]
   | Diff.Modified (Atomic_tm mods) ->
@@ -181,6 +189,16 @@ and string_of_type_privacy_mismatch type_privacy_mismatch =
   | Either.Right (Diff.Added_p Asttypes.Private) -> "+private "
   | Either.Right (Diff.Removed_p Asttypes.Private) -> "-private "
   | _ -> assert false
+
+and string_of_type_manifest_mismatch type_manifest_mismatch =
+  match type_manifest_mismatch with
+  | Either.Left None -> ""
+  | Either.Left (Some te) -> typ_expr_to_line te
+  | Either.Right (Added te) -> "+" ^ typ_expr_to_line te
+  | Either.Right (Removed te) -> "-" ^ typ_expr_to_line te
+  | Either.Right (Modified { reference; current }) ->
+      "-" ^ typ_expr_to_line reference ^ " " ^ "+" ^ typ_expr_to_line current
+      ^ " "
 
 and process_atomic_type_kind_diff name privacy reference current =
   [
@@ -302,8 +320,8 @@ let process_class_diff (class_diff : Diff.class_) =
 let process_class_type_diff (class_type_diff : Diff.cltype) =
   process_atomic_diff class_type_diff.ctdiff class_type_diff.ctname ctd_to_lines
 
-let rec process_sig_diff :
-    type a. _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
+let rec process_sig_diff : type a.
+    _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
  fun path to_lines ((diff : (a, _) Diff.t), name) acc ->
   match diff with
   | Added curr_mtd ->

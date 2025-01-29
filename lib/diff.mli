@@ -14,12 +14,13 @@ type type_ = {
 
 and type_modification =
   | Compound_tm of {
-    type_kind_mismatch : type_kind_mismatch option;
-    type_privacy_mismatch :
+      type_kind_mismatch : type_kind_mismatch option;
+      type_privacy_mismatch :
         (Asttypes.private_flag, type_privacy_diff) Either.t;
-   type_manifest_mismatch :
-    ( Types.type_expr option,
-      (Types.type_expr, Types.type_expr atomic_modification) t ) Either.t;
+      type_manifest_mismatch :
+        ( Types.type_expr option,
+          (Types.type_expr, Types.type_expr atomic_modification) t )
+        Either.t;
     }
   | Atomic_tm of Types.type_declaration atomic_modification
 
