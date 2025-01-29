@@ -13,7 +13,10 @@ type value = {
 }
 
 type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
-and type_modification = { type_kind_mismatch : type_kind_mismatch option }
+
+and type_modification =
+  | Compound_tm of { type_kind_mismatch : type_kind_mismatch option }
+  | Atomic_tm of type_declaration atomic_modification
 
 and type_kind_mismatch =
   | Record_mismatch of record_field list
@@ -133,15 +136,37 @@ let rec type_item ~typing_env ~name ~reference ~current =
       Some (Type { tname = name; tdiff = Removed reference })
   | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
-  | Some (reference, _), Some (current, _) -> (
-      match type_decls ~typing_env ~reference ~current with
-      | { type_kind_mismatch = None } -> None
-      | { type_kind_mismatch } ->
-          Some (Type { tname = name; tdiff = Modified { type_kind_mismatch } }))
+  | Some (reference, ref_id), Some (current, cur_id) ->
+      type_decls ~typing_env ~name ~reference ~ref_id ~current ~cur_id
 
-and type_decls ~typing_env ~reference ~current =
-  let type_kind_diff = type_kind ~typing_env ~reference ~current in
-  { type_kind_mismatch = type_kind_diff }
+and type_decls ~typing_env ~name ~reference ~ref_id ~current ~cur_id =
+  let type_coercion1 () =
+    Includecore.type_declarations ~loc:current.type_loc typing_env ~mark:false
+      name current (Pident cur_id) reference
+  in
+  let type_coercion2 () =
+    Includecore.type_declarations ~loc:reference.type_loc typing_env ~mark:false
+      name reference (Pident ref_id) current
+  in
+  match (type_coercion1 (), type_coercion2 ()) with
+  | None, None -> None
+  | _, _ -> (
+      let type_kind_diff = type_kind ~typing_env ~reference ~current in
+      match type_kind_diff with
+      | None ->
+          Some
+            (Type
+               {
+                 tname = name;
+                 tdiff = Modified (Atomic_tm { reference; current });
+               })
+      | type_kind_mismatch ->
+          Some
+            (Type
+               {
+                 tname = name;
+                 tdiff = Modified (Compound_tm { type_kind_mismatch });
+               }))
 
 and type_kind ~typing_env ~reference ~current =
   match (reference.type_kind, current.type_kind) with

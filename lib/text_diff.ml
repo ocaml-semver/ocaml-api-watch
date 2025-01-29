@@ -133,16 +133,24 @@ let process_atomic_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name
 
 let rec process_type_diff (type_diff : Diff.type_) =
   match type_diff.tdiff with
-  | Diff.Modified { type_kind_mismatch = Some (Record_mismatch change_lst) } ->
+  | Diff.Modified
+      (Compound_tm { type_kind_mismatch = Some (Record_mismatch change_lst) })
+    ->
       Same ("type " ^ type_diff.tname ^ " = {")
       :: process_modified_record_type_diff ~indent_n:2 change_lst
       @ [ Same "}" ]
-  | Diff.Modified { type_kind_mismatch = Some (Variant_mismatch change_lst) } ->
+  | Diff.Modified
+      (Compound_tm { type_kind_mismatch = Some (Variant_mismatch change_lst) })
+    ->
       Same ("type " ^ type_diff.tname ^ " =")
       :: process_modified_variant_type_diff change_lst
   | Diff.Modified
-      { type_kind_mismatch = Some (Atomic_mismatch { reference; current }) } ->
+      (Compound_tm
+        { type_kind_mismatch = Some (Atomic_mismatch { reference; current }) })
+    ->
       process_atomic_type_kind_diff type_diff.tname reference current
+  | Diff.Modified (Atomic_tm mods) ->
+      process_atomic_diff (Diff.Modified mods) type_diff.tname td_to_lines
   | Diff.Added td ->
       process_atomic_diff (Diff.Added td) type_diff.tname td_to_lines
   | Diff.Removed td ->

@@ -1,6 +1,6 @@
-Here we generate `.mli` files for testing the changes in the type kinds
+Here we generate files for testing the changes in the type kinds
 
-# A .mli file with a record type
+# A `.mli` file with a record type
 
   $ cat > ref_record_kind.mli << EOF
   > type t = { a: int; b: float }
@@ -10,59 +10,67 @@ We generate the .cmi file
 
   $ ocamlc ref_record_kind.mli
 
-### A file with a variant type:
+### A `.mli` file with a variant type:
 
-  $ cat > cur_variant_kind.mli << EOF
+  $ cat > ref_variant_kind.mli << EOF
   > type t = A of int | B of string
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc cur_variant_kind.mli
+  $ ocamlc ref_variant_kind.mli
 
-Run the api-watcher on the two cmi files
+### A `.mli` file with an abstract type:
 
-  $ api-diff ref_record_kind.cmi cur_variant_kind.cmi
-  diff module Cur_variant_kind:
-  -type t = { a : int; ; b : float; }
-  +type t = A of int | B of string
-
-  [1]
-
-### A file with an abstract type:
-
-  $ cat > cur_abstract_kind.mli << EOF
+  $ cat > ref_abstract_kind.mli << EOF
   > type t
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc cur_abstract_kind.mli
+  $ ocamlc ref_abstract_kind.mli
 
-Run the api-watcher on the two cmi files
+### A `.mli` file with an open type:
 
-  $ api-diff ref_record_kind.cmi cur_abstract_kind.cmi
-  diff module Cur_abstract_kind:
-  -type t = { a : int; b : float }
-  +type t
-
-  [1]
-
-### A file with an open type:
-
-  $ cat > cur_open_kind.mli << EOF
+  $ cat > ref_open_kind.mli << EOF
   > type t = ..
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc cur_open_kind.mli
+  $ ocamlc ref_open_kind.mli
 
-Run the api-watcher on the two cmi files
+Run the api-watcher on record and varient type kinds cmi files
 
-  $ api-diff ref_record_kind.cmi cur_open_kind.cmi
-  diff module Cur_open_kind:
-  -type t = { a : int; b : float }
-  +type t = ..
-
+  $ api-diff ref_record_kind.cmi ref_variant_kind.cmi
+  diff module Ref_variant_kind:
+  -type t = { a : int; ; b : float; }
+  +type t = A of int | B of string
+  
   [1]
+
+Run the api-watcher on record and abstract type kinds cmi files
+
+  $ api-diff ref_record_kind.cmi ref_abstract_kind.cmi
+  diff module Ref_abstract_kind:
+  -type t = { a : int; ; b : float; }
+  +type t
+  
+  [1]
+
+Run the api-watcher on record and open type kinds cmi files
+
+  $ api-diff ref_record_kind.cmi ref_open_kind.cmi
+  diff module Ref_open_kind:
+  -type t = { a : int; ; b : float; }
+  +type t = ..
+  
+  [1]
+
+Run the api-watcher on two abstract type kinds cmi files
+
+  $ api-diff ref_abstract_kind.cmi ref_abstract_kind.cmi
+
+Run the api-watcher on two open type kinds cmi files
+
+  $ api-diff ref_open_kind.cmi ref_open_kind.cmi

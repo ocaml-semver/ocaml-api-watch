@@ -12,7 +12,9 @@ type type_ = {
   tdiff : (Types.type_declaration, type_modification) t;
 }
 
-and type_modification = { type_kind_mismatch : type_kind_mismatch option }
+and type_modification =
+  | Compound_tm of { type_kind_mismatch : type_kind_mismatch option }
+  | Atomic_tm of Types.type_declaration atomic_modification
 
 and type_kind_mismatch =
   | Record_mismatch of record_field list
