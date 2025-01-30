@@ -15,20 +15,20 @@ type value = {
 type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
 
 and type_modification = {
-  type_kind_mismatch : type_kind_mismatch option;
-  type_privacy_mismatch : (Asttypes.private_flag, type_privacy_diff) Either.t;
-  type_manifest_mismatch :
+  type_kind : type_kind option;
+  type_privacy : (Asttypes.private_flag, type_privacy) Either.t;
+  type_manifest :
     (type_expr option, (type_expr, type_expr atomic_modification) t) Either.t;
 }
 
-and type_privacy_diff =
-  | Added_p of Asttypes.private_flag
-  | Removed_p of Asttypes.private_flag
+and type_privacy =
+  | Added_p
+  | Removed_p
 
-and type_kind_mismatch =
-  | Record_mismatch of record_field list
-  | Variant_mismatch of constructor_ list
-  | Atomic_mismatch of type_decl_kind atomic_modification
+and type_kind =
+  | Record_tk of record_field list
+  | Variant_tk of constructor_ list
+  | Atomic_tk of type_decl_kind atomic_modification
 
 and record_field = {
   rname : string;
@@ -47,9 +47,6 @@ and constructor_modification =
 
 and tuple_component =
   (type_expr, (type_expr, type_expr atomic_modification) t) Either.t
-
-and type_param = (type_expr, type_param_diff) Either.t
-and type_param_diff = Added_tp of type_expr | Removed_tp of type_expr
 
 type class_ = {
   cname : string;
@@ -126,6 +123,9 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
   | exception Includemod.Error _ ->
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
+let same_type_expr typing_env reference current = 
+  Ctype.does_match typing_env reference current
+
 let extract_lbls lbls =
   List.fold_left
     (fun map lbl -> String_map.add (Ident.name lbl.ld_id) lbl map)
@@ -143,38 +143,39 @@ let rec type_item ~typing_env ~name ~reference ~current =
       Some (Type { tname = name; tdiff = Removed reference })
   | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
-  | Some (reference, _), Some (current, _) -> (
-      let type_diff = type_decls ~typing_env ~reference ~current in
-      match type_diff with
-      | {
-       type_kind_mismatch = None;
-       type_privacy_mismatch = Either.Left _;
-       type_manifest_mismatch = Either.Left _;
-      } ->
-          None
-      | mismatch -> Some (Type { tname = name; tdiff = Modified mismatch }))
+  | Some (reference, _), Some (current, _) -> 
+      type_decls ~typing_env ~name ~reference ~current
 
-and type_decls ~typing_env ~reference ~current =
-  let type_kind_mismatch =
+and type_decls ~typing_env ~name ~reference ~current =
+  let type_kind =
     type_kind ~typing_env ~ref_type_kind:reference.type_kind
       ~cur_type_kind:current.type_kind
   in
-  let type_privacy_mismatch =
+  let type_privacy =
     type_privacy ~ref_type_privacy:reference.type_private
       ~cur_type_privacy:current.type_private
   in
-  let type_manifest_mismatch =
+  let type_manifest =
     type_manifest ~typing_env ~ref_type_manifest:reference.type_manifest
       ~cur_type_manifest:current.type_manifest
   in
-  { type_kind_mismatch; type_privacy_mismatch; type_manifest_mismatch }
+  match { type_kind; type_privacy; type_manifest } with 
+ | {
+       type_kind = None;
+       type_privacy = Either.Left _;
+       type_manifest = Either.Left _;
+      } ->
+          None
+      | diff -> Some (Type { tname = name; tdiff = Modified diff })
+
+
 
 and type_privacy ~ref_type_privacy ~cur_type_privacy =
   match (ref_type_privacy, cur_type_privacy) with
   | Asttypes.Public, Asttypes.Public -> Either.Left Asttypes.Public
-  | Asttypes.Public, Asttypes.Private -> Either.Right (Added_p Asttypes.Private)
+  | Asttypes.Public, Asttypes.Private -> Either.Right Added_p
   | Asttypes.Private, Asttypes.Public ->
-      Either.Right (Removed_p Asttypes.Private)
+      Either.Right Removed_p
   | Asttypes.Private, Asttypes.Private -> Either.Left Asttypes.Private
 
 and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
@@ -185,7 +186,7 @@ and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
       in
       match changed_lbls with
       | [] -> None
-      | _ -> Some (Record_mismatch changed_lbls))
+      | _ -> Some (Record_tk changed_lbls))
   | Type_variant (ref_constructor_lst, _), Type_variant (cur_constructor_lst, _)
     -> (
       let changed_constrs =
@@ -194,12 +195,12 @@ and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
       in
       match changed_constrs with
       | [] -> None
-      | _ -> Some (Variant_mismatch changed_constrs))
+      | _ -> Some (Variant_tk changed_constrs))
   | Type_abstract _, Type_abstract _ -> None
   | Type_open, Type_open -> None
   | ref_type_kind, cur_type_kind ->
       Some
-        (Atomic_mismatch { reference = ref_type_kind; current = cur_type_kind })
+        (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
 
 and type_manifest ~typing_env ~ref_type_manifest ~cur_type_manifest =
   match (ref_type_manifest, cur_type_manifest) with
@@ -207,7 +208,7 @@ and type_manifest ~typing_env ~ref_type_manifest ~cur_type_manifest =
   | Some t1, None -> Either.Right (Removed t1)
   | None, Some t2 -> Either.Right (Added t2)
   | Some t1, Some t2 ->
-      if Ctype.does_match typing_env t1 t2 then Either.Left (Some t1)
+      if same_type_expr typing_env t1 t2 then Either.Left (Some t1)
       else Either.Right (Modified { reference = t1; current = t2 })
 
 and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
@@ -269,7 +270,7 @@ and modified_tuple_type ~typing_env (ref_tuple : type_expr list)
       | Some t1, None -> Either.right (Removed t1)
       | None, Some t2 -> Either.right (Added t2)
       | Some t1, Some t2 ->
-          if Ctype.does_match typing_env t1 t2 then Either.left t1
+          if same_type_expr typing_env t1 t2 then Either.left t1
           else Either.right (Modified { reference = t1; current = t2 }))
     ref_tuple cur_tuple
 
@@ -285,7 +286,7 @@ and modified_record_type ~typing_env ~(ref_label_lst : label_declaration list)
         | Some ref, None -> Some { rname = name; rdiff = Removed ref }
         | None, Some cur -> Some { rname = name; rdiff = Added cur }
         | Some ref, Some cur ->
-            if Ctype.does_match typing_env ref.ld_type cur.ld_type then None
+            if same_type_expr typing_env ref.ld_type cur.ld_type then None
             else
               Some
                 {

@@ -13,22 +13,22 @@ type type_ = {
 }
 
 and type_modification = {
-  type_kind_mismatch : type_kind_mismatch option;
-  type_privacy_mismatch : (Asttypes.private_flag, type_privacy_diff) Either.t;
-  type_manifest_mismatch :
+  type_kind : type_kind option;
+  type_privacy : (Asttypes.private_flag, type_privacy) Either.t;
+  type_manifest :
     ( Types.type_expr option,
       (Types.type_expr, Types.type_expr atomic_modification) t )
     Either.t;
 }
 
-and type_privacy_diff =
-  | Added_p of Asttypes.private_flag
-  | Removed_p of Asttypes.private_flag
+and type_privacy =
+  | Added_p
+  | Removed_p
 
-and type_kind_mismatch =
-  | Record_mismatch of record_field list
-  | Variant_mismatch of constructor_ list
-  | Atomic_mismatch of Types.type_decl_kind atomic_modification
+and type_kind =
+  | Record_tk of record_field list
+  | Variant_tk of constructor_ list
+  | Atomic_tk of Types.type_decl_kind atomic_modification
 
 and record_field = {
   rname : string;
@@ -50,12 +50,6 @@ and tuple_component =
   ( Types.type_expr,
     (Types.type_expr, Types.type_expr atomic_modification) t )
   Either.t
-
-and type_param = (Types.type_expr, type_param_diff) Either.t
-
-and type_param_diff =
-  | Added_tp of Types.type_expr
-  | Removed_tp of Types.type_expr
 
 type class_ = {
   cname : string;
