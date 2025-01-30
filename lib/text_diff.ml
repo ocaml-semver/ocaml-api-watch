@@ -134,103 +134,90 @@ let process_atomic_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name
 let rec process_type_diff (type_diff : Diff.type_) =
   match type_diff.tdiff with
   | Diff.Modified
-      (Compound_tm
-         {
-           type_kind_mismatch = Some (Record_mismatch change_lst);
-           type_privacy_mismatch;
-           type_manifest_mismatch;
-         }) ->
-      let s = string_of_type_privacy_mismatch type_privacy_mismatch in
-      let m = string_of_type_manifest_mismatch type_manifest_mismatch in
-      Same ("type " ^ type_diff.tname ^ " = " ^ s ^ m ^ "{")
-      :: process_modified_record_type_diff ~indent_n:2 change_lst
-      @ [ Same "}" ]
-  | Diff.Modified
-      (Compound_tm
-         {
-           type_kind_mismatch = Some (Variant_mismatch change_lst);
-           type_privacy_mismatch;
-           type_manifest_mismatch;
-         }) ->
-      let s = string_of_type_privacy_mismatch type_privacy_mismatch in
-      let m = string_of_type_manifest_mismatch type_manifest_mismatch in
-      Same ("type " ^ type_diff.tname ^ " = " ^ s ^ m)
-      :: process_modified_variant_type_diff change_lst
-  | Diff.Modified
-      (Compound_tm
-         {
-           type_kind_mismatch = Some (Atomic_mismatch { reference; current });
-           type_privacy_mismatch;
-           type_manifest_mismatch;
-         }) ->
-      process_atomic_type_kind_diff type_diff.tname type_privacy_mismatch
-        reference current
-  | Diff.Modified
-      (Compound_tm
-         {
-           type_kind_mismatch = None;
-           type_privacy_mismatch = Either.Right pm;
-           type_manifest_mismatch;
-         }) ->
-      let privacy_str = string_of_type_privacy_mismatch (Either.Right pm) in
-      [ Same (Printf.sprintf "type %s = %s...." type_diff.tname privacy_str) ]
-  | Diff.Modified (Atomic_tm mods) ->
-      process_atomic_diff (Diff.Modified mods) type_diff.tname td_to_lines
+      { type_kind_mismatch; type_privacy_mismatch; type_manifest_mismatch } ->
+      process_modified_type type_diff.tname type_kind_mismatch
+        type_privacy_mismatch type_manifest_mismatch
   | Diff.Added td ->
       process_atomic_diff (Diff.Added td) type_diff.tname td_to_lines
   | Diff.Removed td ->
       process_atomic_diff (Diff.Removed td) type_diff.tname td_to_lines
+
+and cons_if_some e lst = match e with Some e -> e :: lst | None -> lst
+
+and process_modified_type name type_kind_mismatch type_privacy_mismatch
+    type_manifest_mismatch =
+  let same_name = Same (Printf.sprintf "type %s =" name) in
+  let privacy_diff = process_type_privacy_diff type_privacy_mismatch in
+  let manifest_diff = process_type_manifest_diff type_manifest_mismatch in
+  let type_kind_diff = process_type_kind_diff type_kind_mismatch in
+  same_name
+  :: cons_if_some privacy_diff
+       (cons_if_some manifest_diff
+          (match type_kind_diff with None -> [] | Some diff -> diff))
+
+and process_type_privacy_diff diff : hunk option =
+  match diff with
+  | Either.Left Asttypes.Public -> None
+  | Either.Left Asttypes.Private -> Some (Same "private")
+  | Either.Right (Diff.Added_p Asttypes.Private) ->
+      Some (Change { orig = []; new_ = [ "private" ] })
+  | Either.Right (Diff.Removed_p Asttypes.Private) ->
+      Some (Change { orig = [ "private" ]; new_ = [] })
   | _ -> assert false
 
-and string_of_type_privacy_mismatch type_privacy_mismatch =
-  match type_privacy_mismatch with
-  | Either.Left Asttypes.Public -> ""
-  | Either.Left Asttypes.Private -> "private "
-  | Either.Right (Diff.Added_p Asttypes.Private) -> "+private "
-  | Either.Right (Diff.Removed_p Asttypes.Private) -> "-private "
-  | _ -> assert false
+and process_type_manifest_diff diff =
+  match diff with
+  | Either.Left None -> None
+  | Either.Left (Some te) -> Some (Same (typ_expr_to_line te))
+  | Either.Right (Diff.Added te) ->
+      Some (Change { orig = []; new_ = [ typ_expr_to_line te ] })
+  | Either.Right (Diff.Removed te) ->
+      Some (Change { orig = [ typ_expr_to_line te ]; new_ = [] })
+  | Either.Right (Diff.Modified { reference; current }) ->
+      Some
+        (Change
+           {
+             orig = [ typ_expr_to_line reference ];
+             new_ = [ typ_expr_to_line current ];
+           })
 
-and string_of_type_manifest_mismatch type_manifest_mismatch =
-  match type_manifest_mismatch with
-  | Either.Left None -> ""
-  | Either.Left (Some te) -> typ_expr_to_line te
-  | Either.Right (Added te) -> "+" ^ typ_expr_to_line te
-  | Either.Right (Removed te) -> "-" ^ typ_expr_to_line te
-  | Either.Right (Modified { reference; current }) ->
-      "-" ^ typ_expr_to_line reference ^ " " ^ "+" ^ typ_expr_to_line current
-      ^ " "
+and process_type_kind_diff diff : hunk list option =
+  match diff with
+  | Some (Record_mismatch change_lst) ->
+      Some (process_modified_record_type_diff ~indent_n:2 change_lst)
+  | Some (Variant_mismatch change_lst) ->
+      Some (process_modified_variant_type_diff change_lst)
+  | Some (Atomic_mismatch { reference; current }) ->
+      Some (process_atomic_type_kind_diff reference current)
+  | None -> None
 
-and process_atomic_type_kind_diff name privacy reference current =
+and process_atomic_type_kind_diff (reference : Types.type_decl_kind)
+    (current : Types.type_decl_kind) : hunk list =
   [
     Change
-      {
-        orig = type_kind_to_lines name privacy reference;
-        new_ = type_kind_to_lines name privacy current;
-      };
+      { orig = type_kind_to_lines reference; new_ = type_kind_to_lines current };
   ]
 
-and type_kind_to_lines name privacy type_kind =
-  let privacy_str = string_of_type_privacy_mismatch privacy in
+and type_kind_to_lines type_kind =
   match type_kind with
   | Types.Type_record (lbl_lst, _) ->
       [
-        Printf.sprintf "type %s = %s{ " name privacy_str
+        "{"
         ^ (List.map (fun lbl -> lbl_to_line lbl) lbl_lst |> String.concat " ; ")
         ^ " }";
       ]
   | Types.Type_variant (cstr_lst, _) ->
       [
-        Printf.sprintf "type %s = %s " name privacy_str
-        ^ (List.map (fun cstr -> cstr_to_line cstr) cstr_lst
-          |> String.concat " | ");
+        List.map (fun cstr -> cstr_to_line cstr) cstr_lst |> String.concat " | ";
       ]
-  | Types.Type_abstract _ -> [ Printf.sprintf "type %s" name ]
-  | Types.Type_open -> [ Printf.sprintf "type %s = %s.." name privacy_str ]
+  | Types.Type_abstract _ -> [ "<abstract>" ]
+  | Types.Type_open -> [ "<open>" ]
 
 and process_modified_record_type_diff ~indent_n diff =
   let changes = process_modified_labels diff in
-  [ indent indent_n (Same "...") ]
+  [ Same "{"; indent indent_n (Same "...") ]
   @ List.map (fun c -> indent indent_n c) changes
+  @ [ Same "}" ]
 
 and process_modified_labels (lbls_diffs : Diff.record_field list) =
   List.map
@@ -320,8 +307,8 @@ let process_class_diff (class_diff : Diff.class_) =
 let process_class_type_diff (class_type_diff : Diff.cltype) =
   process_atomic_diff class_type_diff.ctdiff class_type_diff.ctname ctd_to_lines
 
-let rec process_sig_diff : type a.
-    _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
+let rec process_sig_diff :
+    type a. _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
  fun path to_lines ((diff : (a, _) Diff.t), name) acc ->
   match diff with
   | Added curr_mtd ->

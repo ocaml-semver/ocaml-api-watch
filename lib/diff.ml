@@ -14,17 +14,12 @@ type value = {
 
 type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
 
-and type_modification =
-  | Compound_tm of {
-      type_kind_mismatch : type_kind_mismatch option;
-      type_privacy_mismatch :
-        (Asttypes.private_flag, type_privacy_diff) Either.t;
-      type_manifest_mismatch :
-        ( type_expr option,
-          (type_expr, type_expr atomic_modification) t )
-        Either.t;
-    }
-  | Atomic_tm of type_declaration atomic_modification
+and type_modification = {
+  type_kind_mismatch : type_kind_mismatch option;
+  type_privacy_mismatch : (Asttypes.private_flag, type_privacy_diff) Either.t;
+  type_manifest_mismatch :
+    (type_expr option, (type_expr, type_expr atomic_modification) t) Either.t;
+}
 
 and type_privacy_diff =
   | Added_p of Asttypes.private_flag
@@ -148,55 +143,31 @@ let rec type_item ~typing_env ~name ~reference ~current =
       Some (Type { tname = name; tdiff = Removed reference })
   | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
-  | Some (reference, ref_id), Some (current, cur_id) ->
-      type_decls ~typing_env ~name ~reference ~ref_id ~current ~cur_id
+  | Some (reference, _), Some (current, _) -> (
+      let type_diff = type_decls ~typing_env ~reference ~current in
+      match type_diff with
+      | {
+       type_kind_mismatch = None;
+       type_privacy_mismatch = Either.Left _;
+       type_manifest_mismatch = Either.Left _;
+      } ->
+          None
+      | mismatch -> Some (Type { tname = name; tdiff = Modified mismatch }))
 
-and type_decls ~typing_env ~name ~reference ~ref_id ~current ~cur_id =
-  let type_coercion1 () =
-    Includecore.type_declarations ~loc:current.type_loc typing_env ~mark:false
-      name current (Pident cur_id) reference
+and type_decls ~typing_env ~reference ~current =
+  let type_kind_mismatch =
+    type_kind ~typing_env ~ref_type_kind:reference.type_kind
+      ~cur_type_kind:current.type_kind
   in
-  let type_coercion2 () =
-    Includecore.type_declarations ~loc:reference.type_loc typing_env ~mark:false
-      name reference (Pident ref_id) current
+  let type_privacy_mismatch =
+    type_privacy ~ref_type_privacy:reference.type_private
+      ~cur_type_privacy:current.type_private
   in
-  match (type_coercion1 (), type_coercion2 ()) with
-  | None, None -> None
-  | _, _ -> (
-      let type_kind_diff =
-        type_kind ~typing_env ~ref_type_kind:reference.type_kind
-          ~cur_type_kind:current.type_kind
-      in
-      let type_privacy_diff =
-        type_privacy ~ref_type_privacy:reference.type_private
-          ~cur_type_privacy:current.type_private
-      in
-      let type_manifest_diff =
-        type_manifest ~typing_env ~ref_type_manifest:reference.type_manifest
-          ~cur_type_manifest:current.type_manifest
-      in
-      match (type_kind_diff, type_privacy_diff, type_manifest_diff) with
-      | None, Either.Left _, Either.Left _ ->
-          Some
-            (Type
-               {
-                 tname = name;
-                 tdiff = Modified (Atomic_tm { reference; current });
-               })
-      | type_kind_mismatch, type_privacy_mismatch, type_manifest_mismatch ->
-          Some
-            (Type
-               {
-                 tname = name;
-                 tdiff =
-                   Modified
-                     (Compound_tm
-                        {
-                          type_kind_mismatch;
-                          type_privacy_mismatch;
-                          type_manifest_mismatch;
-                        });
-               }))
+  let type_manifest_mismatch =
+    type_manifest ~typing_env ~ref_type_manifest:reference.type_manifest
+      ~cur_type_manifest:current.type_manifest
+  in
+  { type_kind_mismatch; type_privacy_mismatch; type_manifest_mismatch }
 
 and type_privacy ~ref_type_privacy ~cur_type_privacy =
   match (ref_type_privacy, cur_type_privacy) with
