@@ -69,11 +69,11 @@ Run api-watcher on the two cmi files
   $ api-diff ref.cmi modify_field_type.cmi
   diff module Modify_field_type:
    type student = 
-       {
-         ...
-  -      id : int option;
-  +      id : int;
-       }
+    {
+      ...
+  -   id : int option;
+  +   id : int;
+    }
   
   [1]
 
