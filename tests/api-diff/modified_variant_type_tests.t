@@ -102,15 +102,17 @@ Run the api-watcher on the two cmi files
   $ api-diff shapes.cmi add_field.cmi
   diff module Add_field:
    type shape =
-    ...
-    | Circle of {
        ...
-  +    color : int;
-    }
-    | Rectangle of {
-       ...
-  +    color : int;
-    }
+       | Circle of 
+        {
+         ...
+  +      color : int;
+        }
+    | Rectangle of 
+      {
+        ...
+  +     color : int;
+      }
   
   [1]
 
@@ -133,10 +135,11 @@ Run the api-watcher on the two cmi files
   diff module Remove_field:
    type shape =
     ...
-    | Circle of {
-       ...
-  -    raduis : int;
-    }
+    | Circle of 
+      {
+        ...
+  -     raduis : int;
+      }
   
   [1]
 
@@ -159,11 +162,12 @@ Run the api-watcher on the two cmi files
   diff module Modify_field:
    type shape =
     ...
-    | Circle of {
-       ...
-  -    raduis : int;
-  +    raduis : float;
-    }
+    | Circle of 
+      {
+        ...
+  -     raduis : int;
+  +     raduis : float;
+      }
   
   [1]
 
@@ -198,11 +202,11 @@ Run the api-watcher on the two cmi files
   $ api-diff shapes2.cmi add_component.cmi
   diff module Add_component:
    type shape =
-    ...
-  - | Circle of point * int
-  + | Circle of point * int * int
-  - | Rectangle of point * point
-  + | Rectangle of point * point * int
+       ...
+  -    | Circle of point * int
+  +    | Circle of point * int * int
+  -    | Rectangle of point * point
+  +    | Rectangle of point * point * int
   
   [1]
 
@@ -224,9 +228,9 @@ Run the api-watcher on the two cmi files
   $ api-diff shapes2.cmi remove_component.cmi
   diff module Remove_component:
    type shape =
-    ...
-  - | Circle of point * int
-  + | Circle of point
+       ...
+  -    | Circle of point * int
+  +    | Circle of point
   
   [1]
 
@@ -248,8 +252,8 @@ Run the api-watcher on the two cmi files
   $ api-diff shapes2.cmi modify_component.cmi
   diff module Modify_component:
    type shape =
-    ...
-  - | Circle of point * int
-  + | Circle of point * float
+       ...
+  -    | Circle of point * int
+  +    | Circle of point * float
   
   [1]

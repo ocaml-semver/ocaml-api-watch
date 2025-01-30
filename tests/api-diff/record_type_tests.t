@@ -24,10 +24,11 @@ Run the api-watcher on the two cmi files
 
   $ api-diff ref.cmi add_field.cmi
   diff module Add_field:
-   type student = {
-     ...
-  +  level : int;
-   }
+   type student = 
+       {
+         ...
+  +      level : int;
+       }
   
   [1]
 
@@ -45,10 +46,11 @@ Run the api-watcher on the two cmi files
 
   $ api-diff ref.cmi remove_field.cmi
   diff module Remove_field:
-   type student = {
-     ...
-  -  id : int option;
-   }
+   type student = 
+       {
+         ...
+  -      id : int option;
+       }
   
   [1]
 
@@ -66,11 +68,12 @@ Run api-watcher on the two cmi files
 
   $ api-diff ref.cmi modify_field_type.cmi
   diff module Modify_field_type:
-   type student = {
-     ...
-  -  id : int option;
-  +  id : int;
-   }
+   type student = 
+       {
+         ...
+  -      id : int option;
+  +      id : int;
+       }
   
   [1]
 
