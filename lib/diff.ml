@@ -15,15 +15,13 @@ type value = {
 type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
 
 and type_modification = {
-  type_kind : type_kind option;
+  type_kind : (Types.type_decl_kind, type_kind) Either.t;
   type_privacy : (Asttypes.private_flag, type_privacy) Either.t;
   type_manifest :
     (type_expr option, (type_expr, type_expr atomic_modification) t) Either.t;
 }
 
-and type_privacy =
-  | Added_p
-  | Removed_p
+and type_privacy = Added_p | Removed_p
 
 and type_kind =
   | Record_tk of record_field list
@@ -123,7 +121,7 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
   | exception Includemod.Error _ ->
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
-let same_type_expr typing_env reference current = 
+let same_type_expr typing_env reference current =
   Ctype.does_match typing_env reference current
 
 let extract_lbls lbls =
@@ -143,7 +141,7 @@ let rec type_item ~typing_env ~name ~reference ~current =
       Some (Type { tname = name; tdiff = Removed reference })
   | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
-  | Some (reference, _), Some (current, _) -> 
+  | Some (reference, _), Some (current, _) ->
       type_decls ~typing_env ~name ~reference ~current
 
 and type_decls ~typing_env ~name ~reference ~current =
@@ -159,47 +157,44 @@ and type_decls ~typing_env ~name ~reference ~current =
     type_manifest ~typing_env ~ref_type_manifest:reference.type_manifest
       ~cur_type_manifest:current.type_manifest
   in
-  match { type_kind; type_privacy; type_manifest } with 
- | {
-       type_kind = None;
-       type_privacy = Either.Left _;
-       type_manifest = Either.Left _;
-      } ->
-          None
-      | diff -> Some (Type { tname = name; tdiff = Modified diff })
-
-
+  match { type_kind; type_privacy; type_manifest } with
+  | {
+   type_kind = Either.Left _;
+   type_privacy = Either.Left _;
+   type_manifest = Either.Left _;
+  } ->
+      None
+  | diff -> Some (Type { tname = name; tdiff = Modified diff })
 
 and type_privacy ~ref_type_privacy ~cur_type_privacy =
   match (ref_type_privacy, cur_type_privacy) with
   | Asttypes.Public, Asttypes.Public -> Either.Left Asttypes.Public
   | Asttypes.Public, Asttypes.Private -> Either.Right Added_p
-  | Asttypes.Private, Asttypes.Public ->
-      Either.Right Removed_p
+  | Asttypes.Private, Asttypes.Public -> Either.Right Removed_p
   | Asttypes.Private, Asttypes.Private -> Either.Left Asttypes.Private
 
 and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
   match (ref_type_kind, cur_type_kind) with
-  | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) -> (
+  | (Type_record (ref_label_lst, _) as td), Type_record (cur_label_lst, _) -> (
       let changed_lbls =
         modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
       in
       match changed_lbls with
-      | [] -> None
-      | _ -> Some (Record_tk changed_lbls))
-  | Type_variant (ref_constructor_lst, _), Type_variant (cur_constructor_lst, _)
-    -> (
+      | [] -> Either.Left td
+      | _ -> Either.Right (Record_tk changed_lbls))
+  | ( (Type_variant (ref_constructor_lst, _) as td),
+      Type_variant (cur_constructor_lst, _) ) -> (
       let changed_constrs =
         modified_variant_type ~typing_env ~ref_constructor_lst
           ~cur_constructor_lst
       in
       match changed_constrs with
-      | [] -> None
-      | _ -> Some (Variant_tk changed_constrs))
-  | Type_abstract _, Type_abstract _ -> None
-  | Type_open, Type_open -> None
+      | [] -> Either.Left td
+      | _ -> Either.Right (Variant_tk changed_constrs))
+  | (Type_abstract _ as td), Type_abstract _ -> Either.Left td
+  | (Type_open as td), Type_open -> Either.Left td
   | ref_type_kind, cur_type_kind ->
-      Some
+      Either.Right
         (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
 
 and type_manifest ~typing_env ~ref_type_manifest ~cur_type_manifest =

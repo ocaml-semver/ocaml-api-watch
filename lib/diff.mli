@@ -13,7 +13,7 @@ type type_ = {
 }
 
 and type_modification = {
-  type_kind : type_kind option;
+  type_kind : (Types.type_decl_kind, type_kind) Either.t;
   type_privacy : (Asttypes.private_flag, type_privacy) Either.t;
   type_manifest :
     ( Types.type_expr option,
@@ -21,9 +21,7 @@ and type_modification = {
     Either.t;
 }
 
-and type_privacy =
-  | Added_p
-  | Removed_p
+and type_privacy = Added_p | Removed_p
 
 and type_kind =
   | Record_tk of record_field list
