@@ -29,7 +29,7 @@ Run the api-watcher on the two cmi files
       ...
   +   level : int;
     }
-
+  
   [1]
 
 ### Removing a field from a record type:
@@ -51,7 +51,7 @@ Run the api-watcher on the two cmi files
       ...
   -   id : int option;
     }
-
+  
   [1]
 
 ### Modifying a field's type in a record type:
@@ -74,7 +74,7 @@ Run api-watcher on the two cmi files
   -   id : int option;
   +   id : int;
     }
-
+  
   [1]
 
 ### Modifying a field's type in a record type to a same alias type:

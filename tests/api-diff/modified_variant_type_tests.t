@@ -27,7 +27,7 @@ Run the api-watcher on the two cmi files
    type rank =
     ...
   + | Jack
-
+  
   [1]
 
 ### Removing a constructor from a variant type:
@@ -47,7 +47,7 @@ Run the api-watcher on the two cmi files
    type rank =
     ...
   - | Number of int
-
+  
   [1]
 
 ### Modifying a constructor's arguments in a variant type:
@@ -68,7 +68,7 @@ Run the api-watcher on the two cmi files
     ...
   - | Number of int
   + | Number of float
-
+  
   [1]
 
 Tests for modifying constructor's record argument
@@ -89,8 +89,8 @@ We generate the .cmi file
   $ cat > add_field.mli << EOF
   > type point = float * float
   > type shape =
-  >  | Circle of {center : point; raduis: int; color:int}
-  >  | Rectangle of {lower_left: point; upper_right: point; color:int}
+  >  | Circle of { center : point; raduis: int; color:int }
+  >  | Rectangle of { lower_left: point; upper_right: point; color:int }
   > EOF
 
 We generate the .cmi file
@@ -121,8 +121,8 @@ Run the api-watcher on the two cmi files
   $ cat > remove_field.mli << EOF
   > type point = float * float
   > type shape =
-  >  | Circle of {center : point;}
-  >  | Rectangle of {lower_left: point; upper_right: point;}
+  >  | Circle of { center : point; }
+  >  | Rectangle of { lower_left: point; upper_right: point; }
   > EOF
 
 We generate the .cmi file
@@ -148,8 +148,8 @@ Run the api-watcher on the two cmi files
   $ cat > modify_field.mli << EOF
   > type point = float * float
   > type shape =
-  >  | Circle of {center : point; raduis: float;}
-  >  | Rectangle of {lower_left: point; upper_right: point;}
+  >  | Circle of { center : point; raduis: float; }
+  >  | Rectangle of { lower_left: point; upper_right: point; }
   > EOF
 
 We generate the .cmi file

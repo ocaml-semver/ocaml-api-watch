@@ -30,7 +30,7 @@ Run api-watcher on the two cmi files, there should be a difference
   $ api-diff ref.cmi add_type.cmi
   diff module Add_type:
   +type added_t = float
-
+  
   [1]
 
 ### A file with a removed type:
@@ -70,5 +70,6 @@ Run api-watcher on the two cmi files, there should be a difference
   diff module Modify_type:
   -type t = int
   +type t = float
+   
   
   [1]

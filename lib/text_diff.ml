@@ -43,6 +43,13 @@ let lbl_to_lines ld =
   Format.pp_print_flush formatter ();
   CCString.lines (Buffer.contents buf)
 
+let lbl_to_line ld =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  Printtyp.label formatter ld;
+  Format.pp_print_flush formatter ();
+  String.map (function '\n' -> ' ' | c -> c) (Buffer.contents buf)
+
 let typ_expr_to_line typ_exp =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
@@ -234,7 +241,12 @@ and string_of_manifest manifest =
 and process_type_kind_diff type_kind =
   match type_kind with
   | Either.Left same_type_kind ->
-      `Same [ Same (String.concat "\n" (type_kind_to_lines same_type_kind)) ]
+      `Same
+        [
+          Same
+            (String.concat "\n"
+               (Option.value (type_kind_to_lines same_type_kind) ~default:[]));
+        ]
   | Either.Right (Record_tk changed_lst) ->
       `Compound_change
         (process_modified_record_type_diff ~indent_amount:1 changed_lst)
@@ -243,24 +255,34 @@ and process_type_kind_diff type_kind =
   | Either.Right (Atomic_tk { reference; current }) ->
       `Atomic_change
         [
-          Change { orig = type_kind_to_lines reference; new_ = [] };
-          Change { orig = []; new_ = type_kind_to_lines current };
+          Change
+            {
+              orig = Option.value (type_kind_to_lines reference) ~default:[];
+              new_ = [];
+            };
+          Change
+            {
+              orig = [];
+              new_ = Option.value (type_kind_to_lines current) ~default:[];
+            };
         ]
 
-and type_kind_to_lines type_kind =
+and type_kind_to_lines type_kind : string list option =
   match type_kind with
   | Types.Type_record (lbl_lst, _) ->
-      indent_s 1 "{"
-      :: List.map
-           (fun s -> indent_s 3 s)
-           (List.concat_map (fun lbl -> lbl_to_lines lbl) lbl_lst)
-      @ [ indent_s 1 "}" ]
+      Some
+        [
+          indent_s 1 "{ "
+          ^ (List.map lbl_to_line lbl_lst |> String.concat " ")
+          ^ " }";
+        ]
   | Types.Type_variant (cstr_lst, _) ->
-      List.map
-        (fun s -> indent_s 1 s)
-        (List.concat_map (fun cstr -> cstr_to_lines cstr) cstr_lst)
-  | Types.Type_abstract _ -> [ "" ]
-  | Types.Type_open -> [ indent_s 1 ".." ]
+      Some
+        (List.map
+           (fun s -> indent_s 1 s)
+           (List.concat_map (fun cstr -> cstr_to_lines cstr) cstr_lst))
+  | Types.Type_abstract _ -> None
+  | Types.Type_open -> Some [ indent_s 1 ".." ]
 
 and indent_s n s =
   let indentation = String.init n (fun _ -> ' ') in
@@ -292,7 +314,7 @@ and process_lbl_diff
 
 and process_modified_variant_type_diff diff =
   let changes = process_modified_cstrs diff in
-  [ indent 4 (Same "...") ] @ List.map (fun c -> indent 4 c) changes
+  [ indent 1 (Same "...") ] @ List.map (fun c -> indent 1 c) changes
 
 and process_modified_cstrs (lbls_diffs : Diff.constructor_ list) =
   List.map
@@ -309,9 +331,8 @@ and process_cstr_diff cstr_diff =
   | Diff.Modified (Diff.Tuple_c tc_lst) ->
       process_modified_tuple_type_diff cstr_diff.csname tc_lst
   | Diff.Modified (Diff.Record_c rc_lst) ->
-      Same ("| " ^ cstr_diff.csname ^ " of {")
-      :: process_modified_record_type_diff ~indent_amount:4 rc_lst
-      @ [ Same "}" ]
+      Same ("| " ^ cstr_diff.csname ^ " of")
+      :: process_modified_record_type_diff ~indent_amount:2 rc_lst
 
 and process_cstr_atomic_diff
     (diff :
