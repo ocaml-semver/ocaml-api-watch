@@ -45,13 +45,13 @@ Run the api-watcher on record and varient type kinds cmi files
   $ api-diff ref_record_kind.cmi ref_variant_kind.cmi
   diff module Ref_variant_kind:
   -type t =
-  -  {
-  -    a : int;
-  -    b : float;
-  -  }
+  - {
+  -   a : int;
+  -   b : float;
+  - }
   +type t =
-  +  | A of int
-  +  | B of string
+  + | A of int
+  + | B of string
   
   [1]
 
@@ -60,10 +60,10 @@ Run the api-watcher on record and abstract type kinds cmi files
   $ api-diff ref_record_kind.cmi ref_abstract_kind.cmi
   diff module Ref_abstract_kind:
   -type t =
-  -  {
-  -    a : int;
-  -    b : float;
-  -  }
+  - {
+  -   a : int;
+  -   b : float;
+  - }
   +type t
   
   [1]
@@ -73,11 +73,12 @@ Run the api-watcher on record and open type kinds cmi files
   $ api-diff ref_record_kind.cmi ref_open_kind.cmi
   diff module Ref_open_kind:
   -type t =
-  -  {
-  -    a : int;
-  -    b : float;
-  -  }
-  +type t = ..
+  - {
+  -   a : int;
+  -   b : float;
+  - }
+  +type t =
+  + ..
   
   [1]
 

@@ -1,7 +1,7 @@
 Here we generate a `.mli` file with a record type:
 
   $ cat > ref.mli << EOF
-  > type student = {first_name: string; last_name: string; id: int option}
+  > type student = { first_name: string; last_name: string; id: int option }
   > EOF
 
 We generate the .cmi file
@@ -13,7 +13,7 @@ We generate the .cmi file
 ### Adding a field to a record type:
 
   $ cat > add_field.mli << EOF
-  > type student = {first_name: string; last_name: string; id: int option; level: int}
+  > type student = { first_name: string; last_name: string; id: int option; level: int }
   > EOF
 
 We generate the .cmi file
@@ -35,7 +35,7 @@ Run the api-watcher on the two cmi files
 ### Removing a field from a record type:
 
   $ cat > remove_field.mli << EOF
-  > type student = {first_name: string; last_name: string}
+  > type student = { first_name: string; last_name: string }
   > EOF
 
 We generate the .cmi file
@@ -57,7 +57,7 @@ Run the api-watcher on the two cmi files
 ### Modifying a field's type in a record type:
 
   $ cat > modify_field_type.mli << EOF
-  > type student = {first_name: string; last_name: string; id: int}
+  > type student = { first_name: string; last_name: string; id: int }
   > EOF
 
 We generate the .cmi file
@@ -81,7 +81,7 @@ Run api-watcher on the two cmi files
 
   $ cat > alias_field_type.mli << EOF
   > type y = int option
-  > type student = {first_name: string; last_name: string; id: y}
+  > type student = { first_name: string; last_name: string; id: y }
   > EOF
 
 We generate the .cmi file

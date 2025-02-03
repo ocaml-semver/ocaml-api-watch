@@ -22,7 +22,8 @@ Run the api-watcher on the two cmi files
 
   $ api-diff ref.cmi add_manifest.cmi
   diff module Add_manifest:
-   -type t
-   +type t = int list
-   
+  -type t
+  +type t = int list
+
+  
   [1]
