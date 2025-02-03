@@ -68,7 +68,7 @@ Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi modify_type.cmi
   diff module Modify_type:
-   -type t = int 
-   +type t = float
-
+  -type t = int
+  +type t = float
+  
   [1]

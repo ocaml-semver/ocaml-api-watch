@@ -22,13 +22,13 @@ Run the api-watcher on the two cmi files
 
   $ api-diff ref.cmi remove_private.cmi
   diff module Remove_private:
-   -type t = private
-   +type t =
-     { 
-       a : int; 
-       b : float 
-     } 
-
+  -type t = private
+  +type t =
+    {
+      a : int;
+      b : float;
+    }
+  
   [1]
 
 # Removing a private type abbreviation from a type declaration and modifying record fields
