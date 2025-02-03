@@ -127,7 +127,7 @@ let rec process_type_diff (type_diff : Diff.type_) =
       process_atomic_diff (Diff.Removed td) type_diff.tname td_to_lines
 
 and process_modified_type_diff name type_kind type_privacy type_manifest =
-  let type_header_diff = process_type_header_diff name type_privacy type_manifest in
+  let type_header_diff = process_type_header_diff name type_privacy type_manifest type_kind in
   let type_kind_diff = process_type_kind_diff type_kind in
   order_type_diffs type_header_diff type_kind_diff
 
@@ -145,39 +145,46 @@ and order_type_diffs type_header_diff type_kind_diff =
   | `Atomic_change type_header_change, `Compound_change type_kind_change ->
     type_header_change @ type_kind_change
 
-and process_type_header_diff name type_privacy type_manifest =
-  match type_privacy, type_manifest with
-  | (Either.Left private_flag, Either.Left te_opt) ->
-      `Same ([ Same (type_header_to_line name private_flag te_opt) ])
-  | type_privacy_diff, type_manifest_diff -> (
-      let (ref_private_flag, cur_private_flag),
-          (ref_te_opt, cur_te_opt) =
-        match type_privacy_diff, type_manifest_diff with
-        | Either.Left private_flag, Either.Right manifest_diff ->
-          (private_flag, private_flag),
-          pair_of_manifest_diff manifest_diff
-        | Either.Right privacy_diff, Either.Left te_opt ->
-          pair_of_privacy_diff privacy_diff,
-          (te_opt, te_opt)
-        | Either.Right privacy_diff, Either.Right manifest_diff ->
-          pair_of_privacy_diff privacy_diff,
-          pair_of_manifest_diff manifest_diff
-        | _ -> assert false
+and process_type_header_diff name type_privacy type_manifest type_kind =
+  match type_privacy, type_manifest, type_kind with
+  | (Either.Left private_flag, Either.Left te_opt,
+     Either.Right Diff.Record_tk _) 
+  | (Either.Left private_flag, Either.Left te_opt,
+     Either.Right Diff.Variant_tk _) ->
+      `Same ([ Same (type_header_to_line name private_flag te_opt false) ])
+  | type_privacy_diff, type_manifest_diff, type_kind_diff -> 
+      let (ref_private_flag, cur_private_flag) =
+        match type_privacy_diff with
+        | Either.Left private_flag -> (private_flag, private_flag)
+        | Either.Right privacy_diff -> (pair_of_privacy_diff privacy_diff)
+      in
+      let (ref_manifest, cur_manifest) =
+        match type_manifest_diff with
+        | Either.Left te_opt -> (te_opt, te_opt)
+        | Either.Right manifest_diff -> (pair_of_manifest_diff manifest_diff)
+      in
+      let (ref_abstract, cur_abstract) =
+        match type_kind_diff with
+        | Either.Left Types.Type_abstract _ -> (true, true)
+        | Either.Right (Diff.Atomic_tk { reference = Types.Type_abstract _;
+                                    current = _ }) -> (true, false)
+        | Either.Right (Diff.Atomic_tk { reference = _; current = Types.Type_abstract _}) ->
+          (false, true)
+        | _ -> (false, false)
       in
       `Atomic_change (
       [
         Change
           {
-            orig = [ type_header_to_line name ref_private_flag ref_te_opt ];
+            orig = [ type_header_to_line name ref_private_flag ref_manifest ref_abstract ];
             new_ = []
           };
         Change
           {
             orig = [];
-            new_ = [ type_header_to_line name cur_private_flag cur_te_opt ]
+            new_ = [ type_header_to_line name cur_private_flag cur_manifest cur_abstract]
           }
       ])
-    )
 
 and pair_of_privacy_diff privacy_diff =
   match privacy_diff with
@@ -190,10 +197,12 @@ and pair_of_manifest_diff manifest_diff =
   | Removed te -> (Some te, None)
   | Modified { reference; current } -> (Some reference, Some current)
 
-and type_header_to_line name private_flag type_expr_opt =
+and type_header_to_line name private_flag type_expr_opt abstract =
   let private_flag_str = string_of_private_flag private_flag in
   let manifest_str = string_of_manifest type_expr_opt in
-  Printf.sprintf "type %s =%s%s" name private_flag_str manifest_str
+  let equal_sign = if abstract && private_flag_str = "" && manifest_str = ""
+                   then "" else "=" in
+  Printf.sprintf "type %s %s%s%s" name equal_sign private_flag_str manifest_str
 
 and string_of_private_flag private_flag =
   match private_flag with
@@ -220,9 +229,6 @@ and process_type_kind_diff type_kind =
     ])
 
 and type_kind_to_lines type_kind =
-  let _equal_str =
-    if "" <> "" || "" <> "" then "=" else ""
-  in
   match type_kind with
   | Types.Type_record (lbl_lst, _) ->
       indent_s 1 "{"
