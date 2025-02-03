@@ -13,6 +13,8 @@
 
   - Improve diff representation of modified record types (#109, @azzsal)
   - Improve diff representation of modified variant types (#111, @azzsal)
+  - Improve the diff representation of type declarations with more fine grained diffing of
+    type kind, type privacy and type manifest (#120, @azzsal)
 
 ### Deprecated
 
