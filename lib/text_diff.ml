@@ -158,7 +158,67 @@ and order_type_diffs type_header_diff type_kind_diff =
 
 and process_type_header_diff name type_privacy type_manifest type_kind =
   match (type_privacy, type_manifest, type_kind) with
-  | Either.Left private_flag, Either.Left te_opt, Either.Right _ ->
+  | Either.Left private_flag, Either.Left te_opt, Either.Right (Record_tk _)
+  | Either.Left private_flag, Either.Left te_opt, Either.Right (Variant_tk _)
+  | ( Either.Left private_flag,
+      Either.Left te_opt,
+      Either.Right
+        (Atomic_tk
+          {
+            reference = Types.Type_record (_, _);
+            current = Types.Type_record (_, _);
+          }) )
+  | ( Either.Left private_flag,
+      Either.Left te_opt,
+      Either.Right
+        (Atomic_tk
+          {
+            reference = Types.Type_record (_, _);
+            current = Types.Type_variant (_, _);
+          }) )
+  | ( Either.Left private_flag,
+      Either.Left te_opt,
+      Either.Right
+        (Atomic_tk
+          { reference = Types.Type_record (_, _); current = Types.Type_open }) )
+  | ( Either.Left private_flag,
+      Either.Left te_opt,
+      Either.Right
+        (Atomic_tk
+          {
+            reference = Types.Type_variant (_, _);
+            current = Types.Type_record (_, _);
+          }) )
+  | ( Either.Left private_flag,
+      Either.Left te_opt,
+      Either.Right
+        (Atomic_tk
+          {
+            reference = Types.Type_variant (_, _);
+            current = Types.Type_variant (_, _);
+          }) )
+  | ( Either.Left private_flag,
+      Either.Left te_opt,
+      Either.Right
+        (Atomic_tk
+          { reference = Types.Type_variant (_, _); current = Types.Type_open })
+    )
+  | ( Either.Left private_flag,
+      Either.Left te_opt,
+      Either.Right
+        (Atomic_tk
+          { reference = Types.Type_open; current = Types.Type_record (_, _) }) )
+  | ( Either.Left private_flag,
+      Either.Left te_opt,
+      Either.Right
+        (Atomic_tk
+          { reference = Types.Type_open; current = Types.Type_variant (_, _) })
+    )
+  | ( Either.Left private_flag,
+      Either.Left te_opt,
+      Either.Right
+        (Atomic_tk { reference = Types.Type_open; current = Types.Type_open }) )
+    ->
       `Same [ Same (type_header_to_line name private_flag te_opt false) ]
   | type_privacy_diff, type_manifest_diff, type_kind_diff ->
       let ref_private_flag, cur_private_flag =

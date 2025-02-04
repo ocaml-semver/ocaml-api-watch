@@ -55,8 +55,9 @@ Run the api-watcher on record and abstract type kinds cmi files
 
   $ api-diff ref_record_kind.cmi ref_abstract_kind.cmi
   diff module Ref_abstract_kind:
-   type t =
+  -type t =
   - { a : int; b : float; }
+  +type t
   
   [1]
 
