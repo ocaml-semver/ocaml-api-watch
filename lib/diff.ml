@@ -121,8 +121,9 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
   | exception Includemod.Error _ ->
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
-let same_type_expr typing_env reference current =
-  Ctype.does_match typing_env reference current
+let type_expr typing_env reference current =
+  if Ctype.does_match typing_env reference current then None
+  else Some (Modified { reference; current })
 
 let extract_lbls lbls =
   List.fold_left
@@ -202,9 +203,10 @@ and type_manifest ~typing_env ~ref_type_manifest ~cur_type_manifest =
   | None, None -> Either.Left None
   | Some t1, None -> Either.Right (Removed t1)
   | None, Some t2 -> Either.Right (Added t2)
-  | Some t1, Some t2 ->
-      if same_type_expr typing_env t1 t2 then Either.Left (Some t1)
-      else Either.Right (Modified { reference = t1; current = t2 })
+  | Some t1, Some t2 -> (
+      match type_expr typing_env t1 t2 with
+      | None -> Either.Left (Some t1)
+      | Some diff -> Either.Right diff)
 
 and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
     =
@@ -264,9 +266,10 @@ and modified_tuple_type ~typing_env (ref_tuple : type_expr list)
       | None, None -> assert false
       | Some t1, None -> Either.right (Removed t1)
       | None, Some t2 -> Either.right (Added t2)
-      | Some t1, Some t2 ->
-          if same_type_expr typing_env t1 t2 then Either.left t1
-          else Either.right (Modified { reference = t1; current = t2 }))
+      | Some t1, Some t2 -> (
+          match type_expr typing_env t1 t2 with
+          | None -> Either.Left t1
+          | Some diff -> Either.Right diff))
     ref_tuple cur_tuple
 
 and modified_record_type ~typing_env ~(ref_label_lst : label_declaration list)
@@ -280,14 +283,15 @@ and modified_record_type ~typing_env ~(ref_label_lst : label_declaration list)
         | None, None -> None
         | Some ref, None -> Some { rname = name; rdiff = Removed ref }
         | None, Some cur -> Some { rname = name; rdiff = Added cur }
-        | Some ref, Some cur ->
-            if same_type_expr typing_env ref.ld_type cur.ld_type then None
-            else
-              Some
-                {
-                  rname = name;
-                  rdiff = Modified { reference = ref; current = cur };
-                })
+        | Some ref, Some cur -> (
+            match type_expr typing_env ref.ld_type cur.ld_type with
+            | None -> None
+            | Some _ ->
+                Some
+                  {
+                    rname = name;
+                    rdiff = Modified { reference = ref; current = cur };
+                  }))
       ref_lbls curr_lbls
     |> String_map.bindings |> List.map snd
   in
