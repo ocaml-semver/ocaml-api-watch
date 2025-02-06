@@ -104,7 +104,7 @@ let ctd_to_lines name cd =
   CCString.lines class_str
 
 let indent n h =
-  let indentation = String.init n (fun _ -> ' ') in
+  let indentation = String.make n ' ' in
   match h with
   | Same s -> Same (indentation ^ s)
   | Change { orig; new_ } ->
@@ -340,14 +340,14 @@ and type_kind_to_lines type_kind : string list option =
   | Types.Type_open -> Some [ indent_s 1 ".." ]
 
 and indent_s n s =
-  let indentation = String.init n (fun _ -> ' ') in
+  let indentation = String.make n ' ' in
   indentation ^ s
 
 and process_modified_record_type_diff ~indent_amount diff =
   let changes = process_modified_labels diff in
-  [ indent indent_amount (Same "{") ]
-  @ [ indent (indent_amount + 2) (Same "...") ]
-  @ List.map (fun c -> indent (indent_amount + 2) c) changes
+  indent indent_amount (Same "{")
+  :: indent (indent_amount + 2) (Same "...")
+  :: List.map (fun c -> indent (indent_amount + 2) c) changes
   @ [ indent indent_amount (Same "}") ]
 
 and process_modified_labels (lbls_diffs : Diff.record_field list) =
