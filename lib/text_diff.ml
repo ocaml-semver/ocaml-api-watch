@@ -141,10 +141,11 @@ and process_modified_type_diff name type_kind type_privacy type_manifest =
 
 and order_type_diffs type_header_diff type_kind_diff =
   match (type_header_diff, type_kind_diff) with
-  | `Same _, `Same _ -> assert false
+  | `Same _, (`Same _ | `None) -> assert false
   | `Same type_header, `Atomic_change type_kind_change
   | `Same type_header, `Compound_change type_kind_change ->
       type_header @ type_kind_change
+  | `Atomic_change type_header_change, `None -> type_header_change
   | `Atomic_change type_header_change, `Same type_kind ->
       type_header_change @ type_kind
   | `Atomic_change type_header_change, `Atomic_change type_kind_change ->
@@ -221,13 +222,18 @@ and string_of_manifest manifest =
 
 and process_type_kind_diff type_kind =
   match type_kind with
-  | Same same_type_kind ->
-      `Same
-        [
-          Same
-            (String.concat "\n"
-               (Option.value (type_kind_to_lines same_type_kind) ~default:[]));
-        ]
+  | Same same_type_kind -> (
+      match same_type_kind with
+      | Type_abstract _ -> `None
+      | _ ->
+          `Same
+            [
+              Same
+                (String.concat "\n"
+                   (Option.value
+                      (type_kind_to_lines same_type_kind)
+                      ~default:[]));
+            ])
   | Different (Record_tk changed_lst) ->
       `Compound_change
         (process_modified_record_type_diff ~indent_amount:1 changed_lst)

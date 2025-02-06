@@ -24,7 +24,6 @@ Run the api-watcher on the two cmi files
   diff module Add_manifest:
   -type t
   +type t = int list
-   
   
   [1]
 
@@ -44,6 +43,5 @@ Run the api-watcher on the two cmi files
   diff module Add_manifest_private:
   -type t
   +type t = private int list
-   
   
   [1]

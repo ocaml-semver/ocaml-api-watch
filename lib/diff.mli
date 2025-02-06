@@ -51,7 +51,7 @@ and constructor_modification =
 and tuple_component =
   ( Types.type_expr,
     (Types.type_expr, Types.type_expr atomic_modification) t )
-  maybe_changed 
+  maybe_changed
 
 type class_ = {
   cname : string;

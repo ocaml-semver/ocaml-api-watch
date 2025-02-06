@@ -18,7 +18,9 @@ and type_modification = {
   type_kind : (Types.type_decl_kind, type_kind) maybe_changed;
   type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
   type_manifest :
-    (type_expr option, (type_expr, type_expr atomic_modification) t) maybe_changed;
+    ( type_expr option,
+      (type_expr, type_expr atomic_modification) t )
+    maybe_changed;
 }
 
 and ('same, 'different) maybe_changed =
@@ -163,11 +165,7 @@ and type_decls ~typing_env ~name ~reference ~current =
       ~cur_type_manifest:current.type_manifest
   in
   match { type_kind; type_privacy; type_manifest } with
-  | {
-   type_kind = Same _;
-   type_privacy = Same _;
-   type_manifest = Same _;
-  } ->
+  | { type_kind = Same _; type_privacy = Same _; type_manifest = Same _ } ->
       None
   | diff -> Some (Type { tname = name; tdiff = Modified diff })
 
@@ -199,7 +197,8 @@ and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
   | (Type_abstract _ as td), Type_abstract _ -> Same td
   | (Type_open as td), Type_open -> Same td
   | ref_type_kind, cur_type_kind ->
-      Different (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
+      Different
+        (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
 
 and type_manifest ~typing_env ~ref_type_manifest ~cur_type_manifest =
   match (ref_type_manifest, cur_type_manifest) with
@@ -219,8 +218,7 @@ and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
         let tuple_diff = modified_tuple_type ~typing_env type_lst1 type_lst2 in
         if
           List.for_all
-            (fun t ->
-              match t with Same _ -> true | Different _ -> false)
+            (fun t -> match t with Same _ -> true | Different _ -> false)
             tuple_diff
         then None
         else Some { csname = name; csdiff = Modified (Tuple_c tuple_diff) }
