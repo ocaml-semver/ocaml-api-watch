@@ -13,13 +13,17 @@ type type_ = {
 }
 
 and type_modification = {
-  type_kind : (Types.type_decl_kind, type_kind) Either.t;
-  type_privacy : (Asttypes.private_flag, type_privacy) Either.t;
+  type_kind : (Types.type_decl_kind, type_kind) maybe_changed;
+  type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
   type_manifest :
     ( Types.type_expr option,
       (Types.type_expr, Types.type_expr atomic_modification) t )
-    Either.t;
+    maybe_changed;
 }
+
+and ('same, 'different) maybe_changed =
+  | Same of 'same
+  | Different of 'different
 
 and type_privacy = Added_p | Removed_p
 
@@ -47,7 +51,7 @@ and constructor_modification =
 and tuple_component =
   ( Types.type_expr,
     (Types.type_expr, Types.type_expr atomic_modification) t )
-  Either.t
+  maybe_changed 
 
 type class_ = {
   cname : string;

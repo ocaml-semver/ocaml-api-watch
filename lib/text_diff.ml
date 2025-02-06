@@ -156,39 +156,33 @@ and order_type_diffs type_header_diff type_kind_diff =
 
 and process_type_header_diff name type_privacy type_manifest type_kind =
   match (type_privacy, type_manifest, type_kind) with
-  | Left private_flag, Left te_opt, Right (Record_tk _)
-  | Left private_flag, Left te_opt, Right (Variant_tk _)
-  | ( Left private_flag,
-      Left te_opt,
-      Right
-        (Atomic_tk
-          ( { reference = Type_record (_, _); current = Type_record (_, _) }
-          | { reference = Type_record (_, _); current = Type_variant (_, _) }
-          | { reference = Type_record (_, _); current = Type_open }
-          | { reference = Type_variant (_, _); current = Type_record (_, _) }
-          | { reference = Type_variant (_, _); current = Type_variant (_, _) }
-          | { reference = Type_variant (_, _); current = Type_open }
-          | { reference = Type_open; current = Type_record (_, _) }
-          | { reference = Type_open; current = Type_variant (_, _) }
-          | { reference = Type_open; current = Type_open } )) ) ->
+  | ( Same private_flag,
+      Same te_opt,
+      Different
+        ( Record_tk _ | Variant_tk _
+        | Atomic_tk
+            {
+              reference = Type_record _ | Type_variant _ | Type_open;
+              current = Type_record _ | Type_variant _ | Type_open;
+            } ) ) ->
       `Same [ Same (type_header_to_line name private_flag te_opt false) ]
   | type_privacy_diff, type_manifest_diff, type_kind_diff ->
       let ref_private_flag, cur_private_flag =
         match type_privacy_diff with
-        | Left private_flag -> (private_flag, private_flag)
-        | Right privacy_diff -> pair_of_privacy_diff privacy_diff
+        | Same private_flag -> (private_flag, private_flag)
+        | Different privacy_diff -> pair_of_privacy_diff privacy_diff
       in
       let ref_manifest, cur_manifest =
         match type_manifest_diff with
-        | Left te_opt -> (te_opt, te_opt)
-        | Right manifest_diff -> pair_of_manifest_diff manifest_diff
+        | Same te_opt -> (te_opt, te_opt)
+        | Different manifest_diff -> pair_of_manifest_diff manifest_diff
       in
       let ref_abstract, cur_abstract =
         match type_kind_diff with
-        | Left (Type_abstract _) -> (true, true)
-        | Right (Atomic_tk { reference = Type_abstract _; current = _ }) ->
+        | Same (Type_abstract _) -> (true, true)
+        | Different (Atomic_tk { reference = Type_abstract _; current = _ }) ->
             (true, false)
-        | Right (Atomic_tk { reference = _; current = Type_abstract _ }) ->
+        | Different (Atomic_tk { reference = _; current = Type_abstract _ }) ->
             (false, true)
         | _ -> (false, false)
       in
@@ -227,19 +221,19 @@ and string_of_manifest manifest =
 
 and process_type_kind_diff type_kind =
   match type_kind with
-  | Left same_type_kind ->
+  | Same same_type_kind ->
       `Same
         [
           Same
             (String.concat "\n"
                (Option.value (type_kind_to_lines same_type_kind) ~default:[]));
         ]
-  | Right (Record_tk changed_lst) ->
+  | Different (Record_tk changed_lst) ->
       `Compound_change
         (process_modified_record_type_diff ~indent_amount:1 changed_lst)
-  | Right (Variant_tk changed_lst) ->
+  | Different (Variant_tk changed_lst) ->
       `Compound_change (process_modified_variant_type_diff changed_lst)
-  | Right (Atomic_tk { reference; current }) ->
+  | Different (Atomic_tk { reference; current }) ->
       `Atomic_change
         [
           Change
@@ -344,10 +338,10 @@ and process_modified_tuple_type_diff name diff =
     diff
     |> List.map (fun (c : Diff.tuple_component) ->
            match c with
-           | Left t -> (Some t, Some t)
-           | Right (Added t) -> (None, Some t)
-           | Right (Removed t) -> (Some t, None)
-           | Right (Modified { reference; current }) ->
+           | Same t -> (Some t, Some t)
+           | Different (Added t) -> (None, Some t)
+           | Different (Removed t) -> (Some t, None)
+           | Different (Modified { reference; current }) ->
                (Some reference, Some current))
     |> List.split
   in

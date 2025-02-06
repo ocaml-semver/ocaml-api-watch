@@ -15,11 +15,15 @@ type value = {
 type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
 
 and type_modification = {
-  type_kind : (Types.type_decl_kind, type_kind) Either.t;
-  type_privacy : (Asttypes.private_flag, type_privacy) Either.t;
+  type_kind : (Types.type_decl_kind, type_kind) maybe_changed;
+  type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
   type_manifest :
-    (type_expr option, (type_expr, type_expr atomic_modification) t) Either.t;
+    (type_expr option, (type_expr, type_expr atomic_modification) t) maybe_changed;
 }
+
+and ('same, 'different) maybe_changed =
+  | Same of 'same
+  | Different of 'different
 
 and type_privacy = Added_p | Removed_p
 
@@ -44,7 +48,7 @@ and constructor_modification =
   | Atomic_c of constructor_declaration atomic_modification
 
 and tuple_component =
-  (type_expr, (type_expr, type_expr atomic_modification) t) Either.t
+  (type_expr, (type_expr, type_expr atomic_modification) t) maybe_changed
 
 type class_ = {
   cname : string;
@@ -160,19 +164,19 @@ and type_decls ~typing_env ~name ~reference ~current =
   in
   match { type_kind; type_privacy; type_manifest } with
   | {
-   type_kind = Either.Left _;
-   type_privacy = Either.Left _;
-   type_manifest = Either.Left _;
+   type_kind = Same _;
+   type_privacy = Same _;
+   type_manifest = Same _;
   } ->
       None
   | diff -> Some (Type { tname = name; tdiff = Modified diff })
 
 and type_privacy ~ref_type_privacy ~cur_type_privacy =
   match (ref_type_privacy, cur_type_privacy) with
-  | Asttypes.Public, Asttypes.Public -> Either.Left Asttypes.Public
-  | Asttypes.Public, Asttypes.Private -> Either.Right Added_p
-  | Asttypes.Private, Asttypes.Public -> Either.Right Removed_p
-  | Asttypes.Private, Asttypes.Private -> Either.Left Asttypes.Private
+  | Asttypes.Public, Asttypes.Public -> Same Asttypes.Public
+  | Asttypes.Public, Asttypes.Private -> Different Added_p
+  | Asttypes.Private, Asttypes.Public -> Different Removed_p
+  | Asttypes.Private, Asttypes.Private -> Same Asttypes.Private
 
 and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
   match (ref_type_kind, cur_type_kind) with
@@ -181,8 +185,8 @@ and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
         modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
       in
       match changed_lbls with
-      | [] -> Either.Left td
-      | _ -> Either.Right (Record_tk changed_lbls))
+      | [] -> Same td
+      | _ -> Different (Record_tk changed_lbls))
   | ( (Type_variant (ref_constructor_lst, _) as td),
       Type_variant (cur_constructor_lst, _) ) -> (
       let changed_constrs =
@@ -190,23 +194,22 @@ and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
           ~cur_constructor_lst
       in
       match changed_constrs with
-      | [] -> Either.Left td
-      | _ -> Either.Right (Variant_tk changed_constrs))
-  | (Type_abstract _ as td), Type_abstract _ -> Either.Left td
-  | (Type_open as td), Type_open -> Either.Left td
+      | [] -> Same td
+      | _ -> Different (Variant_tk changed_constrs))
+  | (Type_abstract _ as td), Type_abstract _ -> Same td
+  | (Type_open as td), Type_open -> Same td
   | ref_type_kind, cur_type_kind ->
-      Either.Right
-        (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
+      Different (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
 
 and type_manifest ~typing_env ~ref_type_manifest ~cur_type_manifest =
   match (ref_type_manifest, cur_type_manifest) with
-  | None, None -> Either.Left None
-  | Some t1, None -> Either.Right (Removed t1)
-  | None, Some t2 -> Either.Right (Added t2)
+  | None, None -> Same None
+  | Some t1, None -> Different (Removed t1)
+  | None, Some t2 -> Different (Added t2)
   | Some t1, Some t2 -> (
       match type_expr typing_env t1 t2 with
-      | None -> Either.Left (Some t1)
-      | Some diff -> Either.Right diff)
+      | None -> Same (Some t1)
+      | Some diff -> Different diff)
 
 and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
     =
@@ -217,7 +220,7 @@ and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
         if
           List.for_all
             (fun t ->
-              match t with Either.Left _ -> true | Either.Right _ -> false)
+              match t with Same _ -> true | Different _ -> false)
             tuple_diff
         then None
         else Some { csname = name; csdiff = Modified (Tuple_c tuple_diff) }
@@ -249,8 +252,8 @@ and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
   in
   modified_cstrs
 
-and diff_list (diff_one : 'a option -> 'a option -> ('a, 'diff) Either.t)
-    (ref : 'a list) (curr : 'a list) : ('a, 'diff) Either.t list =
+and diff_list (diff_one : 'a option -> 'a option -> ('a, 'diff) maybe_changed)
+    (ref : 'a list) (curr : 'a list) : ('a, 'diff) maybe_changed list =
   match (ref, curr) with
   | [], [] -> []
   | h1 :: t1, [] -> diff_one (Some h1) None :: diff_list diff_one t1 []
@@ -264,12 +267,12 @@ and modified_tuple_type ~typing_env (ref_tuple : type_expr list)
     (fun t1 t2 ->
       match (t1, t2) with
       | None, None -> assert false
-      | Some t1, None -> Either.right (Removed t1)
-      | None, Some t2 -> Either.right (Added t2)
+      | Some t1, None -> Different (Removed t1)
+      | None, Some t2 -> Different (Added t2)
       | Some t1, Some t2 -> (
           match type_expr typing_env t1 t2 with
-          | None -> Either.Left t1
-          | Some diff -> Either.Right diff))
+          | None -> Same t1
+          | Some diff -> Different diff))
     ref_tuple cur_tuple
 
 and modified_record_type ~typing_env ~(ref_label_lst : label_declaration list)
