@@ -126,13 +126,11 @@ let process_atomic_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name
 
 let rec process_type_diff (type_diff : Diff.type_) =
   match type_diff.tdiff with
-  | Diff.Modified { type_kind; type_privacy; type_manifest } ->
+  | Modified { type_kind; type_privacy; type_manifest } ->
       process_modified_type_diff type_diff.tname type_kind type_privacy
         type_manifest
-  | Diff.Added td ->
-      process_atomic_diff (Diff.Added td) type_diff.tname td_to_lines
-  | Diff.Removed td ->
-      process_atomic_diff (Diff.Removed td) type_diff.tname td_to_lines
+  | Added td -> process_atomic_diff (Added td) type_diff.tname td_to_lines
+  | Removed td -> process_atomic_diff (Removed td) type_diff.tname td_to_lines
 
 and process_modified_type_diff name type_kind type_privacy type_manifest =
   let type_header_diff =
@@ -158,118 +156,54 @@ and order_type_diffs type_header_diff type_kind_diff =
 
 and process_type_header_diff name type_privacy type_manifest type_kind =
   match (type_privacy, type_manifest, type_kind) with
-  | Either.Left private_flag, Either.Left te_opt, Either.Right (Record_tk _)
-  | Either.Left private_flag, Either.Left te_opt, Either.Right (Variant_tk _)
-  | ( Either.Left private_flag,
-      Either.Left te_opt,
-      Either.Right
+  | Left private_flag, Left te_opt, Right (Record_tk _)
+  | Left private_flag, Left te_opt, Right (Variant_tk _)
+  | ( Left private_flag,
+      Left te_opt,
+      Right
         (Atomic_tk
-          {
-            reference = Types.Type_record (_, _);
-            current = Types.Type_record (_, _);
-          }) )
-  | ( Either.Left private_flag,
-      Either.Left te_opt,
-      Either.Right
-        (Atomic_tk
-          {
-            reference = Types.Type_record (_, _);
-            current = Types.Type_variant (_, _);
-          }) )
-  | ( Either.Left private_flag,
-      Either.Left te_opt,
-      Either.Right
-        (Atomic_tk
-          { reference = Types.Type_record (_, _); current = Types.Type_open }) )
-  | ( Either.Left private_flag,
-      Either.Left te_opt,
-      Either.Right
-        (Atomic_tk
-          {
-            reference = Types.Type_variant (_, _);
-            current = Types.Type_record (_, _);
-          }) )
-  | ( Either.Left private_flag,
-      Either.Left te_opt,
-      Either.Right
-        (Atomic_tk
-          {
-            reference = Types.Type_variant (_, _);
-            current = Types.Type_variant (_, _);
-          }) )
-  | ( Either.Left private_flag,
-      Either.Left te_opt,
-      Either.Right
-        (Atomic_tk
-          { reference = Types.Type_variant (_, _); current = Types.Type_open })
-    )
-  | ( Either.Left private_flag,
-      Either.Left te_opt,
-      Either.Right
-        (Atomic_tk
-          { reference = Types.Type_open; current = Types.Type_record (_, _) }) )
-  | ( Either.Left private_flag,
-      Either.Left te_opt,
-      Either.Right
-        (Atomic_tk
-          { reference = Types.Type_open; current = Types.Type_variant (_, _) })
-    )
-  | ( Either.Left private_flag,
-      Either.Left te_opt,
-      Either.Right
-        (Atomic_tk { reference = Types.Type_open; current = Types.Type_open }) )
-    ->
+          ( { reference = Type_record (_, _); current = Type_record (_, _) }
+          | { reference = Type_record (_, _); current = Type_variant (_, _) }
+          | { reference = Type_record (_, _); current = Type_open }
+          | { reference = Type_variant (_, _); current = Type_record (_, _) }
+          | { reference = Type_variant (_, _); current = Type_variant (_, _) }
+          | { reference = Type_variant (_, _); current = Type_open }
+          | { reference = Type_open; current = Type_record (_, _) }
+          | { reference = Type_open; current = Type_variant (_, _) }
+          | { reference = Type_open; current = Type_open } )) ) ->
       `Same [ Same (type_header_to_line name private_flag te_opt false) ]
   | type_privacy_diff, type_manifest_diff, type_kind_diff ->
       let ref_private_flag, cur_private_flag =
         match type_privacy_diff with
-        | Either.Left private_flag -> (private_flag, private_flag)
-        | Either.Right privacy_diff -> pair_of_privacy_diff privacy_diff
+        | Left private_flag -> (private_flag, private_flag)
+        | Right privacy_diff -> pair_of_privacy_diff privacy_diff
       in
       let ref_manifest, cur_manifest =
         match type_manifest_diff with
-        | Either.Left te_opt -> (te_opt, te_opt)
-        | Either.Right manifest_diff -> pair_of_manifest_diff manifest_diff
+        | Left te_opt -> (te_opt, te_opt)
+        | Right manifest_diff -> pair_of_manifest_diff manifest_diff
       in
       let ref_abstract, cur_abstract =
         match type_kind_diff with
-        | Either.Left (Types.Type_abstract _) -> (true, true)
-        | Either.Right
-            (Diff.Atomic_tk { reference = Types.Type_abstract _; current = _ })
-          ->
+        | Left (Type_abstract _) -> (true, true)
+        | Right (Atomic_tk { reference = Type_abstract _; current = _ }) ->
             (true, false)
-        | Either.Right
-            (Diff.Atomic_tk { reference = _; current = Types.Type_abstract _ })
-          ->
+        | Right (Atomic_tk { reference = _; current = Type_abstract _ }) ->
             (false, true)
         | _ -> (false, false)
       in
-      `Atomic_change
-        [
-          Change
-            {
-              orig =
-                [
-                  type_header_to_line name ref_private_flag ref_manifest
-                    ref_abstract;
-                ];
-              new_ = [];
-            };
-          Change
-            {
-              orig = [];
-              new_ =
-                [
-                  type_header_to_line name cur_private_flag cur_manifest
-                    cur_abstract;
-                ];
-            };
-        ]
+      let orig =
+        [ type_header_to_line name ref_private_flag ref_manifest ref_abstract ]
+      in
+      let new_ =
+        [ type_header_to_line name cur_private_flag cur_manifest cur_abstract ]
+      in
+      `Atomic_change [ Change { orig; new_ = [] }; Change { orig = []; new_ } ]
 
 and pair_of_privacy_diff privacy_diff =
   match privacy_diff with
-  | Added_p -> (Asttypes.Public, Asttypes.Private)
-  | Removed_p -> (Asttypes.Private, Asttypes.Public)
+  | Added_p -> (Public, Private)
+  | Removed_p -> (Private, Public)
 
 and pair_of_manifest_diff manifest_diff =
   match manifest_diff with
@@ -286,28 +220,26 @@ and type_header_to_line name private_flag type_expr_opt abstract =
   Printf.sprintf "type %s%s%s%s" name equal_sign private_flag_str manifest_str
 
 and string_of_private_flag private_flag =
-  match private_flag with
-  | Asttypes.Public -> ""
-  | Asttypes.Private -> " private"
+  match private_flag with Public -> "" | Private -> " private"
 
 and string_of_manifest manifest =
   match manifest with None -> "" | Some te -> " " ^ typ_expr_to_line te
 
 and process_type_kind_diff type_kind =
   match type_kind with
-  | Either.Left same_type_kind ->
+  | Left same_type_kind ->
       `Same
         [
           Same
             (String.concat "\n"
                (Option.value (type_kind_to_lines same_type_kind) ~default:[]));
         ]
-  | Either.Right (Record_tk changed_lst) ->
+  | Right (Record_tk changed_lst) ->
       `Compound_change
         (process_modified_record_type_diff ~indent_amount:1 changed_lst)
-  | Either.Right (Variant_tk changed_lst) ->
+  | Right (Variant_tk changed_lst) ->
       `Compound_change (process_modified_variant_type_diff changed_lst)
-  | Either.Right (Atomic_tk { reference; current }) ->
+  | Right (Atomic_tk { reference; current }) ->
       `Atomic_change
         [
           Change
@@ -324,20 +256,20 @@ and process_type_kind_diff type_kind =
 
 and type_kind_to_lines type_kind : string list option =
   match type_kind with
-  | Types.Type_record (lbl_lst, _) ->
+  | Type_record (lbl_lst, _) ->
       Some
         [
           indent_s 1 "{ "
           ^ (List.map lbl_to_line lbl_lst |> String.concat " ")
           ^ " }";
         ]
-  | Types.Type_variant (cstr_lst, _) ->
+  | Type_variant (cstr_lst, _) ->
       Some
         (List.map
            (fun s -> indent_s 1 s)
            (List.concat_map (fun cstr -> cstr_to_lines cstr) cstr_lst))
-  | Types.Type_abstract _ -> None
-  | Types.Type_open -> Some [ indent_s 1 ".." ]
+  | Type_abstract _ -> None
+  | Type_open -> Some [ indent_s 1 ".." ]
 
 and indent_s n s =
   let indentation = String.make n ' ' in
@@ -379,13 +311,12 @@ and process_modified_cstrs (lbls_diffs : Diff.constructor_ list) =
 
 and process_cstr_diff cstr_diff =
   match cstr_diff.csdiff with
-  | Diff.Added cd -> process_cstr_atomic_diff (Diff.Added cd)
-  | Diff.Removed cd -> process_cstr_atomic_diff (Diff.Removed cd)
-  | Diff.Modified (Diff.Atomic_c cd) ->
-      process_cstr_atomic_diff (Diff.Modified cd)
-  | Diff.Modified (Diff.Tuple_c tc_lst) ->
+  | Added cd -> process_cstr_atomic_diff (Added cd)
+  | Removed cd -> process_cstr_atomic_diff (Removed cd)
+  | Modified (Atomic_c cd) -> process_cstr_atomic_diff (Modified cd)
+  | Modified (Tuple_c tc_lst) ->
       process_modified_tuple_type_diff cstr_diff.csname tc_lst
-  | Diff.Modified (Diff.Record_c rc_lst) ->
+  | Modified (Record_c rc_lst) ->
       Same ("| " ^ cstr_diff.csname ^ " of")
       :: process_modified_record_type_diff ~indent_amount:2 rc_lst
 
@@ -413,10 +344,10 @@ and process_modified_tuple_type_diff name diff =
     diff
     |> List.map (fun (c : Diff.tuple_component) ->
            match c with
-           | Either.Left t -> (Some t, Some t)
-           | Either.Right (Diff.Added t) -> (None, Some t)
-           | Either.Right (Diff.Removed t) -> (Some t, None)
-           | Either.Right (Diff.Modified { reference; current }) ->
+           | Left t -> (Some t, Some t)
+           | Right (Added t) -> (None, Some t)
+           | Right (Removed t) -> (Some t, None)
+           | Right (Modified { reference; current }) ->
                (Some reference, Some current))
     |> List.split
   in
