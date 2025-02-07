@@ -410,7 +410,7 @@ and type_privacy ~ref_type_privacy ~cur_type_privacy =
 and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
   match (ref_type_kind, cur_type_kind) with
   | (Type_record (ref_label_lst, _) as td), Type_record (cur_label_lst, _) -> (
-     let changed_lbls =
+      let changed_lbls =
         modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
       in
       match changed_lbls with
@@ -418,7 +418,7 @@ and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
       | _ -> Different (Record_tk changed_lbls))
   | ( (Type_variant (ref_constructor_lst, _) as td),
       Type_variant (cur_constructor_lst, _) ) -> (
-     let changed_constrs =
+      let changed_constrs =
         modified_variant_type ~typing_env ~ref_constructor_lst
           ~cur_constructor_lst
       in
