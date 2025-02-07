@@ -12,10 +12,25 @@ type type_ = {
   tdiff : (Types.type_declaration, type_modification) t;
 }
 
-and type_modification =
-  | Record_diff of record_field list
-  | Variant_diff of constructor_ list
-  | Atomic of Types.type_declaration atomic_modification
+and type_modification = {
+  type_kind : (Types.type_decl_kind, type_kind) maybe_changed;
+  type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
+  type_manifest :
+    ( Types.type_expr option,
+      (Types.type_expr, Types.type_expr atomic_modification) t )
+    maybe_changed;
+}
+
+and ('same, 'different) maybe_changed =
+  | Same of 'same
+  | Different of 'different
+
+and type_privacy = Added_p | Removed_p
+
+and type_kind =
+  | Record_tk of record_field list
+  | Variant_tk of constructor_ list
+  | Atomic_tk of Types.type_decl_kind atomic_modification
 
 and record_field = {
   rname : string;
@@ -36,7 +51,7 @@ and constructor_modification =
 and tuple_component =
   ( Types.type_expr,
     (Types.type_expr, Types.type_expr atomic_modification) t )
-  Either.t
+  maybe_changed
 
 type class_ = {
   cname : string;

@@ -18,7 +18,7 @@ We generate the .cmi file
 
 We generate the .cmi file
 
-  $ ocamlc add_constructor.mli 
+  $ ocamlc add_constructor.mli
 
 Run the api-watcher on the two cmi files
 
@@ -50,7 +50,7 @@ Run the api-watcher on the two cmi files
   
   [1]
 
-### Modifying a constructor's arguments in a variant type: 
+### Modifying a constructor's arguments in a variant type:
 
   $ cat > modify_constructor_type.mli << EOF
   > type rank = Ace | King | Queen | Number of float
@@ -75,9 +75,9 @@ Tests for modifying constructor's record argument
 
   $ cat > shapes.mli << EOF
   > type point = float * float
-  > type shape = 
-  >  | Circle of {center : point; raduis: int}
-  >  | Rectangle of {lower_left: point; upper_right: point}
+  > type shape =
+  >  | Circle of { center : point; raduis: int }
+  >  | Rectangle of { lower_left: point; upper_right: point }
   > EOF
 
 We generate the .cmi file
@@ -88,14 +88,14 @@ We generate the .cmi file
 
   $ cat > add_field.mli << EOF
   > type point = float * float
-  > type shape = 
-  >  | Circle of {center : point; raduis: int; color:int}
-  >  | Rectangle of {lower_left: point; upper_right: point; color:int}
+  > type shape =
+  >  | Circle of { center : point; raduis: int; color:int }
+  >  | Rectangle of { lower_left: point; upper_right: point; color:int }
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc add_field.mli 
+  $ ocamlc add_field.mli
 
 Run the api-watcher on the two cmi files
 
@@ -103,14 +103,16 @@ Run the api-watcher on the two cmi files
   diff module Add_field:
    type shape =
     ...
-    | Circle of {
-       ...
-  +    color : int;
-    }
-    | Rectangle of {
-       ...
-  +    color : int;
-    }
+    | Circle of
+      {
+        ...
+  +     color : int;
+      }
+    | Rectangle of
+      {
+        ...
+  +     color : int;
+      }
   
   [1]
 
@@ -118,14 +120,14 @@ Run the api-watcher on the two cmi files
 
   $ cat > remove_field.mli << EOF
   > type point = float * float
-  > type shape = 
-  >  | Circle of {center : point;}
-  >  | Rectangle of {lower_left: point; upper_right: point;}
+  > type shape =
+  >  | Circle of { center : point; }
+  >  | Rectangle of { lower_left: point; upper_right: point; }
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc remove_field.mli 
+  $ ocamlc remove_field.mli
 
 Run the api-watcher on the two cmi files
 
@@ -133,10 +135,11 @@ Run the api-watcher on the two cmi files
   diff module Remove_field:
    type shape =
     ...
-    | Circle of {
-       ...
-  -    raduis : int;
-    }
+    | Circle of
+      {
+        ...
+  -     raduis : int;
+      }
   
   [1]
 
@@ -144,14 +147,14 @@ Run the api-watcher on the two cmi files
 
   $ cat > modify_field.mli << EOF
   > type point = float * float
-  > type shape = 
-  >  | Circle of {center : point; raduis: float;}
-  >  | Rectangle of {lower_left: point; upper_right: point;}
+  > type shape =
+  >  | Circle of { center : point; raduis: float; }
+  >  | Rectangle of { lower_left: point; upper_right: point; }
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc modify_field.mli 
+  $ ocamlc modify_field.mli
 
 Run the api-watcher on the two cmi files
 
@@ -159,11 +162,12 @@ Run the api-watcher on the two cmi files
   diff module Modify_field:
    type shape =
     ...
-    | Circle of {
-       ...
-  -    raduis : int;
-  +    raduis : float;
-    }
+    | Circle of
+      {
+        ...
+  -     raduis : int;
+  +     raduis : float;
+      }
   
   [1]
 
@@ -171,7 +175,7 @@ Tests for modifying constructor's tuple argument
 
   $ cat > shapes2.mli << EOF
   > type point = float * float
-  > type shape = 
+  > type shape =
   >  | Circle of point * int
   >  | Rectangle of point * point
   > EOF
@@ -184,14 +188,14 @@ We generate the .cmi file
 
   $ cat > add_component.mli << EOF
   > type point = float * float
-  > type shape = 
+  > type shape =
   >  | Circle of point * int * int
   >  | Rectangle of point * point * int
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc add_component.mli 
+  $ ocamlc add_component.mli
 
 Run the api-watcher on the two cmi files
 
@@ -210,14 +214,14 @@ Run the api-watcher on the two cmi files
 
   $ cat > remove_component.mli << EOF
   > type point = float * float
-  > type shape = 
+  > type shape =
   >  | Circle of point
   >  | Rectangle of point * point
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc remove_component.mli 
+  $ ocamlc remove_component.mli
 
 Run the api-watcher on the two cmi files
 
@@ -234,14 +238,14 @@ Run the api-watcher on the two cmi files
 
   $ cat > modify_component.mli << EOF
   > type point = float * float
-  > type shape = 
+  > type shape =
   >  | Circle of point * float
   >  | Rectangle of point * point
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc modify_component.mli 
+  $ ocamlc modify_component.mli
 
 Run the api-watcher on the two cmi files
 

@@ -14,10 +14,25 @@ type value = {
 
 type type_ = { tname : string; tdiff : (type_declaration, type_modification) t }
 
-and type_modification =
-  | Record_diff of record_field list
-  | Variant_diff of constructor_ list
-  | Atomic of type_declaration atomic_modification
+and type_modification = {
+  type_kind : (Types.type_decl_kind, type_kind) maybe_changed;
+  type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
+  type_manifest :
+    ( type_expr option,
+      (type_expr, type_expr atomic_modification) t )
+    maybe_changed;
+}
+
+and ('same, 'different) maybe_changed =
+  | Same of 'same
+  | Different of 'different
+
+and type_privacy = Added_p | Removed_p
+
+and type_kind =
+  | Record_tk of record_field list
+  | Variant_tk of constructor_ list
+  | Atomic_tk of type_decl_kind atomic_modification
 
 and record_field = {
   rname : string;
@@ -35,7 +50,7 @@ and constructor_modification =
   | Atomic_c of constructor_declaration atomic_modification
 
 and tuple_component =
-  (type_expr, (type_expr, type_expr atomic_modification) t) Either.t
+  (type_expr, (type_expr, type_expr atomic_modification) t) maybe_changed
 
 type class_ = {
   cname : string;
@@ -112,6 +127,10 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
   | exception Includemod.Error _ ->
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
+let type_expr typing_env reference current =
+  if Ctype.does_match typing_env reference current then None
+  else Some (Modified { reference; current })
+
 let extract_lbls lbls =
   List.fold_left
     (fun map lbl -> String_map.add (Ident.name lbl.ld_id) lbl map)
@@ -129,54 +148,67 @@ let rec type_item ~typing_env ~name ~reference ~current =
       Some (Type { tname = name; tdiff = Removed reference })
   | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
-  | Some (reference, refId), Some (current, curId) -> (
-      let type_coercion1 () =
-        Includecore.type_declarations ~loc:current.type_loc typing_env
-          ~mark:false name current (Pident curId) reference
+  | Some (reference, _), Some (current, _) ->
+      type_decls ~typing_env ~name ~reference ~current
+
+and type_decls ~typing_env ~name ~reference ~current =
+  let type_kind =
+    type_kind ~typing_env ~ref_type_kind:reference.type_kind
+      ~cur_type_kind:current.type_kind
+  in
+  let type_privacy =
+    type_privacy ~ref_type_privacy:reference.type_private
+      ~cur_type_privacy:current.type_private
+  in
+  let type_manifest =
+    type_manifest ~typing_env ~ref_type_manifest:reference.type_manifest
+      ~cur_type_manifest:current.type_manifest
+  in
+  match { type_kind; type_privacy; type_manifest } with
+  | { type_kind = Same _; type_privacy = Same _; type_manifest = Same _ } ->
+      None
+  | diff -> Some (Type { tname = name; tdiff = Modified diff })
+
+and type_privacy ~ref_type_privacy ~cur_type_privacy =
+  match (ref_type_privacy, cur_type_privacy) with
+  | Asttypes.Public, Asttypes.Public -> Same Asttypes.Public
+  | Asttypes.Public, Asttypes.Private -> Different Added_p
+  | Asttypes.Private, Asttypes.Public -> Different Removed_p
+  | Asttypes.Private, Asttypes.Private -> Same Asttypes.Private
+
+and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
+  match (ref_type_kind, cur_type_kind) with
+  | (Type_record (ref_label_lst, _) as td), Type_record (cur_label_lst, _) -> (
+      let changed_lbls =
+        modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
       in
-      let type_coercion2 () =
-        Includecore.type_declarations ~loc:reference.type_loc typing_env
-          ~mark:false name reference (Pident refId) current
+      match changed_lbls with
+      | [] -> Same td
+      | _ -> Different (Record_tk changed_lbls))
+  | ( (Type_variant (ref_constructor_lst, _) as td),
+      Type_variant (cur_constructor_lst, _) ) -> (
+      let changed_constrs =
+        modified_variant_type ~typing_env ~ref_constructor_lst
+          ~cur_constructor_lst
       in
-      match (type_coercion1 (), type_coercion2 ()) with
-      | None, None -> None
-      | _, _ -> (
-          match (reference.type_kind, current.type_kind) with
-          | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) -> (
-              let changed_lbls =
-                modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
-              in
-              match changed_lbls with
-              | [] -> None
-              | _ ->
-                  Some
-                    (Type
-                       {
-                         tname = name;
-                         tdiff = Modified (Record_diff changed_lbls);
-                       }))
-          | ( Type_variant (ref_constructor_lst, _),
-              Type_variant (cur_constructor_lst, _) ) -> (
-              let changed_constrs =
-                modified_variant_type ~typing_env ~ref_constructor_lst
-                  ~cur_constructor_lst
-              in
-              match changed_constrs with
-              | [] -> None
-              | _ ->
-                  Some
-                    (Type
-                       {
-                         tname = name;
-                         tdiff = Modified (Variant_diff changed_constrs);
-                       }))
-          | _ ->
-              Some
-                (Type
-                   {
-                     tname = name;
-                     tdiff = Modified (Atomic { reference; current });
-                   })))
+      match changed_constrs with
+      | [] -> Same td
+      | _ -> Different (Variant_tk changed_constrs))
+  | (Type_abstract _ as td), Type_abstract _ -> Same td
+  | (Type_open as td), Type_open -> Same td
+  | ref_type_kind, cur_type_kind ->
+      Different
+        (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
+
+and type_manifest ~typing_env ~ref_type_manifest ~cur_type_manifest =
+  match (ref_type_manifest, cur_type_manifest) with
+  | None, None -> Same None
+  | Some t1, None -> Different (Removed t1)
+  | None, Some t2 -> Different (Added t2)
+  | Some t1, Some t2 -> (
+      match type_expr typing_env t1 t2 with
+      | None -> Same (Some t1)
+      | Some diff -> Different diff)
 
 and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
     =
@@ -186,8 +218,7 @@ and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
         let tuple_diff = modified_tuple_type ~typing_env type_lst1 type_lst2 in
         if
           List.for_all
-            (fun t ->
-              match t with Either.Left _ -> true | Either.Right _ -> false)
+            (fun t -> match t with Same _ -> true | Different _ -> false)
             tuple_diff
         then None
         else Some { csname = name; csdiff = Modified (Tuple_c tuple_diff) }
@@ -219,8 +250,8 @@ and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
   in
   modified_cstrs
 
-and diff_list (diff_one : 'a option -> 'a option -> ('a, 'diff) Either.t)
-    (ref : 'a list) (curr : 'a list) : ('a, 'diff) Either.t list =
+and diff_list (diff_one : 'a option -> 'a option -> ('a, 'diff) maybe_changed)
+    (ref : 'a list) (curr : 'a list) : ('a, 'diff) maybe_changed list =
   match (ref, curr) with
   | [], [] -> []
   | h1 :: t1, [] -> diff_one (Some h1) None :: diff_list diff_one t1 []
@@ -234,11 +265,12 @@ and modified_tuple_type ~typing_env (ref_tuple : type_expr list)
     (fun t1 t2 ->
       match (t1, t2) with
       | None, None -> assert false
-      | Some t1, None -> Either.right (Removed t1)
-      | None, Some t2 -> Either.right (Added t2)
-      | Some t1, Some t2 ->
-          if Ctype.does_match typing_env t1 t2 then Either.left t1
-          else Either.right (Modified { reference = t1; current = t2 }))
+      | Some t1, None -> Different (Removed t1)
+      | None, Some t2 -> Different (Added t2)
+      | Some t1, Some t2 -> (
+          match type_expr typing_env t1 t2 with
+          | None -> Same t1
+          | Some diff -> Different diff))
     ref_tuple cur_tuple
 
 and modified_record_type ~typing_env ~(ref_label_lst : label_declaration list)
@@ -252,14 +284,15 @@ and modified_record_type ~typing_env ~(ref_label_lst : label_declaration list)
         | None, None -> None
         | Some ref, None -> Some { rname = name; rdiff = Removed ref }
         | None, Some cur -> Some { rname = name; rdiff = Added cur }
-        | Some ref, Some cur ->
-            if Ctype.does_match typing_env ref.ld_type cur.ld_type then None
-            else
-              Some
-                {
-                  rname = name;
-                  rdiff = Modified { reference = ref; current = cur };
-                })
+        | Some ref, Some cur -> (
+            match type_expr typing_env ref.ld_type cur.ld_type with
+            | None -> None
+            | Some _ ->
+                Some
+                  {
+                    rname = name;
+                    rdiff = Modified { reference = ref; current = cur };
+                  }))
       ref_lbls curr_lbls
     |> String_map.bindings |> List.map snd
   in
