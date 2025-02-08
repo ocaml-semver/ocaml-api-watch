@@ -250,12 +250,12 @@ and string_of_private_flag private_flag =
 and string_of_manifest manifest =
   match manifest with None -> "" | Some te -> " " ^ typ_expr_to_line te
 
-and string_of_type_params (type_params : Types.type_expr list) =
-  let wrap = if List.length type_params > 1 then true else false in
+and string_of_type_params type_params =
+  let wrap = match type_params with _ :: _ :: _ -> true | _ -> false in
   (if wrap then "(" else "")
   ^ String.concat ", " (List.map get_type_param_name type_params)
   ^ (if wrap then ") " else "")
-  ^ if List.length type_params = 1 then " " else ""
+  ^ match type_params with [ _ ] -> " " | _ -> ""
 
 and get_type_param_name param =
   match Types.get_desc param with

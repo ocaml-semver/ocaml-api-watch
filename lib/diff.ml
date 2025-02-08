@@ -158,223 +158,25 @@ let rec type_item ~typing_env ~name ~reference ~current =
       Some (Type { tname = name; tdiff = Added current })
   | Some (reference, _), Some (current, _) ->
       let normalized_ref_type_decl, normalized_cur_type_decl =
-        normalize_type_decls reference current
+        Util.normalize_type_decls reference current
       in
       type_decls ~typing_env ~name ~reference:normalized_ref_type_decl
         ~current:normalized_cur_type_decl
 
-and normalize_type_decls ref_type_decl cur_type_decl =
-  let rec normalize_type_params ref_type_params cur_type_params =
-    match (ref_type_params, cur_type_params) with
-    | [], [] ->
-        let _ = gen_unique_type_var_name true in
-        ([], [], String_map.empty, String_map.empty)
-    | ref_type_param :: ref_type_params', [] ->
-        let ref_type_param_name = get_type_param_name ref_type_param in
-        let unique_name = gen_unique_type_var_name false in
-        let normalized_ref_type_param =
-          create_expr (Tvar (Some unique_name))
-            ~level:(get_level ref_type_param) ~scope:(get_scope ref_type_param)
-            ~id:(get_id ref_type_param)
-        in
-        let ( normalized_ref_type_params',
-              normalized_cur_type_params,
-              ref_type_var_map',
-              cur_type_var_map ) =
-          normalize_type_params ref_type_params' []
-        in
-        ( normalized_ref_type_param :: normalized_ref_type_params',
-          normalized_cur_type_params,
-          String_map.add ref_type_param_name unique_name ref_type_var_map',
-          cur_type_var_map )
-    | [], cur_type_param :: cur_type_params' ->
-        let cur_type_param_name = get_type_param_name cur_type_param in
-        let unique_name = gen_unique_type_var_name false in
-        let normalized_cur_type_param =
-          create_expr (Tvar (Some unique_name))
-            ~level:(get_level cur_type_param) ~scope:(get_scope cur_type_param)
-            ~id:(get_id cur_type_param)
-        in
-        let ( normalized_ref_type_params,
-              normalized_cur_type_params',
-              ref_type_var_map,
-              cur_type_var_map' ) =
-          normalize_type_params [] cur_type_params'
-        in
-        ( normalized_ref_type_params,
-          normalized_cur_type_param :: normalized_cur_type_params',
-          ref_type_var_map,
-          String_map.add cur_type_param_name unique_name cur_type_var_map' )
-    | ref_type_param :: ref_type_params', cur_type_param :: cur_type_params' ->
-        let ref_type_param_name = get_type_param_name ref_type_param in
-        let cur_type_param_name = get_type_param_name cur_type_param in
-        let unique_name = gen_unique_type_var_name false in
-        let normalized_ref_type_param =
-          create_expr (Tvar (Some unique_name))
-            ~level:(get_level ref_type_param) ~scope:(get_scope ref_type_param)
-            ~id:(get_id ref_type_param)
-        in
-        let normalized_cur_type_param =
-          create_expr (Tvar (Some unique_name))
-            ~level:(get_level cur_type_param) ~scope:(get_scope cur_type_param)
-            ~id:(get_id cur_type_param)
-        in
-        let ( normalized_ref_type_params',
-              normalized_cur_type_params',
-              ref_type_var_map',
-              cur_type_var_map' ) =
-          normalize_type_params ref_type_params' cur_type_params'
-        in
-        ( normalized_ref_type_param :: normalized_ref_type_params',
-          normalized_cur_type_param :: normalized_cur_type_params',
-          String_map.add ref_type_param_name unique_name ref_type_var_map',
-          String_map.add cur_type_param_name unique_name cur_type_var_map' )
-  in
-  let ( normalized_ref_type_params,
-        normalized_cur_type_params,
-        ref_type_var_name_map,
-        cur_type_var_name_map ) =
-    normalize_type_params
-      Types.(ref_type_decl.type_params)
-      Types.(cur_type_decl.type_params)
-  in
-  let normalized_ref_type_manifest =
-    normalize_type_manifest ref_type_decl.type_manifest ref_type_var_name_map
-  in
-  let normalized_cur_type_manifest =
-    normalize_type_manifest cur_type_decl.type_manifest cur_type_var_name_map
-  in
-  let normalized_ref_type_kind =
-    normalize_type_kind ref_type_decl.type_kind ref_type_var_name_map
-  in
-  let normalized_cur_type_kind =
-    normalize_type_kind cur_type_decl.type_kind cur_type_var_name_map
-  in
-  ( {
-      ref_type_decl with
-      type_params = normalized_ref_type_params;
-      type_manifest = normalized_ref_type_manifest;
-      type_kind = normalized_ref_type_kind;
-    },
-    {
-      cur_type_decl with
-      type_params = normalized_cur_type_params;
-      type_manifest = normalized_cur_type_manifest;
-      type_kind = normalized_cur_type_kind;
-    } )
-
-and normalize_type_expr tvmap type_expr =
-  match get_desc type_expr with
-  | Tvar None -> type_expr
-  | Tvar (Some name) ->
-      let nname = String_map.find name tvmap in
-      create_expr (Tvar (Some nname)) ~level:(get_level type_expr)
-        ~scope:(get_scope type_expr) ~id:(get_id type_expr)
-  | Tarrow (x, te1, te2, y) ->
-      create_expr
-        (Tarrow
-           (x, normalize_type_expr tvmap te1, normalize_type_expr tvmap te2, y))
-        ~level:(get_level type_expr) ~scope:(get_scope type_expr)
-        ~id:(get_id type_expr)
-  | Ttuple te_list ->
-      create_expr
-        (Ttuple (List.map (normalize_type_expr tvmap) te_list))
-        ~level:(get_level type_expr) ~scope:(get_scope type_expr)
-        ~id:(get_id type_expr)
-  | Tconstr (x, te_list, y) ->
-      create_expr
-        (Tconstr (x, List.map (normalize_type_expr tvmap) te_list, y))
-        ~level:(get_level type_expr) ~scope:(get_scope type_expr)
-        ~id:(get_id type_expr)
-  | Tobject (te, x) ->
-      create_expr
-        (Tobject (normalize_type_expr tvmap te, x))
-        ~level:(get_level te) ~scope:(get_scope te) ~id:(get_id te)
-  | Tfield (x, y, te1, te2) ->
-      create_expr
-        (Tfield
-           (x, y, normalize_type_expr tvmap te1, normalize_type_expr tvmap te2))
-        ~level:(get_level type_expr) ~scope:(get_scope type_expr)
-        ~id:(get_id type_expr)
-  | Tnil -> type_expr
-  | Tsubst (te1, te2_opt) ->
-      create_expr
-        (Tsubst
-           ( normalize_type_expr tvmap te1,
-             Option.map (normalize_type_expr tvmap) te2_opt ))
-        ~level:(get_level type_expr) ~scope:(get_scope type_expr)
-        ~id:(get_id type_expr)
-  | _ -> type_expr
-
-and normalize_type_manifest type_manifest tvmap =
-  match type_manifest with
-  | None -> None
-  | Some te -> Some (normalize_type_expr tvmap te)
-
-and normalize_type_kind type_kind tvmap =
-  match type_kind with
-  | Type_record (lbls, x) ->
-      let normalized_lbls =
-        List.map
-          (fun lbl ->
-            { lbl with ld_type = normalize_type_expr tvmap lbl.ld_type })
-          lbls
-      in
-      Type_record (normalized_lbls, x)
-  | Type_variant (cstrs, x) ->
-      let normalized_cstrs =
-        List.map
-          (fun cstr ->
-            match cstr.cd_args with
-            | Cstr_tuple type_exprs ->
-                let normalized_type_exprs =
-                  List.map (normalize_type_expr tvmap) type_exprs
-                in
-                { cstr with cd_args = Cstr_tuple normalized_type_exprs }
-            | Cstr_record lbls ->
-                let normalized_lbls =
-                  List.map
-                    (fun lbl ->
-                      {
-                        lbl with
-                        ld_type = normalize_type_expr tvmap lbl.ld_type;
-                      })
-                    lbls
-                in
-                { cstr with cd_args = Cstr_record normalized_lbls })
-          cstrs
-      in
-      Type_variant (normalized_cstrs, x)
-  | Type_abstract _ -> type_kind
-  | Type_open -> type_kind
-
-and get_type_param_name param =
-  match get_desc param with Tvar (Some name) -> name | _ -> assert false
-
-and gen_unique_type_var_name =
-  let counter = ref 1 in
-  fun reset ->
-    if reset then counter := 0 else ();
-    let unique_name = Printf.sprintf "t%d" !counter in
-    counter := !counter + 1;
-    unique_name
-
 and type_decls ~typing_env ~name ~reference ~current =
   let type_kind =
-    type_kind ~typing_env ~ref_type_kind:reference.type_kind
-      ~cur_type_kind:current.type_kind
+    type_kind ~typing_env ~reference:reference.type_kind
+      ~current:current.type_kind
   in
   let type_privacy =
-    type_privacy ~ref_type_privacy:reference.type_private
-      ~cur_type_privacy:current.type_private
+    type_privacy ~reference:reference.type_private ~current:current.type_private
   in
   let type_manifest =
-    type_manifest ~typing_env ~ref_type_manifest:reference.type_manifest
-      ~cur_type_manifest:current.type_manifest
+    type_manifest ~typing_env ~reference:reference.type_manifest
+      ~current:current.type_manifest
   in
   let type_params =
-    type_params ~ref_type_params:reference.type_params
-      ~cur_type_params:current.type_params
+    type_params ~reference:reference.type_params ~current:current.type_params
   in
   match { type_kind; type_privacy; type_manifest; type_params } with
   | {
@@ -386,9 +188,8 @@ and type_decls ~typing_env ~name ~reference ~current =
       None
   | diff -> Some (Type { tname = name; tdiff = Modified diff })
 
-and type_params ~ref_type_params ~cur_type_params =
-  if List.length ref_type_params = List.length cur_type_params then
-    Same ref_type_params
+and type_params ~reference ~current =
+  if List.length reference = List.length current then Same reference
   else
     Different
       (diff_list
@@ -398,17 +199,17 @@ and type_params ~ref_type_params ~cur_type_params =
            | Some t1, None -> Different (Removed_tp t1)
            | None, Some t2 -> Different (Added_tp t2)
            | Some t1, Some _ -> Same t1)
-         ref_type_params cur_type_params)
+         reference current)
 
-and type_privacy ~ref_type_privacy ~cur_type_privacy =
-  match (ref_type_privacy, cur_type_privacy) with
+and type_privacy ~reference ~current =
+  match (reference, current) with
   | Asttypes.Public, Asttypes.Public -> Same Asttypes.Public
   | Asttypes.Public, Asttypes.Private -> Different Added_p
   | Asttypes.Private, Asttypes.Public -> Different Removed_p
   | Asttypes.Private, Asttypes.Private -> Same Asttypes.Private
 
-and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
-  match (ref_type_kind, cur_type_kind) with
+and type_kind ~typing_env ~reference ~current =
+  match (reference, current) with
   | (Type_record (ref_label_lst, _) as td), Type_record (cur_label_lst, _) -> (
       let changed_lbls =
         modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
@@ -431,8 +232,8 @@ and type_kind ~typing_env ~ref_type_kind ~cur_type_kind =
       Different
         (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
 
-and type_manifest ~typing_env ~ref_type_manifest ~cur_type_manifest =
-  match (ref_type_manifest, cur_type_manifest) with
+and type_manifest ~typing_env ~reference ~current =
+  match (reference, current) with
   | None, None -> Same None
   | Some t1, None -> Different (Removed t1)
   | None, Some t2 -> Different (Added t2)
