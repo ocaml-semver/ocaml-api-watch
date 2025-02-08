@@ -150,3 +150,14 @@ let normalize_type_decls ref_type_decl cur_type_decl =
   in
   ( normalize_type_decl ref_type_decl ref_tvmap,
     normalize_type_decl cur_type_decl cur_tvmap )
+
+let rec normalized_type_params reference current =
+  match (reference, current) with
+  | [], [] -> true
+  | _ :: _, [] -> true
+  | [], _ :: _ -> true
+  | ref_type_param :: reference', cur_type_param :: current' ->
+      String.equal
+        (get_type_param_name ref_type_param)
+        (get_type_param_name cur_type_param)
+      && normalized_type_params reference' current'

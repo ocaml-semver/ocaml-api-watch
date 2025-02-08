@@ -36,12 +36,12 @@ Run the api-watcher on the two cmi files
 
   $ api-diff ref.cmi add_type_var.cmi
   diff module Add_type_var:
-  -type ('t1, 't2) t =
-  +type ('t1, 't2, 't3) t =
+  -type ('a, 'b) t =
+  +type ('a, 'b, 'c) t =
     {
       ...
-  -   b : 't2;
-  +   b : 't2 * 't3;
+  -   b : 'b;
+  +   b : 'b * 'c;
     }
   
   [1]
@@ -60,11 +60,11 @@ Run the api-watcher on the two cmi files
 
   $ api-diff ref.cmi remove_type_var.cmi
   diff module Remove_type_var:
-  -type ('t1, 't2) t =
-  +type 't1 t =
+  -type ('a, 'b) t =
+  +type 'a t =
     {
       ...
-  -   b : 't2;
+  -   b : 'b;
   +   b : int;
     }
   
@@ -84,13 +84,13 @@ Run the api-watcher on the two cmi files
 
   $ api-diff ref.cmi change_type_var_use.cmi
   diff module Change_type_var_use:
-   type ('t1, 't2) t =
+   type ('a, 'b) t =
     {
       ...
-  -   a : 't1;
-  +   a : 't2;
-  -   b : 't2;
-  +   b : 't1;
+  -   a : 'a;
+  +   a : 'b;
+  -   b : 'b;
+  +   b : 'a;
     }
   
   [1]
@@ -160,3 +160,28 @@ Run the api-watcher on the two cmi files
   + | A of 't1 * 't2
   
   [1]
+
+Here we generate a `.mli` file with an arrow paramterized type:
+
+  $ cat > ref_arrow.mli << EOF
+  > type 'a t = 'a -> 'a
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc ref_arrow.mli
+
+# Renaming a type variable consistently across the type declaration:
+
+  $ cat > rename_arrow.mli << EOF
+  > type 'b t = 'b -> 'b
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc rename_arrow.mli
+
+Run the api-watcher on the two cmi files, there should be no diff
+
+  $ api-diff ref_arrow.cmi rename_arrow.cmi
+

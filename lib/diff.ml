@@ -131,14 +131,26 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
 let type_expr typing_env reference current =
-  let equal =
-    match (get_desc reference, get_desc current) with
-    | Tvar (Some ref_name), Tvar (Some cur_name) ->
-        Ctype.does_match typing_env reference current && ref_name = cur_name
-    | _, _ -> Ctype.does_match typing_env reference current
+  let rec same_type_var_names reference current =
+    match get_desc reference, get_desc current with
+    | Tvar None, Tvar None -> true
+    | Tvar (Some ref_name), Tvar (Some cur_name) -> 
+      String.equal ref_name cur_name
+    | Tarrow (_, ref_te1, ref_te2, _),
+      Tarrow (_, cur_te1, cur_te2, _) ->
+      (same_type_var_names ref_te1 cur_te1) && 
+      (same_type_var_names ref_te2 cur_te2)
+    | Ttuple (ref_te_lst), Ttuple(cur_te_lst) -> 
+      if List.length ref_te_lst != List.length cur_te_lst then false
+      else List.for_all2 (fun ref_te cur_te -> same_type_var_names ref_te cur_te)
+          ref_te_lst cur_te_lst
+   | _ -> true
+  in
+  let equal = Ctype.does_match typing_env reference current
+      && same_type_var_names reference current
   in
   if equal then None else Some (Modified { reference; current })
-
+        
 let extract_lbls lbls =
   List.fold_left
     (fun map lbl -> String_map.add (Ident.name lbl.ld_id) lbl map)
@@ -157,13 +169,16 @@ let rec type_item ~typing_env ~name ~reference ~current =
   | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
   | Some (reference, _), Some (current, _) ->
-      let normalized_ref_type_decl, normalized_cur_type_decl =
-        Util.normalize_type_decls reference current
-      in
-      type_decls ~typing_env ~name ~reference:normalized_ref_type_decl
-        ~current:normalized_cur_type_decl
+      type_decls ~typing_env ~name ~reference ~current
 
 and type_decls ~typing_env ~name ~reference ~current =
+  let reference, current =
+    if
+      Util.normalized_type_params reference.Types.type_params
+        current.Types.type_params
+    then (reference, current)
+    else Util.normalize_type_decls reference current
+  in
   let type_kind =
     type_kind ~typing_env ~reference:reference.type_kind
       ~current:current.type_kind
