@@ -176,10 +176,10 @@ let rec type_item ~typing_env ~name ~reference ~current =
 and type_decls ~typing_env ~name ~reference ~current =
   let reference, current =
     if
-      Util.normalized_type_params reference.Types.type_params
-        current.Types.type_params
+      Util.normalized_type_params ~reference:reference.Types.type_params
+        ~current:current.Types.type_params
     then (reference, current)
-    else Util.normalize_type_decls reference current
+    else Util.normalize_type_decls ~reference ~current
   in
   let type_kind =
     type_kind ~typing_env ~reference:reference.type_kind

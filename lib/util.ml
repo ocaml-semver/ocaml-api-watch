@@ -128,7 +128,7 @@ let normalize_type_kind type_kind tvmap =
 and normalize_type_manifest type_manifest tvmap =
   Option.map (normalize_type_expr tvmap) type_manifest
 
-let normalize_type_decls ref_type_decl cur_type_decl =
+let normalize_type_decls ~reference ~current =
   let normalize_type_decl type_decl tvmap =
     let normalized_type_params =
       normalize_type_params type_decl.Types.type_params tvmap
@@ -145,13 +145,13 @@ let normalize_type_decls ref_type_decl cur_type_decl =
     }
   in
   let ref_tvmap, cur_tvmap =
-    build_tvmaps ref_type_decl.type_params cur_type_decl.type_params
+    build_tvmaps reference.type_params current.type_params
       (String_map.empty, String_map.empty)
   in
-  ( normalize_type_decl ref_type_decl ref_tvmap,
-    normalize_type_decl cur_type_decl cur_tvmap )
+  ( normalize_type_decl reference ref_tvmap,
+    normalize_type_decl current cur_tvmap )
 
-let rec normalized_type_params reference current =
+let rec normalized_type_params ~reference ~current =
   match (reference, current) with
   | [], [] -> true
   | _ :: _, [] -> true
@@ -160,4 +160,4 @@ let rec normalized_type_params reference current =
       String.equal
         (get_type_param_name ref_type_param)
         (get_type_param_name cur_type_param)
-      && normalized_type_params reference' current'
+      && normalized_type_params ~reference:reference' ~current:current'
