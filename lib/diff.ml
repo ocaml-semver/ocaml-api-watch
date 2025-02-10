@@ -130,28 +130,17 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
   | exception Includemod.Error _ ->
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
-let type_expr typing_env reference current =
-  let rec same_type_var_names reference current =
-    match (get_desc reference, get_desc current) with
-    | Tvar None, Tvar None -> true
-    | Tvar (Some ref_name), Tvar (Some cur_name) ->
-        String.equal ref_name cur_name
-    | Tarrow (_, ref_te1, ref_te2, _), Tarrow (_, cur_te1, cur_te2, _) ->
-        same_type_var_names ref_te1 cur_te1
-        && same_type_var_names ref_te2 cur_te2
-    | Ttuple ref_te_lst, Ttuple cur_te_lst ->
-        if List.length ref_te_lst != List.length cur_te_lst then false
-        else
-          List.for_all2
-            (fun ref_te cur_te -> same_type_var_names ref_te cur_te)
-            ref_te_lst cur_te_lst
-    | _ -> true
+let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
+    current =
+  let normed_ref, normed_cur =
+    Normalize.type_params_arity ~reference:ref_params ~current:cur_params
   in
-  let equal =
-    Ctype.does_match typing_env reference current
-    && same_type_var_names reference current
-  in
-  if equal then None else Some (Modified { reference; current })
+  if
+    Ctype.is_equal typing_env true
+      (normed_ref @ [ reference ])
+      (normed_cur @ [ current ])
+  then None
+  else Some (Modified { reference; current })
 
 let extract_lbls lbls =
   List.fold_left
@@ -171,30 +160,30 @@ let rec type_item ~typing_env ~name ~reference ~current =
   | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
   | Some (reference, _), Some (current, _) ->
-      type_decls ~typing_env ~name ~reference ~current
+      type_declarations ~typing_env ~name ~reference ~current
 
-and type_decls ~typing_env ~name ~reference ~current =
+and type_declarations ~typing_env ~name ~reference ~current =
   let reference, current =
     if
-      Util.normalized_type_params ~reference:reference.Types.type_params
+      Normalize.is_type_params ~reference:reference.Types.type_params
         ~current:current.Types.type_params
     then (reference, current)
-    else Util.normalize_type_decls ~reference ~current
+    else Normalize.type_declarations ~reference ~current
   in
+  let ref_params = reference.type_params in
+  let cur_params = current.type_params in
   let type_kind =
-    type_kind ~typing_env ~reference:reference.type_kind
+    type_kind ~typing_env ~ref_params ~cur_params ~reference:reference.type_kind
       ~current:current.type_kind
   in
   let type_privacy =
     type_privacy ~reference:reference.type_private ~current:current.type_private
   in
   let type_manifest =
-    type_manifest ~typing_env ~reference:reference.type_manifest
-      ~current:current.type_manifest
+    type_manifest ~typing_env ~ref_params ~cur_params
+      ~reference:reference.type_manifest ~current:current.type_manifest
   in
-  let type_params =
-    type_params ~reference:reference.type_params ~current:current.type_params
-  in
+  let type_params = type_params ~reference:ref_params ~current:cur_params in
   match { type_kind; type_privacy; type_manifest; type_params } with
   | {
    type_kind = Same _;
@@ -210,13 +199,13 @@ and type_params ~reference ~current =
   else
     Different
       (diff_list
-         (fun t1 t2 ->
+         ~diff_one:(fun t1 t2 ->
            match (t1, t2) with
            | None, None -> assert false
            | Some t1, None -> Different (Removed_tp t1)
            | None, Some t2 -> Different (Added_tp t2)
            | Some t1, Some _ -> Same t1)
-         reference current)
+         ~ref_list:reference ~cur_list:current)
 
 and type_privacy ~reference ~current =
   match (reference, current) with
@@ -225,11 +214,12 @@ and type_privacy ~reference ~current =
   | Asttypes.Private, Asttypes.Public -> Different Removed_p
   | Asttypes.Private, Asttypes.Private -> Same Asttypes.Private
 
-and type_kind ~typing_env ~reference ~current =
+and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
   match (reference, current) with
   | (Type_record (ref_label_lst, _) as td), Type_record (cur_label_lst, _) -> (
       let changed_lbls =
-        modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
+        modified_record_type ~typing_env ~ref_params ~cur_params ~ref_label_lst
+          ~cur_label_lst
       in
       match changed_lbls with
       | [] -> Same td
@@ -237,8 +227,8 @@ and type_kind ~typing_env ~reference ~current =
   | ( (Type_variant (ref_constructor_lst, _) as td),
       Type_variant (cur_constructor_lst, _) ) -> (
       let changed_constrs =
-        modified_variant_type ~typing_env ~ref_constructor_lst
-          ~cur_constructor_lst
+        modified_variant_type ~typing_env ~ref_params ~cur_params
+          ~ref_constructor_lst ~cur_constructor_lst
       in
       match changed_constrs with
       | [] -> Same td
@@ -249,22 +239,25 @@ and type_kind ~typing_env ~reference ~current =
       Different
         (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
 
-and type_manifest ~typing_env ~reference ~current =
+and type_manifest ~typing_env ~ref_params ~cur_params ~reference ~current =
   match (reference, current) with
   | None, None -> Same None
   | Some t1, None -> Different (Removed t1)
   | None, Some t2 -> Different (Added t2)
   | Some t1, Some t2 -> (
-      match type_expr typing_env t1 t2 with
+      match type_expr ~typing_env ~ref_params ~cur_params t1 t2 with
       | None -> Same (Some t1)
       | Some diff -> Different diff)
 
-and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
-    =
+and modified_variant_type ~typing_env ~ref_params ~cur_params
+    ~ref_constructor_lst ~cur_constructor_lst =
   let diff_cstrs name cstr1 cstr2 =
     match (cstr1.cd_args, cstr2.cd_args) with
     | Cstr_tuple type_lst1, Cstr_tuple type_lst2 ->
-        let tuple_diff = modified_tuple_type ~typing_env type_lst1 type_lst2 in
+        let tuple_diff =
+          modified_tuple_type ~typing_env ~ref_params ~cur_params type_lst1
+            type_lst2
+        in
         if
           List.for_all
             (fun t -> match t with Same _ -> true | Different _ -> false)
@@ -273,7 +266,8 @@ and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
         else Some { csname = name; csdiff = Modified (Tuple_c tuple_diff) }
     | Cstr_record ref_label_lst, Cstr_record cur_label_lst ->
         let record_diff =
-          modified_record_type ~typing_env ~ref_label_lst ~cur_label_lst
+          modified_record_type ~typing_env ~ref_params ~cur_params
+            ~ref_label_lst ~cur_label_lst
         in
         if List.length record_diff = 0 then None
         else Some { csname = name; csdiff = Modified (Record_c record_diff) }
@@ -301,33 +295,38 @@ and modified_variant_type ~typing_env ~ref_constructor_lst ~cur_constructor_lst
 
 and diff_list :
       'a 'diff.
-      ('a option -> 'a option -> ('a, 'diff) maybe_changed) ->
-      'a list ->
-      'a list ->
+      diff_one:('a option -> 'a option -> ('a, 'diff) maybe_changed) ->
+      ref_list:'a list ->
+      cur_list:'a list ->
       ('a, 'diff) maybe_changed list =
- fun diff_one ref curr ->
-  match (ref, curr) with
+ fun ~diff_one ~ref_list ~cur_list ->
+  match (ref_list, cur_list) with
   | [], [] -> []
-  | h1 :: t1, [] -> diff_one (Some h1) None :: diff_list diff_one t1 []
-  | [], h2 :: t2 -> diff_one None (Some h2) :: diff_list diff_one [] t2
+  | h1 :: t1, [] ->
+      diff_one (Some h1) None :: diff_list ~diff_one ~ref_list:t1 ~cur_list:[]
+  | [], h2 :: t2 ->
+      diff_one None (Some h2) :: diff_list ~diff_one ~ref_list:[] ~cur_list:t2
   | h1 :: t1, h2 :: t2 ->
-      diff_one (Some h1) (Some h2) :: diff_list diff_one t1 t2
+      diff_one (Some h1) (Some h2)
+      :: diff_list ~diff_one ~ref_list:t1 ~cur_list:t2
 
-and modified_tuple_type ~typing_env (ref_tuple : type_expr list)
-    (cur_tuple : type_expr list) : tuple_component list =
+and modified_tuple_type ~typing_env ~ref_params ~cur_params
+    (ref_tuple : type_expr list) (cur_tuple : type_expr list) :
+    tuple_component list =
   diff_list
-    (fun t1 t2 ->
+    ~diff_one:(fun t1 t2 ->
       match (t1, t2) with
       | None, None -> assert false
       | Some t1, None -> Different (Removed t1)
       | None, Some t2 -> Different (Added t2)
       | Some t1, Some t2 -> (
-          match type_expr typing_env t1 t2 with
+          match type_expr ~typing_env ~ref_params ~cur_params t1 t2 with
           | None -> Same t1
           | Some diff -> Different diff))
-    ref_tuple cur_tuple
+    ~ref_list:ref_tuple ~cur_list:cur_tuple
 
-and modified_record_type ~typing_env ~(ref_label_lst : label_declaration list)
+and modified_record_type ~typing_env ~ref_params ~cur_params
+    ~(ref_label_lst : label_declaration list)
     ~(cur_label_lst : label_declaration list) =
   let ref_lbls = extract_lbls ref_label_lst in
   let curr_lbls = extract_lbls cur_label_lst in
@@ -339,7 +338,10 @@ and modified_record_type ~typing_env ~(ref_label_lst : label_declaration list)
         | Some ref, None -> Some { rname = name; rdiff = Removed ref }
         | None, Some cur -> Some { rname = name; rdiff = Added cur }
         | Some ref, Some cur -> (
-            match type_expr typing_env ref.ld_type cur.ld_type with
+            match
+              type_expr ~typing_env ~ref_params ~cur_params ref.ld_type
+                cur.ld_type
+            with
             | None -> None
             | Some _ ->
                 Some
