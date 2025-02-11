@@ -1,7 +1,5 @@
 val type_declarations :
-  reference:Types.type_declaration ->
-  current:Types.type_declaration ->
-  Types.type_declaration * Types.type_declaration
+  reference:Types.type_declaration -> current:Types.type_declaration -> unit
 (** Rename the occurances of each corresponding pair of type parameters in
     [reference] and [current] to a unique ti,
     where 1 <= i <= Int.max(List.length [current], List.length [reference]) *)

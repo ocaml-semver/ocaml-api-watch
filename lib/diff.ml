@@ -163,13 +163,11 @@ let rec type_item ~typing_env ~name ~reference ~current =
       type_declarations ~typing_env ~name ~reference ~current
 
 and type_declarations ~typing_env ~name ~reference ~current =
-  let reference, current =
-    if
-      Normalize.is_type_params ~reference:reference.Types.type_params
-        ~current:current.Types.type_params
-    then (reference, current)
-    else Normalize.type_declarations ~reference ~current
-  in
+  if
+    Normalize.is_type_params ~reference:reference.Types.type_params
+      ~current:current.Types.type_params
+  then ()
+  else Normalize.type_declarations ~reference ~current;
   let ref_params = reference.type_params in
   let cur_params = current.type_params in
   let type_kind =
