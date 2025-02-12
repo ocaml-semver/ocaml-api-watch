@@ -18,3 +18,6 @@ val for_diff : reference:signature -> current:signature -> Env.t
     It can be the case that the types are structuraly incompatible because they
     were modified between the two versions but the compiler will accept those.
 *)
+
+val pp : Format.formatter -> Env.t -> unit
+(** Use for debugging *)
