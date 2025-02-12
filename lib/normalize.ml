@@ -46,19 +46,16 @@ let rec is_type_params ~reference ~current =
         (get_type_param_name cur_type_param)
       && is_type_params ~reference:reference' ~current:current'
 
+let append_tvar_none n params_lst =
+  let rest =
+    List.init n (fun _ -> create_expr (Tvar None) ~level:0 ~scope:0 ~id:0)
+  in
+  params_lst @ rest
+
 let type_params_arity ~reference ~current =
-  if List.length reference = List.length current then (reference, current)
-  else if List.length reference > List.length current then
-    let rest =
-      List.init
-        (List.length reference - List.length current)
-        (fun _ -> create_expr (Tvar None) ~level:0 ~scope:0 ~id:0)
-    in
-    (reference, current @ rest)
-  else
-    let rest =
-      List.init
-        (List.length current - List.length reference)
-        (fun _ -> create_expr (Tvar None) ~level:0 ~scope:0 ~id:0)
-    in
-    (reference @ rest, current)
+  let ref_len = List.length reference in
+  let cur_len = List.length current in
+  if ref_len = cur_len then (reference, current)
+  else if ref_len > cur_len then
+    (reference, append_tvar_none (ref_len - cur_len) current)
+  else (append_tvar_none (cur_len - ref_len) reference, current)
