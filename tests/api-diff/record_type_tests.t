@@ -25,10 +25,8 @@ Run the api-watcher on the two cmi files
   $ api-diff ref.cmi add_field.cmi
   diff module Add_field:
    type student =
-    {
-      ...
-  +   level : int;
-    }
+  -  { first_name : string; id : int option; last_name : string; }
+  +  { first_name : string; id : int option; last_name : string; level : int; }
   
   [1]
 
@@ -47,14 +45,12 @@ Run the api-watcher on the two cmi files
   $ api-diff ref.cmi remove_field.cmi
   diff module Remove_field:
    type student =
-    {
-      ...
-  -   id : int option;
-    }
+  -  { first_name : string; last_name : string; id : int option; }
+  +  { first_name : string; last_name : string; }
   
   [1]
 
-### Modifying a field's type in a record type:
+### Modifying a field type in a record type:
 
   $ cat > modify_field_type.mli << EOF
   > type student = { first_name: string; last_name: string; id: int }
@@ -69,15 +65,12 @@ Run api-watcher on the two cmi files
   $ api-diff ref.cmi modify_field_type.cmi
   diff module Modify_field_type:
    type student =
-    {
-      ...
-  -   id : int option;
-  +   id : int;
-    }
+  -  { first_name : string; last_name : string; id : int option; }
+  +  { first_name : string; last_name : string; id : int; }
   
   [1]
 
-### Modifying a field's type in a record type to a same alias type:
+### Modifying a field type in a record type to a same alias type:
 
   $ cat > alias_field_type.mli << EOF
   > type y = int option

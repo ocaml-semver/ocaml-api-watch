@@ -1,24 +1,56 @@
-type conflict2 = { orig : string list; new_ : string list }
-type hunk = Change of conflict2 | Same of string
+type inline_conflict = { iorig : string option; inew : string option }
+type inline_hunk = Icommon of string | Iconflict of inline_conflict
+type line_conflict = { orig : string list; new_ : string list }
+
+type hunk =
+  | Common of string list
+  | Line_conflict of line_conflict
+  | Inline_hunks of inline_hunk list
+
 type t = hunk list String_map.t
-type printer = { same : string Fmt.t; diff : conflict2 Fmt.t }
 
-let printer ~same ~diff = { same; diff }
+type printer = {
+  common : string list Fmt.t;
+  line_conflict : line_conflict Fmt.t;
+  inline_hunks : inline_hunk list Fmt.t;
+}
 
-let git_printer =
+let pp_inline_hunks ~src ~pp_inline_conflict ppf ihunks =
+  (match src with `Orig -> Fmt.pf ppf "-" | `New -> Fmt.pf ppf "+");
+  List.iter
+    (fun ihunk ->
+      match (src, ihunk) with
+      | _, Icommon s -> Fmt.string ppf s
+      | `Orig, Iconflict { iorig; _ } ->
+          Fmt.option ~none:Fmt.nop pp_inline_conflict ppf iorig
+      | `New, Iconflict { inew; _ } ->
+          Fmt.option ~none:Fmt.nop pp_inline_conflict ppf inew)
+    ihunks;
+  Fmt.pf ppf "\n"
+
+let line_git_printer =
   {
-    same = (fun ppf -> Fmt.pf ppf " %s\n");
-    diff =
+    common =
+      (fun ppf lines -> List.iter (fun line -> Fmt.pf ppf " %s\n" line) lines);
+    line_conflict =
       (fun ppf { orig; new_ } ->
         List.iter (fun line -> Fmt.pf ppf "-%s\n" line) orig;
         List.iter (fun line -> Fmt.pf ppf "+%s\n" line) new_);
+    inline_hunks =
+      (fun ppf ihunks ->
+        pp_inline_hunks ~src:`Orig ~pp_inline_conflict:Fmt.string ppf ihunks;
+        pp_inline_hunks ~src:`New ~pp_inline_conflict:Fmt.string ppf ihunks);
   }
+
+let printer ~common ~line_conflict ~inline_hunks =
+  { common; line_conflict; inline_hunks }
 
 let pp_ diff_printer =
   let pp_dh ppf dh =
     match dh with
-    | Change c -> diff_printer.diff ppf c
-    | Same s -> diff_printer.same ppf s
+    | Common c -> diff_printer.common ppf c
+    | Line_conflict lc -> diff_printer.line_conflict ppf lc
+    | Inline_hunks ihs -> diff_printer.inline_hunks ppf ihs
   in
   Fmt.list ~sep:Fmt.nop pp_dh
 
@@ -36,13 +68,6 @@ let td_to_lines name td =
   Format.pp_print_flush formatter ();
   CCString.lines (Buffer.contents buf)
 
-let lbl_to_lines ld =
-  let buf = Buffer.create 256 in
-  let formatter = Format.formatter_of_buffer buf in
-  Printtyp.label formatter ld;
-  Format.pp_print_flush formatter ();
-  CCString.lines (Buffer.contents buf)
-
 let lbl_to_line ld =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
@@ -50,7 +75,7 @@ let lbl_to_line ld =
   Format.pp_print_flush formatter ();
   String.map (function '\n' -> ' ' | c -> c) (Buffer.contents buf)
 
-let typ_expr_to_line typ_exp =
+let type_expr_to_string typ_exp =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
   Printtyp.type_expr formatter typ_exp;
@@ -103,25 +128,15 @@ let ctd_to_lines name cd =
   let class_str = Buffer.contents buf in
   CCString.lines class_str
 
-let indent n h =
-  let indentation = String.make n ' ' in
-  match h with
-  | Same s -> Same (indentation ^ s)
-  | Change { orig; new_ } ->
-      Change
-        {
-          orig = List.map (fun s -> indentation ^ s) orig;
-          new_ = List.map (fun s -> indentation ^ s) new_;
-        }
-
-let process_atomic_diff (diff : (_, _ Diff.atomic_modification) Diff.t) name
-    to_lines =
+let process_atomic_diff
+    (diff : (_, _ Stddiff.atomic_modification) Stddiff.entry) name to_lines =
   match diff with
-  | Added item -> [ Change { orig = []; new_ = to_lines name item } ]
-  | Removed item -> [ Change { orig = to_lines name item; new_ = [] } ]
+  | Added item -> [ Line_conflict { orig = []; new_ = to_lines name item } ]
+  | Removed item -> [ Line_conflict { orig = to_lines name item; new_ = [] } ]
   | Modified { reference; current } ->
       [
-        Change { orig = to_lines name reference; new_ = to_lines name current };
+        Line_conflict
+          { orig = to_lines name reference; new_ = to_lines name current };
       ]
 
 let rec process_type_diff (type_diff : Diff.type_) =
@@ -134,272 +149,323 @@ let rec process_type_diff (type_diff : Diff.type_) =
 
 and process_modified_type_diff name type_kind type_privacy type_manifest
     type_params =
-  let type_header_diff =
+  let type_header_hunk =
     process_type_header_diff name type_privacy type_manifest type_params
       type_kind
   in
-  let type_kind_diff = process_type_kind_diff type_kind in
-  order_type_diffs type_header_diff type_kind_diff
+  let type_kind_hunks = process_type_kind_diff type_kind in
+  type_header_hunk @ List.map (indent_hunk 2) type_kind_hunks
 
-and order_type_diffs type_header_diff type_kind_diff =
-  match (type_header_diff, type_kind_diff) with
-  | `Same _, (`Same _ | `None) -> assert false
-  | `Same type_header, `Atomic_change type_kind_change
-  | `Same type_header, `Compound_change type_kind_change ->
-      type_header @ type_kind_change
-  | `Atomic_change type_header_change, `None -> type_header_change
-  | `Atomic_change type_header_change, `Same type_kind ->
-      type_header_change @ type_kind
-  | `Atomic_change type_header_change, `Atomic_change type_kind_change ->
-      List.hd type_header_change :: List.hd type_kind_change
-      :: List.tl type_header_change
-      @ List.tl type_kind_change
-  | `Atomic_change type_header_change, `Compound_change type_kind_change ->
-      type_header_change @ type_kind_change
+and indent_hunk amount hunk =
+  match hunk with
+  | Common lst -> Common (List.map (indent amount) lst)
+  | Line_conflict { orig; new_ } ->
+      Line_conflict
+        {
+          orig = List.map (indent amount) orig;
+          new_ = List.map (indent amount) new_;
+        }
+  | Inline_hunks ihunks ->
+      Inline_hunks
+        (match ihunks with
+        | [] -> ihunks
+        | ihunk :: ihunks' ->
+            (match ihunk with
+            | Icommon s -> Icommon (indent amount s)
+            | Iconflict { iorig; inew } ->
+                Iconflict
+                  {
+                    iorig = Option.map (indent amount) iorig;
+                    inew = Option.map (indent amount) inew;
+                  })
+            :: ihunks')
 
-and process_type_header_diff name type_privacy type_manifest type_params
-    type_kind =
-  match (type_privacy, type_manifest, type_params, type_kind) with
-  | ( Same private_flag,
-      Same te_opt,
-      Same same_params,
-      Different
-        ( Record_tk _ | Variant_tk _
-        | Atomic_tk
-            {
-              reference = Type_record _ | Type_variant _ | Type_open;
-              current = Type_record _ | Type_variant _ | Type_open;
-            } ) ) ->
-      `Same
-        [
-          Same (type_header_to_line name private_flag te_opt same_params false);
-        ]
-  | type_privacy_diff, type_manifest_diff, type_params_diff, type_kind_diff ->
-      let ref_private_flag, cur_private_flag =
-        match type_privacy_diff with
-        | Same private_flag -> (private_flag, private_flag)
-        | Different privacy_diff -> pair_of_privacy_diff privacy_diff
-      in
-      let ref_manifest, cur_manifest =
-        match type_manifest_diff with
-        | Same te_opt -> (te_opt, te_opt)
-        | Different manifest_diff -> pair_of_manifest_diff manifest_diff
-      in
-      let ref_abstract, cur_abstract =
-        match type_kind_diff with
-        | Same (Type_abstract _) -> (true, true)
-        | Different (Atomic_tk { reference = Type_abstract _; current = _ }) ->
-            (true, false)
-        | Different (Atomic_tk { reference = _; current = Type_abstract _ }) ->
-            (false, true)
-        | _ -> (false, false)
-      in
-      let ref_params, cur_params =
-        match type_params_diff with
-        | Same same_params -> (same_params, same_params)
-        | Different changed_params ->
-            List.fold_right
-              (fun p (ref_params, cur_params) ->
-                match p with
-                | Diff.Same same_param ->
-                    (same_param :: ref_params, same_param :: cur_params)
-                | Different (Diff.Added_tp param) ->
-                    (ref_params, param :: cur_params)
-                | Different (Diff.Removed_tp param) ->
-                    (param :: ref_params, cur_params))
-              changed_params ([], [])
-      in
-      let orig =
-        [
-          type_header_to_line name ref_private_flag ref_manifest ref_params
-            ref_abstract;
-        ]
-      in
-      let new_ =
-        [
-          type_header_to_line name cur_private_flag cur_manifest cur_params
-            cur_abstract;
-        ]
-      in
-      `Atomic_change [ Change { orig; new_ = [] }; Change { orig = []; new_ } ]
+and indent amount str =
+  let indentation = String.make amount ' ' in
+  indentation ^ str
 
-and pair_of_privacy_diff privacy_diff =
-  match privacy_diff with
-  | Added_p -> (Public, Private)
-  | Removed_p -> (Private, Public)
-
-and pair_of_manifest_diff manifest_diff =
-  match manifest_diff with
-  | Added te -> (None, Some te)
-  | Removed te -> (Some te, None)
-  | Modified { reference; current } -> (Some reference, Some current)
-
-and type_header_to_line name private_flag type_expr_opt type_params abstract =
-  let private_flag_str = string_of_private_flag private_flag in
-  let manifest_str = string_of_manifest type_expr_opt in
-  let type_params_str = string_of_type_params type_params in
-  let equal_sign =
-    if abstract && private_flag_str = "" && manifest_str = "" then "" else " ="
+and process_type_header_diff name type_privacy_diff type_manifest_diff
+    type_params_diff type_kind_diff =
+  let type_hunk = Icommon "type" in
+  let type_params_hunks = process_type_params_diff type_params_diff in
+  let type_name_hunk = Icommon (" " ^ name) in
+  let equal_hunks =
+    process_equal_sign_diff type_privacy_diff type_manifest_diff type_kind_diff
   in
-  Printf.sprintf "type %s%s%s%s%s" type_params_str name equal_sign
-    private_flag_str manifest_str
-
-and string_of_private_flag private_flag =
-  match private_flag with Public -> "" | Private -> " private"
-
-and string_of_manifest manifest =
-  match manifest with None -> "" | Some te -> " " ^ typ_expr_to_line te
-
-and string_of_type_params type_params =
-  let wrap = match type_params with _ :: _ :: _ -> true | _ -> false in
-  (if wrap then "(" else "")
-  ^ String.concat ", " (List.map get_type_param_name type_params)
-  ^ (if wrap then ") " else "")
-  ^ match type_params with [ _ ] -> " " | _ -> ""
-
-and get_type_param_name param =
-  match Types.get_desc param with
-  | Types.Tvar (Some name) -> "'" ^ name
-  | _ -> assert false
-
-and process_type_kind_diff type_kind =
-  match type_kind with
-  | Same same_type_kind -> (
-      match same_type_kind with
-      | Type_abstract _ -> `None
-      | _ ->
-          `Same
-            [
-              Same
-                (String.concat "\n"
-                   (Option.value
-                      (type_kind_to_lines same_type_kind)
-                      ~default:[]));
-            ])
-  | Different (Record_tk changed_lst) ->
-      `Compound_change
-        (process_modified_record_type_diff ~indent_amount:1 changed_lst)
-  | Different (Variant_tk changed_lst) ->
-      `Compound_change (process_modified_variant_type_diff changed_lst)
-  | Different (Atomic_tk { reference; current }) ->
-      `Atomic_change
-        [
-          Change
-            {
-              orig = Option.value (type_kind_to_lines reference) ~default:[];
-              new_ = [];
-            };
-          Change
-            {
-              orig = [];
-              new_ = Option.value (type_kind_to_lines current) ~default:[];
-            };
-        ]
-
-and type_kind_to_lines type_kind : string list option =
-  match type_kind with
-  | Type_record (lbl_lst, _) ->
-      Some
-        [
-          indent_s 1 "{ "
-          ^ (List.map lbl_to_line lbl_lst |> String.concat " ")
-          ^ " }";
-        ]
-  | Type_variant (cstr_lst, _) ->
-      Some
-        (List.map
-           (fun s -> indent_s 1 s)
-           (List.concat_map (fun cstr -> cstr_to_lines cstr) cstr_lst))
-  | Type_abstract _ -> None
-  | Type_open -> Some [ indent_s 1 ".." ]
-
-and indent_s n s =
-  let indentation = String.make n ' ' in
-  indentation ^ s
-
-and process_modified_record_type_diff ~indent_amount diff =
-  let changes = process_modified_labels diff in
-  indent indent_amount (Same "{")
-  :: indent (indent_amount + 2) (Same "...")
-  :: List.map (fun c -> indent (indent_amount + 2) c) changes
-  @ [ indent indent_amount (Same "}") ]
-
-and process_modified_labels (lbls_diffs : Diff.record_field list) =
-  List.map
-    (fun (lbl_diff : Diff.record_field) -> process_lbl_diff lbl_diff.rdiff)
-    lbls_diffs
-  |> List.flatten
-
-and process_lbl_diff
-    (diff :
-      ( Types.label_declaration,
-        Types.label_declaration Diff.atomic_modification )
-      Diff.t) =
-  match diff with
-  | Added item -> [ Change { orig = []; new_ = lbl_to_lines item } ]
-  | Removed item -> [ Change { orig = lbl_to_lines item; new_ = [] } ]
-  | Modified { reference; current } ->
-      [ Change { orig = lbl_to_lines reference; new_ = lbl_to_lines current } ]
-
-and process_modified_variant_type_diff diff =
-  let changes = process_modified_cstrs diff in
-  [ indent 1 (Same "...") ] @ List.map (fun c -> indent 1 c) changes
-
-and process_modified_cstrs (lbls_diffs : Diff.constructor_ list) =
-  List.map
-    (fun (cstr_diff : Diff.constructor_) -> process_cstr_diff cstr_diff)
-    lbls_diffs
-  |> List.flatten
-
-and process_cstr_diff cstr_diff =
-  match cstr_diff.csdiff with
-  | Added cd -> process_cstr_atomic_diff (Added cd)
-  | Removed cd -> process_cstr_atomic_diff (Removed cd)
-  | Modified (Atomic_c cd) -> process_cstr_atomic_diff (Modified cd)
-  | Modified (Tuple_c tc_lst) ->
-      process_modified_tuple_type_diff cstr_diff.csname tc_lst
-  | Modified (Record_c rc_lst) ->
-      Same ("| " ^ cstr_diff.csname ^ " of")
-      :: process_modified_record_type_diff ~indent_amount:2 rc_lst
-
-and process_cstr_atomic_diff
-    (diff :
-      ( Types.constructor_declaration,
-        Types.constructor_declaration Diff.atomic_modification )
-      Diff.t) =
-  match diff with
-  | Added item -> [ Change { orig = []; new_ = cstr_to_lines item } ]
-  | Removed item -> [ Change { orig = cstr_to_lines item; new_ = [] } ]
-  | Modified { reference; current } ->
+  let type_privacy_hunks = process_privacy_diff type_privacy_diff in
+  let type_manifest_hunks = process_manifest_diff type_manifest_diff in
+  let type_header_hunks =
+    List.concat
       [
-        Change { orig = cstr_to_lines reference; new_ = cstr_to_lines current };
+        [ type_hunk ];
+        type_params_hunks;
+        [ type_name_hunk ];
+        equal_hunks;
+        type_privacy_hunks;
+        type_manifest_hunks;
+      ]
+  in
+  match
+    (type_params_diff, type_privacy_diff, type_manifest_diff, equal_hunks)
+  with
+  | Stddiff.Same _, Stddiff.Same _, Stddiff.Same _, ([] | [ Icommon _ ]) ->
+      let common_header =
+        type_header_hunks
+        |> List.map (function Icommon c -> c | _ -> assert false)
+        |> String.concat ""
+      in
+      [ Common [ common_header ] ]
+  | _ -> [ Inline_hunks type_header_hunks ]
+
+and process_privacy_diff privacy_diff =
+  let open Asttypes in
+  match privacy_diff with
+  | Same Private -> [ Icommon " private" ]
+  | Same Public -> []
+  | Changed Added_p -> [ Iconflict { iorig = None; inew = Some " private" } ]
+  | Changed Removed_p -> [ Iconflict { iorig = Some " private"; inew = None } ]
+
+and punctuate p s f = Printf.sprintf "%s%s" (if f then p else "") s
+
+and process_type_params_diff params_diff =
+  let open Diff in
+  let params_hunks =
+    match params_diff with
+    | Same params ->
+        List.mapi
+          (fun i p -> Icommon (punctuate ", " (type_expr_to_string p) (i > 0)))
+          params
+    | Changed changed_params ->
+        List.mapi
+          (fun i p ->
+            match p with
+            | Stddiff.Same same_param ->
+                Icommon
+                  (punctuate ", " (type_expr_to_string same_param) (i > 0))
+            | Stddiff.Changed (Added_tp p) ->
+                Iconflict
+                  {
+                    iorig = None;
+                    inew = Some (punctuate ", " (type_expr_to_string p) (i > 0));
+                  }
+            | Stddiff.Changed (Removed_tp p) ->
+                Iconflict
+                  {
+                    iorig =
+                      Some (punctuate ", " (type_expr_to_string p) (i > 0));
+                    inew = None;
+                  })
+          changed_params
+  in
+  let open_paren = Icommon " (" in
+  let close_paren = Icommon ")" in
+  match params_hunks with
+  | [] -> []
+  | _ :: [] -> Icommon " " :: params_hunks
+  | _ -> (open_paren :: params_hunks) @ [ close_paren ]
+
+and process_equal_sign_diff type_privacy_diff type_manifest_diff type_kind_diff
+    =
+  let open Types in
+  let open Asttypes in
+  match (type_privacy_diff, type_manifest_diff, type_kind_diff) with
+  | Same Public, Same None, Same (Type_abstract _) -> []
+  | ( (Same Public | Changed Removed_p),
+      (Same None | Changed (Removed _)),
+      ( Same (Type_abstract _)
+      | Changed (Different_variant { reference = _; current = Type_abstract _ })
+        ) ) ->
+      [ Iconflict { iorig = Some " ="; inew = None } ]
+  | ( (Same Public | Changed Added_p),
+      (Same None | Changed (Added _)),
+      ( Same (Type_abstract _)
+      | Changed (Different_variant { reference = Type_abstract _; current = _ })
+        ) ) ->
+      [ Iconflict { iorig = None; inew = Some " =" } ]
+  | _ -> [ Icommon " =" ]
+
+and process_manifest_diff manifest_diff =
+  let open Stddiff in
+  match manifest_diff with
+  | Same None -> []
+  | Same (Some te) -> [ Icommon (" " ^ type_expr_to_string te) ]
+  | Changed (Added te) ->
+      [ Iconflict { iorig = None; inew = Some (" " ^ type_expr_to_string te) } ]
+  | Changed (Removed te) ->
+      [ Iconflict { iorig = Some (" " ^ type_expr_to_string te); inew = None } ]
+  | Changed (Modified { reference; current }) ->
+      [
+        Icommon " ";
+        Iconflict
+          {
+            iorig = Some (type_expr_to_string reference);
+            inew = Some (type_expr_to_string current);
+          };
       ]
 
-and process_modified_tuple_type_diff name diff =
-  let starify typ_opts =
-    List.filter_map
-      (fun t_opt -> Option.map (fun t -> typ_expr_to_line t) t_opt)
-      typ_opts
-    |> String.concat " * "
+and process_type_kind_diff kind_diff =
+  match kind_diff with
+  | Same same_type_kind -> [ Common (type_kind_to_lines same_type_kind) ]
+  | Changed (Stddiff.Same_variant (Record_tk record_diff)) ->
+      [ Inline_hunks (process_record_type_diff record_diff) ]
+  | Changed (Stddiff.Same_variant (Variant_tk variant_diff)) ->
+      process_variant_type_diff variant_diff
+  | Changed (Stddiff.Different_variant { reference; current }) ->
+      let orig = type_kind_to_lines reference in
+      let new_ = type_kind_to_lines current in
+      [ Line_conflict { orig; new_ } ]
+
+and process_record_type_diff record_diff =
+  let open Stddiff in
+  let { same_map = same_lbls; changed_map = changed_lbls } = record_diff in
+  let common_hunks =
+    List.map
+      (fun lbl -> Icommon (" " ^ lbl_to_line lbl))
+      (String_map.bindings same_lbls |> List.map snd)
   in
-  let cstr1_tpl_args, cstr2_tpl_args =
-    diff
-    |> List.map (fun (c : Diff.tuple_component) ->
-           match c with
-           | Same t -> (Some t, Some t)
-           | Different (Added t) -> (None, Some t)
-           | Different (Removed t) -> (Some t, None)
-           | Different (Modified { reference; current }) ->
-               (Some reference, Some current))
-    |> List.split
+  let different_hunks =
+    List.concat_map
+      ((fun f (x, y) -> f x y) process_label_diff)
+      (String_map.bindings changed_lbls)
   in
-  [
-    Change
-      {
-        orig = [ Printf.sprintf "| %s of %s" name (starify cstr1_tpl_args) ];
-        new_ = [ Printf.sprintf "| %s of %s" name (starify cstr2_tpl_args) ];
-      };
-  ]
+  (Icommon "{" :: common_hunks) @ different_hunks @ [ Icommon " }" ]
+
+and process_label_diff name label_diff =
+  match label_diff with
+  | Added lbl ->
+      [ Iconflict { iorig = None; inew = Some (" " ^ lbl_to_line lbl) } ]
+  | Removed lbl ->
+      [ Iconflict { iorig = Some (" " ^ lbl_to_line lbl); inew = None } ]
+  | Modified diff ->
+      let mutable_hunks = process_mutablity_diff diff.label_mutable in
+      let name_hunk = Icommon (" " ^ name ^ " :") in
+      let type_hunks = process_label_type_diff diff.label_type in
+      let semicolon_hunk = Icommon ";" in
+      List.concat
+        [ mutable_hunks; [ name_hunk ]; type_hunks; [ semicolon_hunk ] ]
+
+and process_label_type_diff label_type_diff =
+  match label_type_diff with
+  | Stddiff.Same te -> [ Icommon (" " ^ type_expr_to_string te) ]
+  | Stddiff.Changed { reference; current } ->
+      [
+        Icommon " ";
+        Iconflict
+          {
+            iorig = Some (type_expr_to_string reference);
+            inew = Some (type_expr_to_string current);
+          };
+      ]
+
+and process_mutablity_diff mutablity_diff =
+  let open Stddiff in
+  let open Asttypes in
+  match mutablity_diff with
+  | Same Mutable -> [ Icommon " mutable" ]
+  | Same Immutable -> []
+  | Changed Added_m -> [ Iconflict { iorig = None; inew = Some " mutable" } ]
+  | Changed Removed_m -> [ Iconflict { iorig = Some " mutable"; inew = None } ]
+
+and type_kind_to_lines type_kind =
+  match type_kind with
+  | Type_record (lbl_lst, _) -> [ lbls_to_line lbl_lst ]
+  | Type_variant (cstr_lst, _) -> List.concat_map cstr_to_lines cstr_lst
+  | Type_abstract _ -> []
+  | Type_open -> [ ".." ]
+
+and process_variant_type_diff variant_diff =
+  let open Stddiff in
+  let { same_map = same_cstrs; changed_map = changed_cstrs } = variant_diff in
+  let common_hunks =
+    List.map
+      (fun cstr -> Common (cstr_to_lines cstr))
+      (String_map.bindings same_cstrs |> List.map snd)
+  in
+  let different_hunks =
+    List.map
+      ((fun f (x, y) -> f x y) process_cstr_diff)
+      (String_map.bindings changed_cstrs)
+  in
+  common_hunks @ different_hunks
+
+and process_cstr_diff name cstr_diff =
+  match cstr_diff with
+  | Added cstr -> Line_conflict { orig = []; new_ = cstr_to_lines cstr }
+  | Removed cstr -> Line_conflict { orig = cstr_to_lines cstr; new_ = [] }
+  | Modified diff -> (
+      match diff with
+      | Different_variant { reference; current } ->
+          Inline_hunks
+            [
+              Icommon (Printf.sprintf "| %s of " name);
+              Iconflict
+                {
+                  iorig = Some (cstr_args_to_line reference);
+                  inew = Some (cstr_args_to_line current);
+                };
+            ]
+      | Same_variant (Record_cstr record_diff) ->
+          let record_hunks = process_record_type_diff record_diff in
+          Inline_hunks (Icommon (Printf.sprintf "| %s of " name) :: record_hunks)
+      | Same_variant (Tuple_cstr tuple_diff) ->
+          let tuple_hunks = process_tuple_type_diff tuple_diff in
+          Inline_hunks (Icommon (Printf.sprintf "| %s of " name) :: tuple_hunks)
+      )
+
+and process_tuple_type_diff tuple_diff =
+  let open Stddiff in
+  List.mapi
+    (fun i te_diff ->
+      match te_diff with
+      | Same same_te ->
+          [ Icommon (punctuate " * " (type_expr_to_string same_te) (i > 0)) ]
+      | Changed (Added te) ->
+          [
+            Iconflict
+              {
+                iorig = None;
+                inew = Some (punctuate " * " (type_expr_to_string te) (i > 0));
+              };
+          ]
+      | Changed (Removed te) ->
+          [
+            Iconflict
+              {
+                iorig = Some (punctuate " * " (type_expr_to_string te) (i > 0));
+                inew = None;
+              };
+          ]
+      | Changed (Modified { reference; current }) ->
+          let te_hunk =
+            Iconflict
+              {
+                iorig = Some (type_expr_to_string reference);
+                inew = Some (type_expr_to_string current);
+              }
+          in
+          if i > 0 then [ Icommon " * "; te_hunk ] else [ te_hunk ])
+    tuple_diff
+  |> List.concat
+
+and cstr_args_to_line cstr_args =
+  match cstr_args with
+  | Types.Cstr_tuple type_exprs -> tuple_to_line type_exprs
+  | Types.Cstr_record lbls -> lbls_to_line lbls
+
+and lbls_to_line lbls =
+  let len = List.length lbls in
+  List.mapi
+    (fun i lbl ->
+      let s = lbl_to_line lbl in
+      if i = 0 && i = len - 1 then Printf.sprintf "{ %s }" s
+      else if i = 0 then Printf.sprintf "{ %s" s
+      else if i = len - 1 then Printf.sprintf "%s }" s
+      else s)
+    lbls
+  |> String.concat " "
+
+and tuple_to_line tuple =
+  List.map type_expr_to_string tuple |> String.concat " * "
 
 let process_value_diff (val_diff : Diff.value) =
   process_atomic_diff val_diff.vdiff val_diff.vname vd_to_lines
@@ -411,22 +477,27 @@ let process_class_type_diff (class_type_diff : Diff.cltype) =
   process_atomic_diff class_type_diff.ctdiff class_type_diff.ctname ctd_to_lines
 
 let rec process_sig_diff :
-    type a. _ -> (string -> a -> string list) -> (a, _) Diff.t * _ -> _ -> _ =
- fun path to_lines ((diff : (a, _) Diff.t), name) acc ->
+    type a.
+    _ -> (string -> a -> string list) -> (a, _) Stddiff.entry * _ -> _ -> _ =
+ fun path to_lines ((diff : (a, _) Stddiff.entry), name) acc ->
   match diff with
   | Added curr_mtd ->
-      let diff = [ Change { orig = []; new_ = to_lines name curr_mtd } ] in
+      let diff =
+        [ Line_conflict { orig = []; new_ = to_lines name curr_mtd } ]
+      in
       String_map.update path
         (function None -> Some diff | Some existing -> Some (existing @ diff))
         acc
   | Removed ref_mtd ->
-      let diff = [ Change { orig = to_lines name ref_mtd; new_ = [] } ] in
+      let diff =
+        [ Line_conflict { orig = to_lines name ref_mtd; new_ = [] } ]
+      in
       String_map.update path
         (function None -> Some diff | Some existing -> Some (existing @ diff))
         acc
   | Modified Diff.Unsupported ->
       String_map.add path
-        [ Change { orig = []; new_ = [ "<unsupported change>" ] } ]
+        [ Line_conflict { orig = []; new_ = [ "<unsupported change>" ] } ]
         acc
   | Modified (Supported changes) -> signature_changes path changes acc
 
@@ -495,12 +566,12 @@ let gen_pp pp_diff fmt t =
   in
   String_map.iter print_module_diff t
 
-let pp_diff fmt diff = pp_ git_printer fmt diff
+let pp_diff fmt diff = pp_ line_git_printer fmt diff
 let pp fmt t = gen_pp pp_diff fmt t
 
 module With_colors = struct
   let pp_l fmt ~color ~prefix ~line =
-    Format.fprintf fmt "%a%a\n"
+    Fmt.pf fmt "%a%a\n"
       Fmt.(styled color string)
       prefix
       Fmt.(styled color string)
@@ -509,11 +580,25 @@ module With_colors = struct
   let pp_add fmt line = pp_l fmt ~color:`Green ~prefix:"+" ~line
   let pp_remove fmt line = pp_l fmt ~color:`Red ~prefix:"-" ~line
   let pp_keep fmt line = Format.fprintf fmt " %s\n" line
+  let pp_common fmt lines = List.iter (pp_keep fmt) lines
+
+  let pp_line_conflict fmt { orig; new_ } =
+    List.iter (pp_remove fmt) orig;
+    List.iter (pp_add fmt) new_
+
+  let pp_inline_hunks fmt ihunks =
+    Fmt.styled (`Fg `Red)
+      (pp_inline_hunks ~src:`Orig
+         ~pp_inline_conflict:Fmt.(styled `Reverse string))
+      fmt ihunks;
+    Fmt.styled (`Fg `Green)
+      (pp_inline_hunks ~src:`New
+         ~pp_inline_conflict:Fmt.(styled `Reverse string))
+      fmt ihunks
 
   let printer =
-    printer ~same:pp_keep ~diff:(fun fmt { orig; new_ } ->
-        List.iter (pp_remove fmt) orig;
-        List.iter (pp_add fmt) new_)
+    printer ~common:pp_common ~line_conflict:pp_line_conflict
+      ~inline_hunks:pp_inline_hunks
 
   let pp_diff fmt diff = pp_ printer fmt diff
   let pp fmt t = gen_pp pp_diff fmt t

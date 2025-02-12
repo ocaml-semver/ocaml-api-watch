@@ -38,11 +38,8 @@ Run the api-watcher on the two cmi files
   diff module Add_type_var:
   -type ('a, 'b) t =
   +type ('a, 'b, 'c) t =
-    {
-      ...
-  -   b : 'b;
-  +   b : 'b * 'c;
-    }
+  -  { a : 'a; b : 'b; }
+  +  { a : 'a; b : 'b * 'c; }
   
   [1]
 
@@ -61,12 +58,9 @@ Run the api-watcher on the two cmi files
   $ api-diff ref.cmi remove_type_var.cmi
   diff module Remove_type_var:
   -type ('a, 'b) t =
-  +type 'a t =
-    {
-      ...
-  -   b : 'b;
-  +   b : int;
-    }
+  +type ('a) t =
+  -  { a : 'a; b : 'b; }
+  +  { a : 'a; b : int; }
   
   [1]
 
@@ -85,13 +79,8 @@ Run the api-watcher on the two cmi files
   $ api-diff ref.cmi change_type_var_use.cmi
   diff module Change_type_var_use:
    type ('a, 'b) t =
-    {
-      ...
-  -   a : 'a;
-  +   a : 'b;
-  -   b : 'b;
-  +   b : 'a;
-    }
+  -  { a : 'a; b : 'b; }
+  +  { a : 'b; b : 'a; }
   
   [1]
 
@@ -110,13 +99,8 @@ Run the api-watcher on the two cmi files
   $ api-diff ref.cmi swap_type_vars.cmi
   diff module Swap_type_vars:
    type ('t1, 't2) t =
-    {
-      ...
-  -   a : 't1;
-  +   a : 't2;
-  -   b : 't2;
-  +   b : 't1;
-    }
+  -  { a : 't1; b : 't2; }
+  +  { a : 't2; b : 't1; }
   
   [1]
 
@@ -131,7 +115,7 @@ We generate the .cmi file
 
   $ ocamlc ref2.mli
 
-# Adding a type variable to the first type and removing a type from the second one:
+# Adding a type variable to the first type and removing a one from the second:
 
   $ cat > add_remove.mli << EOF
   > type ('x, 'y) t = A of 'x * 'y
@@ -147,17 +131,13 @@ Run the api-watcher on the two cmi files
   $ api-diff ref2.cmi add_remove.cmi
   diff module Add_remove:
   -type ('t1, 't2) s =
-  +type 't1 s =
-    {
-      ...
-  -   b : 't2;
-  +   b : int;
-    }
-  -type 't1 t =
+  +type ('t1) s =
+  -  { a : 't1; b : 't2; }
+  +  { a : 't1; b : int; }
+  -type ('t1) t =
   +type ('t1, 't2) t =
-    ...
-  - | A of 't1
-  + | A of 't1 * 't2
+  -  | A of 't1
+  +  | A of 't1 * 't2
   
   [1]
 
