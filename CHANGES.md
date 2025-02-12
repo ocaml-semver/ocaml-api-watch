@@ -15,6 +15,7 @@
   - Improve diff representation of modified variant types (#111, @azzsal)
   - Improve the diff representation of type declarations with more fine grained diffing of
     type kind, type privacy and type manifest (#120, @azzsal)
+  - Improve the diff representation of type declarations to have type parameters diff (#113,@azzsal)
 
 ### Deprecated
 

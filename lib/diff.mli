@@ -19,11 +19,18 @@ and type_modification = {
     ( Types.type_expr option,
       (Types.type_expr, Types.type_expr atomic_modification) t )
     maybe_changed;
+  type_params : (Types.type_expr list, type_param list) maybe_changed;
 }
 
 and ('same, 'different) maybe_changed =
   | Same of 'same
   | Different of 'different
+
+and type_param = (Types.type_expr, type_param_diff) maybe_changed
+
+and type_param_diff =
+  | Added_tp of Types.type_expr
+  | Removed_tp of Types.type_expr
 
 and type_privacy = Added_p | Removed_p
 
