@@ -1,10 +1,29 @@
 type ('item, 'diff) t = Added of 'item | Removed of 'item | Modified of 'diff
 type 'a atomic_modification = { reference : 'a; current : 'a }
 
+type 'item atomic_t = ('item, 'item atomic_modification) t
+
+type ('same, 'different) maybe_changed =
+  | Same of 'same
+  | Different of 'different
+
+type 'same atomic_maybe_changed =
+  ('same, 'same atomic_modification) maybe_changed
+
+type ('same, 'diff) option_ =
+  ('same option, ('same, 'diff) t) maybe_changed
+
+type 'same atomic_option =
+  ('same, 'same atomic_modification) option_
+
+type ('same, 'diff) atomic_variant =
+  ('same, ('same atomic_maybe_changed, 'diff) maybe_changed) maybe_changed
+
+type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
+
 type value = {
   vname : string;
-  vdiff :
-    (Types.value_description, Types.value_description atomic_modification) t;
+  vdiff : Types.value_description atomic_t;
 }
 
 type type_ = {
@@ -13,18 +32,11 @@ type type_ = {
 }
 
 and type_modification = {
-  type_kind : (Types.type_decl_kind, type_kind) maybe_changed;
+  type_kind : (Types.type_decl_kind, type_kind) atomic_variant;
   type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
-  type_manifest :
-    ( Types.type_expr option,
-      (Types.type_expr, Types.type_expr atomic_modification) t )
-    maybe_changed;
-  type_params : (Types.type_expr list, type_param list) maybe_changed;
+  type_manifest : Types.type_expr atomic_option;
+  type_params: (Types.type_expr, type_param) list_
 }
-
-and ('same, 'different) maybe_changed =
-  | Same of 'same
-  | Different of 'different
 
 and type_param = (Types.type_expr, type_param_diff) maybe_changed
 
@@ -37,41 +49,31 @@ and type_privacy = Added_p | Removed_p
 and type_kind =
   | Record_tk of record_field list
   | Variant_tk of constructor_ list
-  | Atomic_tk of Types.type_decl_kind atomic_modification
 
 and record_field = {
   rname : string;
-  rdiff :
-    (Types.label_declaration, Types.label_declaration atomic_modification) t;
+  rdiff : Types.label_declaration atomic_t;
 }
 
 and constructor_ = {
   csname : string;
-  csdiff : (Types.constructor_declaration, constructor_modification) t;
+  csdiff : (Types.constructor_declaration, constructor_modification) atomic_variant;
 }
 
 and constructor_modification =
   | Record_c of record_field list
   | Tuple_c of tuple_component list
-  | Atomic_c of Types.constructor_declaration atomic_modification
 
-and tuple_component =
-  ( Types.type_expr,
-    (Types.type_expr, Types.type_expr atomic_modification) t )
-  maybe_changed
+and tuple_component = Types.type_expr atomic_maybe_changed
 
 type class_ = {
   cname : string;
-  cdiff :
-    (Types.class_declaration, Types.class_declaration atomic_modification) t;
+  cdiff : Types.class_declaration atomic_t;
 }
 
 and cltype = {
   ctname : string;
-  ctdiff :
-    ( Types.class_type_declaration,
-      Types.class_type_declaration atomic_modification )
-    t;
+  ctdiff : Types.class_type_declaration atomic_t;
 }
 
 type module_ = {
