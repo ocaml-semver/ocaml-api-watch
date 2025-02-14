@@ -42,7 +42,7 @@ and type_kind =
       map
 
 and record_field = {
-  type_expr : Types.type_expr atomic_modification;
+  type_expr : Types.type_expr atomic_maybe_changed;
   mutable_flag : (Asttypes.mutable_flag, field_mutability) maybe_changed;
 }
 
