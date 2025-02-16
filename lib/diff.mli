@@ -26,9 +26,18 @@ and cstr_args =
 and type_privacy = Added_p | Removed_p
 and type_param = (Types.type_expr, type_param_diff) Stddiff.maybe_changed
 
-and type_param_diff =
-  | Added_tp of Types.type_expr
-  | Removed_tp of Types.type_expr
+type type_ = {
+  tname : string;
+  tdiff : (Types.type_declaration, type_modification) entry;
+}
+
+type value = { vname : string; vdiff : Types.value_description atomic_entry }
+type class_ = { cname : string; cdiff : Types.class_declaration atomic_entry }
+
+type cltype = {
+  ctname : string;
+  ctdiff : Types.class_type_declaration atomic_entry;
+}
 
 type type_ = {
   tname : string;
