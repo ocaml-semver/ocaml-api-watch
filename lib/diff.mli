@@ -63,12 +63,12 @@ and modtype = {
 and signature_modification = Unsupported | Supported of sig_item list
 
 and sig_item =
-  | Value of Types.value_description atomic_entry
-  | Class of Types.class_declaration atomic_entry
-  | Classtype of Types.class_type_declaration atomic_entry
-  | Type of (Types.type_declaration, type_modification) entry
-  | Module of (Types.module_declaration, signature_modification) entry
-  | Modtype of (Types.modtype_declaration, signature_modification) entry
+  | Value of value
+  | Module of module_
+  | Type of type_
+  | Modtype of modtype
+  | Class of class_
+  | Classtype of cltype
 
 val interface :
   module_name:string ->
