@@ -1,29 +1,33 @@
 type ('item, 'diff) entry =
   | Added of 'item
   | Removed of 'item
-  | Modified of 'diff
+  | Modified of 'diff  (** Represent a change of an entry in a collection *)
 
 type 'a atomic_modification = { reference : 'a; current : 'a }
+(** The simplest diff representation for the modification of a value of type 'a.
+    [reference] is the value before and [current] is the value after the change
+    occured. Use this type when there is no better representation available. *)
+
 type 'item atomic_entry = ('item, 'item atomic_modification) entry
 
 type ('item, 'diff) map = {
-  same : 'item String_map.t;
-  different : ('item, 'diff) entry String_map.t;
+  same_map : 'item String_map.t;
+  changed_map : ('item, 'diff) entry String_map.t;
 }
 
 type ('same, 'change) maybe_changed = Same of 'same | Changed of 'change
 
-type 'same atomic_maybe_changed =
+type 'same maybe_changed_atomic =
   ('same, 'same atomic_modification) maybe_changed
 
-type 'same atomic_maybe_changed_entry =
+type 'same maybe_changed_atomic_entry =
   ('same, 'same atomic_entry) maybe_changed
 
 type ('same, 'diff) option_ = ('same option, ('same, 'diff) entry) maybe_changed
 type 'same atomic_option = ('same, 'same atomic_modification) option_
 
 type ('same, 'diff) atomic_variant =
-  ('same, ('same atomic_maybe_changed, 'diff) maybe_changed) maybe_changed
+  ('same, ('same atomic_modification, 'diff) Either.t) maybe_changed
 
 type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
 
@@ -35,54 +39,50 @@ and type_modification = {
 }
 
 and type_kind =
-  | Record_tk of (Types.label_declaration, record_field) map
-  | Variant_tk of
-      ( Types.constructor_declaration,
-        (Types.constructor_declaration, cstr_args) atomic_variant )
-      map
+  | Record_tk of (Types.label_declaration, label) map
+  | Variant_tk of (Types.constructor_declaration, cstr_args) map
 
-and record_field = {
-  type_expr : Types.type_expr atomic_maybe_changed;
-  mutable_flag : (Asttypes.mutable_flag, field_mutability) maybe_changed;
+and label = {
+  label_type : Types.type_expr maybe_changed_atomic;
+  label_mutable : (Asttypes.mutable_flag, field_mutability) maybe_changed;
 }
 
 and field_mutability = Added_m | Removed_m
 
 and cstr_args =
-  | Record_c of (Types.label_declaration, record_field) map
-  | Tuple_c of
-      (Types.type_expr, Types.type_expr atomic_maybe_changed_entry) list_
+  | Record_cstr of (Types.label_declaration, label) map
+  | Tuple_cstr of Types.type_expr maybe_changed_atomic_entry list
+  | Atomic_cstr of Types.constructor_declaration atomic_modification
 
 and type_privacy = Added_p | Removed_p
-
 and type_param = (Types.type_expr, type_param_diff) maybe_changed
+and type_param_diff = Added_tp of Types.type_expr | Removed_tp of Types.type_expr
 
-and type_param_diff =
-  | Added_tp of Types.type_expr
-  | Removed_tp of Types.type_expr
+type type_ = {
+  tname : string;
+  tdiff : (Types.type_declaration, type_modification) entry;
+}
+
+type value = { vname : string; vdiff : Types.value_description atomic_entry }
+type class_ = { cname : string; cdiff : Types.class_declaration atomic_entry }
+type cltype = { ctname : string; ctdiff : Types.class_type_declaration atomic_entry }
 
 type module_ = {
   mname : string;
   mdiff : (Types.module_declaration, signature_modification) entry;
 }
 
-and signature_modification =
-  | Unsupported
-  | Supported of (Types.signature_item, sig_item) map
+and modtype = {
+  mtname : string;
+  mtdiff : (Types.modtype_declaration, signature_modification) entry;
+}
+
+and signature_modification = Unsupported | Supported of sig_item list
 
 and sig_item =
-  | Value of Types.value_description atomic_entry
-  | Class of Types.class_declaration atomic_entry
-  | Classtype of Types.class_type_declaration atomic_entry
-  | Type of (Types.type_declaration, type_modification) entry
-  | Module of (Types.module_declaration, signature_modification) entry
-  | Modtype of (Types.modtype_declaration, signature_modification) entry
-
-val interface :
-  module_name:string ->
-  reference:Types.signature ->
-  current:Types.signature ->
-  module_ option
-
-val library :
-  reference:Library.t -> current:Library.t -> module_ option String_map.t
+  | Value of value
+  | Module of module_
+  | Type of type_
+  | Modtype of modtype
+  | Class of class_
+  | Classtype of cltype
