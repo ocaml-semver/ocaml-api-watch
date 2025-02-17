@@ -29,7 +29,7 @@ type ('same, 'diff) option_ = ('same option, ('same, 'diff) entry) maybe_changed
 type 'same atomic_option = ('same, 'same atomic_modification) option_
 
 type ('same, 'diff) atomic_variant =
-  ('same, ('same atomic_modification, 'diff) Either.t) maybe_changed
+  ('same, ('same atomic_modification, 'diff) maybe_changed) maybe_changed
 
 type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
 
@@ -231,7 +231,7 @@ and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
           ~cur_label_lst
       in
       if String_map.is_empty label_map.changed_map then Same tk
-      else Changed (Either.Right (Record_tk label_map))
+      else Changed (Changed (Record_tk label_map))
   | ( (Type_variant (ref_constructor_lst, _) as tk),
       Type_variant (cur_constructor_lst, _) ) ->
       let cstr_map =
@@ -239,12 +239,11 @@ and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
           ~cur_constructor_lst
       in
       if String_map.is_empty cstr_map.changed_map then Same tk
-      else Changed (Either.Right (Variant_tk cstr_map))
+      else Changed (Changed (Variant_tk cstr_map))
   | (Type_abstract _ as tk), Type_abstract _ -> Same tk
   | (Type_open as tk), Type_open -> Same tk
   | ref_type_kind, cur_type_kind ->
-      Changed
-        (Either.Left { reference = ref_type_kind; current = cur_type_kind })
+      Changed (Same { reference = ref_type_kind; current = cur_type_kind })
 
 and record_type ~typing_env ~ref_params ~cur_params ~ref_label_lst
     ~cur_label_lst =

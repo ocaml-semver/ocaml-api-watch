@@ -1,7 +1,8 @@
+(** Represent a change of an entry in a collection *)
 type ('item, 'diff) entry =
   | Added of 'item
   | Removed of 'item
-  | Modified of 'diff  (** Represent a change of an entry in a collection *)
+  | Modified of 'diff
 
 type 'a atomic_modification = { reference : 'a; current : 'a }
 (** The simplest diff representation for the modification of a value of type 'a.
@@ -27,7 +28,7 @@ type ('same, 'diff) option_ = ('same option, ('same, 'diff) entry) maybe_changed
 type 'same atomic_option = ('same, 'same atomic_modification) option_
 
 type ('same, 'diff) atomic_variant =
-  ('same, ('same atomic_modification, 'diff) Either.t) maybe_changed
+  ('same, ('same atomic_modification, 'diff) maybe_changed) maybe_changed
 
 type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
 
@@ -56,7 +57,10 @@ and cstr_args =
 
 and type_privacy = Added_p | Removed_p
 and type_param = (Types.type_expr, type_param_diff) maybe_changed
-and type_param_diff = Added_tp of Types.type_expr | Removed_tp of Types.type_expr
+
+and type_param_diff =
+  | Added_tp of Types.type_expr
+  | Removed_tp of Types.type_expr
 
 type type_ = {
   tname : string;
@@ -65,7 +69,11 @@ type type_ = {
 
 type value = { vname : string; vdiff : Types.value_description atomic_entry }
 type class_ = { cname : string; cdiff : Types.class_declaration atomic_entry }
-type cltype = { ctname : string; ctdiff : Types.class_type_declaration atomic_entry }
+
+type cltype = {
+  ctname : string;
+  ctdiff : Types.class_type_declaration atomic_entry;
+}
 
 type module_ = {
   mname : string;
