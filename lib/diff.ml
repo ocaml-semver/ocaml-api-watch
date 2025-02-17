@@ -4,8 +4,8 @@ open Stddiff
 type type_modification = {
   type_kind : (type_decl_kind, type_kind) maybe_changed;
   type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
-  type_manifest : type_expr atomic_option;
-  type_params : (type_expr, type_param) list_;
+  type_manifest : type_expr Types_.atomic_option;
+  type_params : (type_expr, type_param) Types_.list_;
 }
 
 and type_kind =
@@ -14,7 +14,7 @@ and type_kind =
   | Atomic_tk of type_decl_kind atomic_modification
 
 and label = {
-  label_type : type_expr maybe_changed_atomic;
+  label_type : type_expr Types_.maybe_changed_atomic;
   label_mutable : (Asttypes.mutable_flag, field_mutability) maybe_changed;
 }
 
@@ -34,9 +34,13 @@ type type_ = {
   tdiff : (type_declaration, type_modification) entry;
 }
 
-type value = { vname : string; vdiff : value_description atomic_entry }
-type class_ = { cname : string; cdiff : class_declaration atomic_entry }
-type cltype = { ctname : string; ctdiff : class_type_declaration atomic_entry }
+type value = { vname : string; vdiff : value_description Types_.atomic_entry }
+type class_ = { cname : string; cdiff : class_declaration Types_.atomic_entry }
+
+type cltype = {
+  ctname : string;
+  ctdiff : class_type_declaration Types_.atomic_entry;
+}
 
 type module_ = {
   mname : string;

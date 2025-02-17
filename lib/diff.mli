@@ -31,12 +31,19 @@ type type_ = {
   tdiff : (Types.type_declaration, type_modification) entry;
 }
 
-type value = { vname : string; vdiff : Types.value_description atomic_entry }
-type class_ = { cname : string; cdiff : Types.class_declaration atomic_entry }
+type value = {
+  vname : string;
+  vdiff : Types.value_description Types_.atomic_entry;
+}
+
+type class_ = {
+  cname : string;
+  cdiff : Types.class_declaration Types_.atomic_entry;
+}
 
 type cltype = {
   ctname : string;
-  ctdiff : Types.class_type_declaration atomic_entry;
+  ctdiff : Types.class_type_declaration Types_.atomic_entry;
 }
 
 type type_ = {
