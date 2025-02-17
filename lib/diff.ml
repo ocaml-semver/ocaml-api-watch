@@ -1,16 +1,15 @@
 open Types
 
+(** Represent a change of an entry in a collection *)
 type ('item, 'diff) entry =
   | Added of 'item
   | Removed of 'item
-  | Modified of 'diff  (** Represent a change of an entry in a collection *)
+  | Modified of 'diff
 
 type 'a atomic_modification = { reference : 'a; current : 'a }
 (** The simplest diff representation for the modification of a value of type 'a.
     [reference] is the value before and [current] is the value after the change
     occured. Use this type when there is no better representation available. *)
-
-type 'item atomic_entry = ('item, 'item atomic_modification) entry
 
 type ('item, 'diff) map = {
   same_map : 'item String_map.t;
@@ -19,25 +18,35 @@ type ('item, 'diff) map = {
 
 type ('same, 'change) maybe_changed = Same of 'same | Changed of 'change
 
-type 'same maybe_changed_atomic =
-  ('same, 'same atomic_modification) maybe_changed
+module Types_ = struct
+  type 'item atomic_entry = ('item, 'item atomic_modification) entry
 
-type 'same maybe_changed_atomic_entry =
-  ('same, 'same atomic_entry) maybe_changed
+  type 'same maybe_changed_atomic =
+    ('same, 'same atomic_modification) maybe_changed
 
-type ('same, 'diff) option_ = ('same option, ('same, 'diff) entry) maybe_changed
-type 'same atomic_option = ('same, 'same atomic_modification) option_
+  type 'same maybe_changed_atomic_entry =
+    ('same, 'same atomic_entry) maybe_changed
 
-type ('same, 'diff) atomic_variant =
-  ('same, ('same atomic_modification, 'diff) maybe_changed) maybe_changed
+  type ('same, 'diff) option_ =
+    ('same option, ('same, 'diff) entry) maybe_changed
 
-type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
+  type 'same atomic_option = ('same, 'same atomic_modification) option_
 
-and type_modification = {
-  type_kind : (type_decl_kind, type_kind) atomic_variant;
+  type ('same, 'diff) variant =
+    | Same_variant of 'same
+    | Different_variant of 'diff
+
+  type ('same, 'diff) atomic_variant =
+    ('same, ('diff, 'same atomic_modification) variant) maybe_changed
+
+  type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
+end
+
+type type_modification = {
+  type_kind : (type_decl_kind, type_kind) Types_.atomic_variant;
   type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
-  type_manifest : type_expr atomic_option;
-  type_params : (type_expr, type_param) list_;
+  type_manifest : type_expr Types_.atomic_option;
+  type_params : (type_expr, type_param) Types_.list_;
 }
 
 and type_kind =
@@ -45,7 +54,7 @@ and type_kind =
   | Variant_tk of (constructor_declaration, cstr_args) map
 
 and label = {
-  label_type : type_expr maybe_changed_atomic;
+  label_type : type_expr Types_.maybe_changed_atomic;
   label_mutable : (Asttypes.mutable_flag, field_mutability) maybe_changed;
 }
 
@@ -53,7 +62,7 @@ and field_mutability = Added_m | Removed_m
 
 and cstr_args =
   | Record_cstr of (label_declaration, label) map
-  | Tuple_cstr of type_expr maybe_changed_atomic_entry list
+  | Tuple_cstr of type_expr Types_.maybe_changed_atomic_entry list
   | Atomic_cstr of constructor_declaration atomic_modification
 
 and type_privacy = Added_p | Removed_p
@@ -65,9 +74,13 @@ type type_ = {
   tdiff : (type_declaration, type_modification) entry;
 }
 
-type value = { vname : string; vdiff : value_description atomic_entry }
-type class_ = { cname : string; cdiff : class_declaration atomic_entry }
-type cltype = { ctname : string; ctdiff : class_type_declaration atomic_entry }
+type value = { vname : string; vdiff : value_description Types_.atomic_entry }
+type class_ = { cname : string; cdiff : class_declaration Types_.atomic_entry }
+
+type cltype = {
+  ctname : string;
+  ctdiff : class_type_declaration Types_.atomic_entry;
+}
 
 type module_ = {
   mname : string;
@@ -231,7 +244,7 @@ and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
           ~cur_label_lst
       in
       if String_map.is_empty label_map.changed_map then Same tk
-      else Changed (Changed (Record_tk label_map))
+      else Changed (Same_variant (Record_tk label_map))
   | ( (Type_variant (ref_constructor_lst, _) as tk),
       Type_variant (cur_constructor_lst, _) ) ->
       let cstr_map =
@@ -239,11 +252,13 @@ and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
           ~cur_constructor_lst
       in
       if String_map.is_empty cstr_map.changed_map then Same tk
-      else Changed (Changed (Variant_tk cstr_map))
+      else Changed (Same_variant (Variant_tk cstr_map))
   | (Type_abstract _ as tk), Type_abstract _ -> Same tk
   | (Type_open as tk), Type_open -> Same tk
   | ref_type_kind, cur_type_kind ->
-      Changed (Same { reference = ref_type_kind; current = cur_type_kind })
+      Changed
+        (Different_variant
+           { reference = ref_type_kind; current = cur_type_kind })
 
 and record_type ~typing_env ~ref_params ~cur_params ~ref_label_lst
     ~cur_label_lst =

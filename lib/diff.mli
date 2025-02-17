@@ -9,8 +9,6 @@ type 'a atomic_modification = { reference : 'a; current : 'a }
     [reference] is the value before and [current] is the value after the change
     occured. Use this type when there is no better representation available. *)
 
-type 'item atomic_entry = ('item, 'item atomic_modification) entry
-
 type ('item, 'diff) map = {
   same_map : 'item String_map.t;
   changed_map : ('item, 'diff) entry String_map.t;
@@ -18,25 +16,36 @@ type ('item, 'diff) map = {
 
 type ('same, 'change) maybe_changed = Same of 'same | Changed of 'change
 
-type 'same maybe_changed_atomic =
-  ('same, 'same atomic_modification) maybe_changed
+(** Type aliases for representing common OCaml types diffs *)
+module Types_ : sig
+  type 'item atomic_entry = ('item, 'item atomic_modification) entry
 
-type 'same maybe_changed_atomic_entry =
-  ('same, 'same atomic_entry) maybe_changed
+  type 'same maybe_changed_atomic =
+    ('same, 'same atomic_modification) maybe_changed
 
-type ('same, 'diff) option_ = ('same option, ('same, 'diff) entry) maybe_changed
-type 'same atomic_option = ('same, 'same atomic_modification) option_
+  type 'same maybe_changed_atomic_entry =
+    ('same, 'same atomic_entry) maybe_changed
 
-type ('same, 'diff) atomic_variant =
-  ('same, ('same atomic_modification, 'diff) maybe_changed) maybe_changed
+  type ('same, 'diff) option_ =
+    ('same option, ('same, 'diff) entry) maybe_changed
 
-type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
+  type 'same atomic_option = ('same, 'same atomic_modification) option_
 
-and type_modification = {
-  type_kind : (Types.type_decl_kind, type_kind) atomic_variant;
+  type ('same, 'diff) variant =
+    | Same_variant of 'same
+    | Different_variant of 'diff
+
+  type ('same, 'diff) atomic_variant =
+    ('same, ('diff, 'same atomic_modification) variant) maybe_changed
+
+  type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
+end
+
+type type_modification = {
+  type_kind : (Types.type_decl_kind, type_kind) Types_.atomic_variant;
   type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
-  type_manifest : Types.type_expr atomic_option;
-  type_params : (Types.type_expr, type_param) list_;
+  type_manifest : Types.type_expr Types_.atomic_option;
+  type_params : (Types.type_expr, type_param) Types_.list_;
 }
 
 and type_kind =
@@ -44,7 +53,7 @@ and type_kind =
   | Variant_tk of (Types.constructor_declaration, cstr_args) map
 
 and label = {
-  label_type : Types.type_expr maybe_changed_atomic;
+  label_type : Types.type_expr Types_.maybe_changed_atomic;
   label_mutable : (Asttypes.mutable_flag, field_mutability) maybe_changed;
 }
 
@@ -52,7 +61,7 @@ and field_mutability = Added_m | Removed_m
 
 and cstr_args =
   | Record_cstr of (Types.label_declaration, label) map
-  | Tuple_cstr of Types.type_expr maybe_changed_atomic_entry list
+  | Tuple_cstr of Types.type_expr Types_.maybe_changed_atomic_entry list
   | Atomic_cstr of Types.constructor_declaration atomic_modification
 
 and type_privacy = Added_p | Removed_p
@@ -67,12 +76,19 @@ type type_ = {
   tdiff : (Types.type_declaration, type_modification) entry;
 }
 
-type value = { vname : string; vdiff : Types.value_description atomic_entry }
-type class_ = { cname : string; cdiff : Types.class_declaration atomic_entry }
+type value = {
+  vname : string;
+  vdiff : Types.value_description Types_.atomic_entry;
+}
+
+type class_ = {
+  cname : string;
+  cdiff : Types.class_declaration Types_.atomic_entry;
+}
 
 type cltype = {
   ctname : string;
-  ctdiff : Types.class_type_declaration atomic_entry;
+  ctdiff : Types.class_type_declaration Types_.atomic_entry;
 }
 
 type module_ = {
