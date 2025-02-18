@@ -23,6 +23,8 @@
 
 - Ignore hidden signature items (#102, @NchamJosephMuam)
 - Remove duplicate items in class and class types (#105, @azzsal)
+- Fixed loading of modules whose signature is given by a path to a module type:
+  `module X : Y` (#128, @panglesd)
 
 ### Removed
 
