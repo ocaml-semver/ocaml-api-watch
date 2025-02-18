@@ -16,7 +16,3 @@ Let's setup a test case:
   $ ocamlc -c -I . file.mli
 
   $ api-diff --main-module file . .
-  api-diff: internal error, uncaught exception:
-            Failure("Could not find module Y in Deps")
-            
-  [125]
