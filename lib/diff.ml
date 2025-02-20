@@ -236,7 +236,9 @@ and cstr ~typing_env ~ref_params ~cur_params reference current =
         tuple_type ~typing_env ~ref_params ~cur_params ~reference:ref_tuple
           ~current:cur_tuple
       in
-      match tuple with Same _ -> None | Changed diff -> Some (Tuple_cstr diff))
+      match tuple with
+      | Same _ -> None
+      | Changed diff -> Some (Same_variant (Tuple_cstr diff)))
   | Cstr_record ref_record, Cstr_record cur_record ->
       let label_map =
         record_type ~typing_env ~ref_params ~cur_params
