@@ -675,7 +675,7 @@ module Word = struct
           inew
 
   let pp_inline_hunks ppf ihunks =
-    Fmt.pf ppf " %a" (Fmt.list ~sep:Fmt.nop pp_inline_hunk) ihunks
+    Fmt.pf ppf " %a\n" (Fmt.list ~sep:Fmt.nop pp_inline_hunk) ihunks
 
   let printer = { With_colors.printer with inline_hunks = pp_inline_hunks }
   let pp_diff fmt diff = pp_ printer fmt diff
