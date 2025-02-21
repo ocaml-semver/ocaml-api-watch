@@ -659,5 +659,25 @@ module With_colors = struct
 end
 
 module Word = struct
-  let pp _fmt _t = assert false
+  let pp_inline_hunk ppf inline_hunk =
+    match inline_hunk with
+    | Icommon s_opt -> Fmt.option ~none:Fmt.nop Fmt.string ppf s_opt
+    | Iconflict { iorig; inew } ->
+        Fmt.(
+          styled `Red
+            (option ~none:nop (fun ppf s -> Fmt.pf ppf "[-%s-]" s))
+            ppf)
+          iorig;
+        Fmt.(
+          styled `Green
+            (option ~none:nop (fun ppf s -> Fmt.pf ppf "{+%s+}" s))
+            ppf)
+          inew
+
+  let pp_inline_hunks ppf ihunks =
+    Fmt.pf ppf " %a" (Fmt.list ~sep:Fmt.nop pp_inline_hunk) ihunks
+
+  let printer = { With_colors.printer with inline_hunks = pp_inline_hunks }
+  let pp_diff fmt diff = pp_ printer fmt diff
+  let pp fmt t = gen_pp pp_diff fmt t
 end

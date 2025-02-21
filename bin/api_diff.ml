@@ -41,8 +41,7 @@ let mode ~reference ~current ~main_module ~unwrapped =
          entire libraries."
 
 let run (`Word_diff word_diff) (`Main_module main_module)
-    (`Unwrapped_library unwrapped)
-    (`Ref_cmi reference) (`Current_cmi current) =
+    (`Unwrapped_library unwrapped) (`Ref_cmi reference) (`Current_cmi current) =
   let open CCResult.Infix in
   let* reference_map, current_map =
     let* curr_mode = mode ~reference ~current ~main_module ~unwrapped in
@@ -76,8 +75,8 @@ let run (`Word_diff word_diff) (`Main_module main_module)
   List.iter
     (fun diff ->
       let text_diff = Api_watch.Text_diff.from_diff diff in
-      if word_diff
-      then Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff
+      if word_diff then
+        Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff
       else Api_watch.Text_diff.Word.pp Format.std_formatter text_diff)
     diff_map;
   if has_changes then Ok 1 else Ok 0
@@ -86,13 +85,14 @@ let named f = Cmdliner.Term.(app (const f))
 
 let word_diff =
   let doc =
-    "Show changes in a signature item inline, where a removed part of an item is wrapped in
-      $(b,[-removed-]) and an added one is wrapped in $(b,{+added+})"
+    "Show changes in a signature item inline, where a removed part of an item \
+     is wrapped in\n\
+    \      $(b,[-removed-]) and an added one is wrapped in $(b,{+added+})"
   in
   named
     (fun x -> `Word_diff x)
     Cmdliner.Arg.(value & flag & info ~doc [ "word-diff" ])
-      
+
 let main_module =
   let docv = "MAIN_MODULE_NAME" in
   let doc =
@@ -140,7 +140,8 @@ let info =
 
 let term =
   Cmdliner.Term.(
-    const run $ word_diff $ main_module $ unwrapped_library $ ref_cmi $ current_cmi)
+    const run $ word_diff $ main_module $ unwrapped_library $ ref_cmi
+    $ current_cmi)
 
 let () =
   Fmt_tty.setup_std_outputs ();
