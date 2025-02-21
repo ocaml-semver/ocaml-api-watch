@@ -76,8 +76,8 @@ let run (`Word_diff word_diff) (`Main_module main_module)
     (fun diff ->
       let text_diff = Api_watch.Text_diff.from_diff diff in
       if word_diff then
-        Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff
-      else Api_watch.Text_diff.Word.pp Format.std_formatter text_diff)
+        Api_watch.Text_diff.Word.pp Format.std_formatter text_diff
+      else Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff)
     diff_map;
   if has_changes then Ok 1 else Ok 0
 
