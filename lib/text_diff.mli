@@ -23,3 +23,7 @@ module With_colors : sig
   (** Same as regular [pp] but prints added lines in green and removed lines in
       red. *)
 end
+
+module Word : sig
+  val pp : Format.formatter -> t -> unit
+end

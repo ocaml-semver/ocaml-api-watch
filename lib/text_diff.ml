@@ -657,3 +657,7 @@ module With_colors = struct
   let pp_diff fmt diff = pp_ printer fmt diff
   let pp fmt t = gen_pp pp_diff fmt t
 end
+
+module Word = struct
+  let pp _fmt _t = assert false
+end
