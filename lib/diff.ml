@@ -281,20 +281,18 @@ and diff_list :
       cur_list:'a list ->
       ('a list, ('a, 'diff) maybe_changed list) maybe_changed =
  fun ~diff_one ~ref_list ~cur_list ->
-  let rec aux reference current =
+  let rec aux reference current (acc, all) =
     match (reference, current) with
-    | [], [] -> []
-    | h1 :: t1, [] -> diff_one (Some h1) None :: aux t1 []
-    | [], h2 :: t2 -> diff_one None (Some h2) :: aux [] t2
-    | h1 :: t1, h2 :: t2 -> diff_one (Some h1) (Some h2) :: aux t1 t2
+    | [], [] -> (List.rev acc, all)
+    | h1 :: t1, [] -> aux t1 [] (diff_one (Some h1) None :: acc, false)
+    | [], h2 :: t2 -> aux [] t2 (diff_one None (Some h2) :: acc, false)
+    | h1 :: t1, h2 :: t2 ->
+        let res = diff_one (Some h1) (Some h2) in
+        let same = match res with Same _ -> true | Changed _ -> false in
+        aux t1 t2 (res :: acc, same && all)
   in
-  let list_diff = aux ref_list cur_list in
-  if
-    List.for_all
-      (fun diff -> match diff with Same _ -> true | _ -> false)
-      list_diff
-  then Same ref_list
-  else Changed list_diff
+  let list_diff, all_same = aux ref_list cur_list ([], true) in
+  if all_same then Same ref_list else Changed list_diff
 
 and tuple_type ~typing_env ~ref_params ~cur_params ~reference ~current =
   diff_list
