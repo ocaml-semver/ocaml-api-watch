@@ -2,7 +2,7 @@ open Types
 open Stddiff
 
 type type_modification = {
-  type_kind : (type_decl_kind, type_kind) atomic_variant_maybe_changed;
+  type_kind : (type_decl_kind, type_kind) maybe_changed;
   type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
   type_manifest : type_expr atomic_option;
   type_params : (type_expr, type_param) list_;
@@ -10,10 +10,8 @@ type type_modification = {
 
 and type_kind =
   | Record_tk of (label_declaration, label) map
-  | Variant_tk of
-      ( constructor_declaration,
-        (constructor_arguments, cstr_args) atomic_variant )
-      map
+  | Variant_tk of (Types.constructor_declaration, cstr_args) map
+  | Atomic_tk of type_decl_kind atomic_modification
 
 and label = {
   label_type : type_expr maybe_changed_atomic;
@@ -25,6 +23,7 @@ and field_mutability = Added_m | Removed_m
 and cstr_args =
   | Record_cstr of (label_declaration, label) map
   | Tuple_cstr of type_expr maybe_changed_atomic_entry list
+  | Atomic_cstr of Types.constructor_arguments Stddiff.atomic_modification
 
 and type_privacy = Added_p | Removed_p
 and type_param = (type_expr, type_param_diff) maybe_changed
@@ -198,7 +197,7 @@ and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
           ~cur_label_lst
       in
       if String_map.is_empty label_map.changed_map then Same tk
-      else Changed (Same_variant (Record_tk label_map))
+      else Changed (Record_tk label_map)
   | ( (Type_variant (ref_constructor_lst, _) as tk),
       Type_variant (cur_constructor_lst, _) ) ->
       let cstr_map =
@@ -206,13 +205,11 @@ and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
           ~cur_constructor_lst
       in
       if String_map.is_empty cstr_map.changed_map then Same tk
-      else Changed (Same_variant (Variant_tk cstr_map))
+      else Changed (Variant_tk cstr_map)
   | (Type_abstract _ as tk), Type_abstract _ -> Same tk
   | (Type_open as tk), Type_open -> Same tk
   | ref_type_kind, cur_type_kind ->
-      Changed
-        (Different_variant
-           { reference = ref_type_kind; current = cur_type_kind })
+      Changed (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
 
 and record_type ~typing_env ~ref_params ~cur_params ~ref_label_lst
     ~cur_label_lst =
@@ -259,19 +256,17 @@ and cstr ~typing_env ~ref_params ~cur_params reference current =
         tuple_type ~typing_env ~ref_params ~cur_params ~reference:ref_tuple
           ~current:cur_tuple
       in
-      match tuple with
-      | Same _ -> None
-      | Changed diff -> Some (Same_variant (Tuple_cstr diff)))
+      match tuple with Same _ -> None | Changed diff -> Some (Tuple_cstr diff))
   | Cstr_record ref_record, Cstr_record cur_record ->
       let label_map =
         record_type ~typing_env ~ref_params ~cur_params
           ~ref_label_lst:ref_record ~cur_label_lst:cur_record
       in
       if String_map.is_empty label_map.changed_map then None
-      else Some (Same_variant (Record_cstr label_map))
+      else Some (Record_cstr label_map)
   | _ ->
       Some
-        (Different_variant
+        (Atomic_cstr
            { reference = reference.cd_args; current = current.cd_args })
 
 and diff_list :

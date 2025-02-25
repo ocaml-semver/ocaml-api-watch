@@ -189,9 +189,7 @@ and process_type_header_diff name type_privacy_diff type_manifest_diff
   let type_hunk = Icommon "type" in
   let type_params_hunks = process_type_params_diff type_params_diff in
   let type_name_hunk = Icommon (" " ^ name) in
-  let equal_hunks =
-    process_equal_sign_diff type_privacy_diff type_manifest_diff type_kind_diff
-  in
+  let equal_hunks = process_equal_sign_diff type_manifest_diff type_kind_diff in
   let type_privacy_hunks = process_privacy_diff type_privacy_diff in
   let type_manifest_hunks = process_manifest_diff type_manifest_diff in
   let type_header_hunks =
@@ -264,28 +262,26 @@ and process_type_params_diff params_diff =
   | _ :: [] -> Icommon " " :: params_hunks
   | _ -> (open_paren :: params_hunks) @ [ close_paren ]
 
-and process_equal_sign_diff type_privacy_diff type_manifest_diff type_kind_diff
-    =
-  let open Types in
-  let open Asttypes in
-  match (type_privacy_diff, type_manifest_diff, type_kind_diff) with
-  | Same Public, Same None, Same (Type_abstract _) -> []
-  | ( (Same Public | Changed Removed_p),
-      (Same None | Changed (Removed _)),
+(* An equal sign hunk has could be:
+   - Not present : No manifest and type is abstract
+   - Removed: No manifest or removed manifest and type is abstract or changed to abstract
+   - Added: No manifest or an added manifest and type is abstract or changed to concrete
+   - present: otherwise
+*)
+and process_equal_sign_diff type_manifest_diff type_kind_diff =
+  match (type_manifest_diff, type_kind_diff) with
+  | Same None, Same (Type_abstract _) -> []
+  | ( (Same None | Changed (Removed _)),
       ( Same (Type_abstract _)
-      | Changed (Different_variant { reference = _; current = Type_abstract _ })
-        ) ) ->
+      | Changed (Atomic_tk { reference = _; current = Type_abstract _ }) ) ) ->
       [ Iconflict { iorig = Some " ="; inew = None } ]
-  | ( (Same Public | Changed Added_p),
-      (Same None | Changed (Added _)),
+  | ( (Same None | Changed (Added _)),
       ( Same (Type_abstract _)
-      | Changed (Different_variant { reference = Type_abstract _; current = _ })
-        ) ) ->
+      | Changed (Atomic_tk { reference = Type_abstract _; current = _ }) ) ) ->
       [ Iconflict { iorig = None; inew = Some " =" } ]
   | _ -> [ Icommon " =" ]
 
 and process_manifest_diff manifest_diff =
-  let open Stddiff in
   match manifest_diff with
   | Same None -> []
   | Same (Some te) -> [ Icommon (" " ^ type_expr_to_string te) ]
@@ -306,11 +302,10 @@ and process_manifest_diff manifest_diff =
 and process_type_kind_diff kind_diff =
   match kind_diff with
   | Same same_type_kind -> [ Common (type_kind_to_lines same_type_kind) ]
-  | Changed (Stddiff.Same_variant (Record_tk record_diff)) ->
+  | Changed (Record_tk record_diff) ->
       [ Inline_hunks (process_record_type_diff record_diff) ]
-  | Changed (Stddiff.Same_variant (Variant_tk variant_diff)) ->
-      process_variant_type_diff variant_diff
-  | Changed (Stddiff.Different_variant { reference; current }) ->
+  | Changed (Variant_tk variant_diff) -> process_variant_type_diff variant_diff
+  | Changed (Atomic_tk { reference; current }) ->
       let orig = type_kind_to_lines reference in
       let new_ = type_kind_to_lines current in
       [ Line_conflict { orig; new_ } ]
@@ -394,7 +389,7 @@ and process_cstr_diff name cstr_diff =
   | Removed cstr -> Line_conflict { orig = cstr_to_lines cstr; new_ = [] }
   | Modified diff -> (
       match diff with
-      | Different_variant { reference; current } ->
+      | Atomic_cstr { reference; current } ->
           Inline_hunks
             [
               Icommon (Printf.sprintf "| %s of " name);
@@ -404,10 +399,10 @@ and process_cstr_diff name cstr_diff =
                   inew = Some (cstr_args_to_line current);
                 };
             ]
-      | Same_variant (Record_cstr record_diff) ->
+      | Record_cstr record_diff ->
           let record_hunks = process_record_type_diff record_diff in
           Inline_hunks (Icommon (Printf.sprintf "| %s of " name) :: record_hunks)
-      | Same_variant (Tuple_cstr tuple_diff) ->
+      | Tuple_cstr tuple_diff ->
           let tuple_hunks = process_tuple_type_diff tuple_diff in
           Inline_hunks (Icommon (Printf.sprintf "| %s of " name) :: tuple_hunks)
       )

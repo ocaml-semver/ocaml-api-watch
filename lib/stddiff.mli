@@ -27,14 +27,4 @@ type 'same maybe_changed_atomic_entry =
 
 type ('same, 'diff) option_ = ('same option, ('same, 'diff) entry) maybe_changed
 type 'same atomic_option = ('same, 'same atomic_modification) option_
-
-type ('same, 'diff) variant =
-  | Same_variant of 'same
-  | Different_variant of 'diff
-
-type ('same, 'diff) atomic_variant = ('diff, 'same atomic_modification) variant
-
-type ('same, 'diff) atomic_variant_maybe_changed =
-  ('same, ('diff, 'same atomic_modification) variant) maybe_changed
-
 type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
