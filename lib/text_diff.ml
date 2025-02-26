@@ -193,15 +193,27 @@ and process_type_header_diff name type_privacy_diff type_manifest_diff
   let type_privacy_hunks = process_privacy_diff type_privacy_diff in
   let type_manifest_hunks = process_manifest_diff type_manifest_diff in
   let type_header_hunks =
-    List.concat
-      [
-        [ type_hunk ];
-        type_params_hunks;
-        [ type_name_hunk ];
-        equal_hunks;
-        type_privacy_hunks;
-        type_manifest_hunks;
-      ]
+    if List.length equal_hunks = 2 then
+      List.concat
+        [
+          [ type_hunk ];
+          type_params_hunks;
+          [ type_name_hunk ];
+          [ List.hd equal_hunks ];
+          type_manifest_hunks;
+          List.tl equal_hunks;
+          type_privacy_hunks;
+        ]
+    else
+      List.concat
+        [
+          [ type_hunk ];
+          type_params_hunks;
+          [ type_name_hunk ];
+          equal_hunks;
+          type_privacy_hunks;
+          type_manifest_hunks;
+        ]
   in
   match
     (type_params_diff, type_privacy_diff, type_manifest_diff, equal_hunks)
@@ -262,22 +274,69 @@ and process_type_params_diff params_diff =
   | _ :: [] -> Icommon " " :: params_hunks
   | _ -> (open_paren :: params_hunks) @ [ close_paren ]
 
-(* An equal sign hunk has could be:
-   - Not present : No manifest and type is abstract
-   - Removed: No manifest or removed manifest and type is abstract or changed to abstract
-   - Added: No manifest or an added manifest and type is abstract or changed to concrete
-   - present: otherwise
-*)
+and concrete = function
+  | Stddiff.Same
+      (Types.Type_variant (_, _) | Types.Type_record (_, _) | Types.Type_open)
+  | Changed
+      ( Diff.Record_tk _ | Diff.Variant_tk _
+      | Diff.Atomic_tk
+          {
+            reference =
+              ( Types.Type_variant (_, _)
+              | Types.Type_record (_, _)
+              | Types.Type_open );
+            current =
+              ( Types.Type_variant (_, _)
+              | Types.Type_record (_, _)
+              | Types.Type_open );
+          } ) ->
+      true
+  | _ -> false
+
+and abstract = function
+  | Stddiff.Same (Types.Type_abstract _) -> true
+  | _ -> false
+
+and changed_to_abstract = function
+  | Stddiff.Changed
+      (Diff.Atomic_tk { reference = _; current = Types.Type_abstract _ }) ->
+      true
+  | _ -> false
+
+and changed_to_concrete = function
+  | Stddiff.Changed
+      (Diff.Atomic_tk { reference = Types.Type_abstract _; current = _ }) ->
+      true
+  | _ -> false
+
 and process_equal_sign_diff type_manifest_diff type_kind_diff =
   match (type_manifest_diff, type_kind_diff) with
-  | Same None, Same (Type_abstract _) -> []
-  | ( (Same None | Changed (Removed _)),
-      ( Same (Type_abstract _)
-      | Changed (Atomic_tk { reference = _; current = Type_abstract _ }) ) ) ->
+  | (Same (Some _) | Changed (Modified _)), type_kind_diff
+    when concrete type_kind_diff ->
+      [ Icommon " ="; Icommon " =" ]
+  | (Same (Some _) | Changed (Modified _)), type_kind_diff
+    when changed_to_abstract type_kind_diff ->
+      [ Icommon " ="; Iconflict { iorig = Some " ="; inew = None } ]
+  | Changed (Removed _), type_kind_diff when changed_to_abstract type_kind_diff
+    ->
+      [
+        Iconflict { iorig = Some " ="; inew = None };
+        Iconflict { iorig = Some " ="; inew = None };
+      ]
+  | (Same (Some _) | Changed (Modified _)), type_kind_diff
+    when changed_to_concrete type_kind_diff ->
+      [ Icommon " ="; Iconflict { iorig = None; inew = Some " =" } ]
+  | Changed (Added _), type_kind_diff when changed_to_concrete type_kind_diff ->
+      [
+        Iconflict { iorig = None; inew = Some " =" };
+        Iconflict { iorig = None; inew = Some " =" };
+      ]
+  | Same None, type_kind_diff when abstract type_kind_diff -> []
+  | (Same None | Changed (Removed _)), type_kind_diff
+    when abstract type_kind_diff || changed_to_abstract type_kind_diff ->
       [ Iconflict { iorig = Some " ="; inew = None } ]
-  | ( (Same None | Changed (Added _)),
-      ( Same (Type_abstract _)
-      | Changed (Atomic_tk { reference = Type_abstract _; current = _ }) ) ) ->
+  | (Same None | Changed (Added _)), type_kind_diff
+    when abstract type_kind_diff || changed_to_concrete type_kind_diff ->
       [ Iconflict { iorig = None; inew = Some " =" } ]
   | _ -> [ Icommon " =" ]
 
