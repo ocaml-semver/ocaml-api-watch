@@ -285,25 +285,77 @@ and process_type_params_diff params_diff =
   | _ :: [] -> Icommon " " :: params_hunks
   | _ -> (open_paren :: params_hunks) @ [ close_paren ]
 
-and process_equal_sign_diff type_privacy_diff type_manifest_diff type_kind_diff
-    =
-  let open Types in
-  let open Asttypes in
-  match (type_privacy_diff, type_manifest_diff, type_kind_diff) with
-  | Same Public, Same None, Same (Type_abstract _) -> [ Icommon None ]
-  | ( (Same Public | Changed Removed_p),
-      (Same None | Changed (Removed _)),
-      ( Same (Type_abstract _)
-      | Changed (Different_variant { reference = _; current = Type_abstract _ })
-        ) ) ->
+and concrete = function
+  | Stddiff.Same
+      (Types.Type_variant (_, _) | Types.Type_record (_, _) | Types.Type_open)
+  | Changed
+      ( Diff.Record_tk _ | Diff.Variant_tk _
+      | Diff.Atomic_tk
+          {
+            reference =
+              ( Types.Type_variant (_, _)
+              | Types.Type_record (_, _)
+              | Types.Type_open );
+            current =
+              ( Types.Type_variant (_, _)
+              | Types.Type_record (_, _)
+              | Types.Type_open );
+          } ) ->
+      true
+  | _ -> false
+
+and abstract = function
+  | Stddiff.Same (Types.Type_abstract _) -> true
+  | _ -> false
+
+and changed_to_abstract = function
+  | Stddiff.Changed
+      (Diff.Atomic_tk { reference = _; current = Types.Type_abstract _ }) ->
+      true
+  | _ -> false
+
+and changed_to_concrete = function
+  | Stddiff.Changed
+      (Diff.Atomic_tk { reference = Types.Type_abstract _; current = _ }) ->
+      true
+  | _ -> false
+
+and process_equal_sign_diff type_manifest_diff type_kind_diff =
+  match (type_manifest_diff, type_kind_diff) with
+  | (Same (Some _) | Changed (Modified _)), type_kind_diff
+    when concrete type_kind_diff ->
+      [ Icommon " ="; Icommon " =" ]
+  | (Same (Some _) | Changed (Modified _)), type_kind_diff
+    when changed_to_abstract type_kind_diff ->
+      [
+        Icommon " =";
+        Iconflict { iorig = (Some " ", Some "="); inew = (None, None) };
+      ]
+  | Changed (Removed _), type_kind_diff when changed_to_abstract type_kind_diff
+    ->
+      [
+        Iconflict { iorig = (Some " ", Some "="); inew = (None, None) };
+        Iconflict { iorig = (Some " ", Some "="); inew = (None, None) };
+      ]
+  | (Same (Some _) | Changed (Modified _)), type_kind_diff
+    when changed_to_concrete type_kind_diff ->
+      [
+        Icommon " =";
+        Iconflict { iorig = (None, None); inew = (Some " ", Some "=") };
+      ]
+  | Changed (Added _), type_kind_diff when changed_to_concrete type_kind_diff ->
+      [
+        Iconflict { iorig = (None, None); inew = (Some " ", Some "=") };
+        Iconflict { iorig = (None, None); inew = (Some " ", Some "=") };
+      ]
+  | Same None, type_kind_diff when abstract type_kind_diff -> []
+  | (Same None | Changed (Removed _)), type_kind_diff
+    when abstract type_kind_diff || changed_to_abstract type_kind_diff ->
       [ Iconflict { iorig = (Some " ", Some "="); inew = (None, None) } ]
-  | ( (Same Public | Changed Added_p),
-      (Same None | Changed (Added _)),
-      ( Same (Type_abstract _)
-      | Changed (Different_variant { reference = Type_abstract _; current = _ })
-        ) ) ->
+  | (Same None | Changed (Added _)), type_kind_diff
+    when abstract type_kind_diff || changed_to_concrete type_kind_diff ->
       [ Iconflict { iorig = (None, None); inew = (Some " ", Some "=") } ]
-  | _ -> [ Icommon (Some " =") ]
+  | _ -> [ Icommon " =" ]
 
 and process_manifest_diff manifest_diff =
   match manifest_diff with
