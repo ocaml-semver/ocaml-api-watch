@@ -16,6 +16,8 @@
   - Improve the diff representation of type declarations with more fine grained diffing of
     type kind, type privacy and type manifest (#120, @azzsal)
   - Improve the diff representation of type declarations to have type parameters diff (#113,@azzsal)
+  - Improve the textual diff representation output to have highlighting of exact
+    changes in a line (#126,@azzsal)
 
 ### Deprecated
 

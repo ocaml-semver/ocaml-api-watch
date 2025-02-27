@@ -45,3 +45,25 @@ Run the api-watcher on the two cmi files
   +type t = private int list
   
   [1]
+
+### Adding a type manifest, private and a record type
+
+  $ cat > add_manifest_private_record.mli << EOF
+  > type u = { a : int }
+  > type t = u = private { a : int }
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc add_manifest_private_record.mli
+
+Run the api-watcher on the two cmi files
+
+  $ api-diff ref.cmi add_manifest_private_record.cmi
+  diff module Add_manifest_private_record:
+  -type t
+  +type t = u = private
+  +  { a : int; }
+  +type u = { a : int; }
+  
+  [1]

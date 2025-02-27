@@ -24,7 +24,7 @@ Run the api-watcher on the two cmi files
   diff module Remove_private:
   -type t = private
   +type t =
-    { a : int; b : float; }
+     { a : int; b : float; }
   
   [1]
 
@@ -44,12 +44,7 @@ Run the api-watcher on the two cmi files
   diff module Remove_private_modify_record:
   -type t = private
   +type t =
-    {
-      ...
-  -   a : int;
-  +   a : float;
-  -   b : float;
-    }
+  -  { a : int; b : float; }
+  +  { a : float; }
   
   [1]
-

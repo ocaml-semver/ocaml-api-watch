@@ -105,8 +105,9 @@ Run the api-diff tool on the two project versions
   diff module Mylib.Math.Advanced:
   +val cube : int -> int
    type shape =
-    ...
-  + | Triangle
+     | Circle
+     | Square
+  +  | Triangle
   
   diff module Mylib.Utils:
   +val triple : int -> int
@@ -222,8 +223,9 @@ Run the api-diff tool on the two project versions
   diff module Math.Advanced:
   +val cube : int -> int
    type shape =
-    ...
-  + | Triangle
+     | Circle
+     | Square
+  +  | Triangle
   
   diff module Utils:
   +val triple : int -> int
