@@ -1,5 +1,29 @@
 Here we generate a `.mli` file with a single type variable:
 
+  $ cat > lst.mli << EOF
+  > type 'a lst = Nil | Cons of 'a * 'a lst
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc lst.mli
+
+# Renaming a type variable consistently across the type declaration:
+
+  $ cat > rename_var_lst.mli << EOF
+  > type 'b lst = Nil | Cons of 'b * 'b lst
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc rename_var_lst.mli
+
+Run the api-watcher on the two cmi files, there should be no diff
+
+  $ api-diff ref.cmi rename_var_lst.cmi
+
+Here we generate a `.mli` file with a single type variable:
+
   $ cat > ref.mli << EOF
   > type ('a, 'b) t = { a: 'a; b: 'b }
   > EOF
