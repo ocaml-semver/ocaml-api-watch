@@ -28,3 +28,16 @@ type 'same maybe_changed_atomic_entry =
 type ('same, 'diff) option_ = ('same option, ('same, 'diff) entry) maybe_changed
 type 'same atomic_option = ('same, 'same atomic_modification) option_
 type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
+
+val diff_list :
+  'a 'diff.
+  diff_one:('a option -> 'a option -> ('a, 'diff) maybe_changed) ->
+  ref_list:'a list ->
+  cur_list:'a list ->
+  ('a list, ('a, 'diff) maybe_changed list) maybe_changed
+
+val diff_map :
+  diff_one:('a -> 'a -> 'b option) ->
+  ref_map:'a String_map.t ->
+  cur_map:'a String_map.t ->
+  ('a, 'b) map

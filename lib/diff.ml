@@ -89,31 +89,6 @@ let extract_items items =
       | _ -> tbl)
     Sig_item_map.empty items
 
-and diff_map ~(diff_one : 'a -> 'a -> 'diff option) ~(ref_map : 'a String_map.t)
-    ~(cur_map : 'a String_map.t) : ('a, 'diff) map =
-  let same_seq, changed_seq =
-    String_map.merge
-      (fun _ ref_opt cur_opt ->
-        match (ref_opt, cur_opt) with
-        | None, None -> None
-        | Some ref, None -> Some (Changed (Removed ref))
-        | None, Some cur -> Some (Changed (Added cur))
-        | Some ref, Some cur -> (
-            match diff_one ref cur with
-            | None -> Some (Same ref)
-            | Some diff -> Some (Changed (Modified diff))))
-      ref_map cur_map
-    |> String_map.to_seq
-    |> Seq.partition_map (fun (name, i) ->
-           match i with
-           | Same i -> Either.Left (name, i)
-           | Changed i -> Either.Right (name, i))
-  in
-  {
-    same_map = String_map.of_seq same_seq;
-    changed_map = String_map.of_seq changed_seq;
-  }
-
 let extract_lbls lbls =
   List.fold_left
     (fun map lbl -> String_map.add (Ident.name lbl.ld_id) lbl map)
@@ -191,23 +166,23 @@ and type_declarations ~typing_env ~name ~reference ~current =
 
 and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
   match (reference, current) with
-  | (Type_record (ref_label_lst, _) as tk), Type_record (cur_label_lst, _) ->
+  | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) ->
       let label_map =
         record_type ~typing_env ~ref_params ~cur_params ~ref_label_lst
           ~cur_label_lst
       in
-      if String_map.is_empty label_map.changed_map then Same tk
+      if String_map.is_empty label_map.changed_map then Same reference
       else Changed (Record_tk label_map)
-  | ( (Type_variant (ref_constructor_lst, _) as tk),
-      Type_variant (cur_constructor_lst, _) ) ->
+  | Type_variant (ref_constructor_lst, _), Type_variant (cur_constructor_lst, _)
+    ->
       let cstr_map =
         variant_type ~typing_env ~ref_params ~cur_params ~ref_constructor_lst
           ~cur_constructor_lst
       in
-      if String_map.is_empty cstr_map.changed_map then Same tk
+      if String_map.is_empty cstr_map.changed_map then Same reference
       else Changed (Variant_tk cstr_map)
-  | (Type_abstract _ as tk), Type_abstract _ -> Same tk
-  | (Type_open as tk), Type_open -> Same tk
+  | Type_abstract _, Type_abstract _ -> Same reference
+  | Type_open, Type_open -> Same reference
   | ref_type_kind, cur_type_kind ->
       Changed (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
 
@@ -236,10 +211,11 @@ and label ~typing_env ~ref_params ~cur_params reference current =
 
 and label_mutable ~reference ~current =
   match (reference, current) with
-  | Asttypes.Mutable, Asttypes.Mutable -> Same Asttypes.Mutable
+  | Asttypes.Mutable, Asttypes.Mutable | Asttypes.Immutable, Asttypes.Immutable
+    ->
+      Same reference
   | Asttypes.Mutable, Asttypes.Immutable -> Changed Removed_m
   | Asttypes.Immutable, Asttypes.Mutable -> Changed Added_m
-  | Asttypes.Immutable, Asttypes.Immutable -> Same Asttypes.Immutable
 
 and variant_type ~typing_env ~ref_params ~cur_params ~ref_constructor_lst
     ~cur_constructor_lst =
@@ -268,26 +244,6 @@ and cstr ~typing_env ~ref_params ~cur_params reference current =
       Some
         (Atomic_cstr
            { reference = reference.cd_args; current = current.cd_args })
-
-and diff_list :
-      'a 'diff.
-      diff_one:('a option -> 'a option -> ('a, 'diff) maybe_changed) ->
-      ref_list:'a list ->
-      cur_list:'a list ->
-      ('a list, ('a, 'diff) maybe_changed list) maybe_changed =
- fun ~diff_one ~ref_list ~cur_list ->
-  let rec aux reference current (acc, all) =
-    match (reference, current) with
-    | [], [] -> (List.rev acc, all)
-    | h1 :: t1, [] -> aux t1 [] (diff_one (Some h1) None :: acc, false)
-    | [], h2 :: t2 -> aux [] t2 (diff_one None (Some h2) :: acc, false)
-    | h1 :: t1, h2 :: t2 ->
-        let res = diff_one (Some h1) (Some h2) in
-        let same = match res with Same _ -> true | Changed _ -> false in
-        aux t1 t2 (res :: acc, same && all)
-  in
-  let list_diff, all_same = aux ref_list cur_list ([], true) in
-  if all_same then Same ref_list else Changed list_diff
 
 and tuple_type ~typing_env ~ref_params ~cur_params ~reference ~current =
   diff_list
