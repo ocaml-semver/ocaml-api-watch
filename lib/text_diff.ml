@@ -1,8 +1,4 @@
-type inline_conflict = {
-  iorig : string option * string option;
-  inew : string option * string option;
-}
-
+type inline_conflict = { iorig : string option; inew : string option }
 type inline_hunk = Icommon of string | Iconflict of inline_conflict
 type line_conflict = { orig : string list; new_ : string list }
 
@@ -25,12 +21,10 @@ let pp_inline_hunks ~src ~pp_inline_conflict ppf ihunks =
     (fun ihunk ->
       match (src, ihunk) with
       | _, Icommon s -> Fmt.string ppf s
-      | `Orig, Iconflict { iorig = common, conflict; _ } ->
-          Fmt.option ~none:Fmt.nop Fmt.string ppf common;
-          Fmt.option ~none:Fmt.nop pp_inline_conflict ppf conflict
-      | `New, Iconflict { inew = common, conflict; _ } ->
-          Fmt.option ~none:Fmt.nop Fmt.string ppf common;
-          Fmt.option ~none:Fmt.nop pp_inline_conflict ppf conflict)
+      | `Orig, Iconflict { iorig; _ } ->
+          Fmt.option ~none:Fmt.nop pp_inline_conflict ppf iorig
+      | `New, Iconflict { inew; _ } ->
+          Fmt.option ~none:Fmt.nop pp_inline_conflict ppf inew)
     ihunks;
   Fmt.pf ppf "\n"
 
@@ -181,8 +175,8 @@ and indent_hunk amount hunk =
             | Iconflict { iorig; inew } ->
                 Iconflict
                   {
-                    iorig = (Option.map (indent amount) (fst iorig), snd iorig);
-                    inew = (Option.map (indent amount) (fst inew), snd iorig);
+                    iorig = Option.map (indent amount) iorig;
+                    inew = Option.map (indent amount) inew;
                   })
             :: ihunks')
 
@@ -238,10 +232,8 @@ and process_privacy_diff privacy_diff =
   match privacy_diff with
   | Same Private -> [ Icommon " private" ]
   | Same Public -> []
-  | Changed Added_p ->
-      [ Iconflict { iorig = (None, None); inew = (Some " ", Some "private") } ]
-  | Changed Removed_p ->
-      [ Iconflict { iorig = (Some " ", Some "private"); inew = (None, None) } ]
+  | Changed Added_p -> [ Iconflict { iorig = None; inew = Some " private" } ]
+  | Changed Removed_p -> [ Iconflict { iorig = Some " private"; inew = None } ]
 
 and process_type_params_diff params_diff =
   let open Stddiff in
@@ -257,25 +249,17 @@ and process_type_params_diff params_diff =
     | Changed changed_params ->
         List.mapi
           (fun i p ->
+            let comma = if i > 0 then ", " else "" in
             match p with
             | Same same_param ->
-                let comma = if i > 0 then ", " else "" in
                 Icommon
                   (Printf.sprintf "%s%s" comma (type_expr_to_string same_param))
             | Changed (Added_tp p) ->
-                let comma = if i > 0 then Some ", " else None in
                 Iconflict
-                  {
-                    iorig = (None, None);
-                    inew = (comma, Some (type_expr_to_string p));
-                  }
+                  { iorig = None; inew = Some (comma ^ type_expr_to_string p) }
             | Changed (Removed_tp p) ->
-                let comma = if i > 0 then Some ", " else None in
                 Iconflict
-                  {
-                    iorig = (comma, Some (type_expr_to_string p));
-                    inew = (None, None);
-                  })
+                  { iorig = Some (comma ^ type_expr_to_string p); inew = None })
           changed_params
   in
   let open_paren = Icommon " (" in
@@ -327,34 +311,28 @@ and process_equal_sign_diff type_manifest_diff type_kind_diff =
       [ Icommon " ="; Icommon " =" ]
   | (Same (Some _) | Changed (Modified _)), type_kind_diff
     when changed_to_abstract type_kind_diff ->
-      [
-        Icommon " =";
-        Iconflict { iorig = (Some " ", Some "="); inew = (None, None) };
-      ]
+      [ Icommon " ="; Iconflict { iorig = Some " ="; inew = None } ]
   | Changed (Removed _), type_kind_diff when changed_to_abstract type_kind_diff
     ->
       [
-        Iconflict { iorig = (Some " ", Some "="); inew = (None, None) };
-        Iconflict { iorig = (Some " ", Some "="); inew = (None, None) };
+        Iconflict { iorig = Some " ="; inew = None };
+        Iconflict { iorig = Some " ="; inew = None };
       ]
   | (Same (Some _) | Changed (Modified _)), type_kind_diff
     when changed_to_concrete type_kind_diff ->
-      [
-        Icommon " =";
-        Iconflict { iorig = (None, None); inew = (Some " ", Some "=") };
-      ]
+      [ Icommon " ="; Iconflict { iorig = None; inew = Some " =" } ]
   | Changed (Added _), type_kind_diff when changed_to_concrete type_kind_diff ->
       [
-        Iconflict { iorig = (None, None); inew = (Some " ", Some "=") };
-        Iconflict { iorig = (None, None); inew = (Some " ", Some "=") };
+        Iconflict { iorig = None; inew = Some " =" };
+        Iconflict { iorig = None; inew = Some " =" };
       ]
   | Same None, type_kind_diff when abstract type_kind_diff -> []
   | (Same None | Changed (Removed _)), type_kind_diff
     when abstract type_kind_diff || changed_to_abstract type_kind_diff ->
-      [ Iconflict { iorig = (Some " ", Some "="); inew = (None, None) } ]
+      [ Iconflict { iorig = Some " ="; inew = None } ]
   | (Same None | Changed (Added _)), type_kind_diff
     when abstract type_kind_diff || changed_to_concrete type_kind_diff ->
-      [ Iconflict { iorig = (None, None); inew = (Some " ", Some "=") } ]
+      [ Iconflict { iorig = None; inew = Some " =" } ]
   | _ -> [ Icommon " =" ]
 
 and process_manifest_diff manifest_diff =
@@ -362,28 +340,16 @@ and process_manifest_diff manifest_diff =
   | Same None -> []
   | Same (Some te) -> [ Icommon (" " ^ type_expr_to_string te) ]
   | Changed (Added te) ->
-      [
-        Iconflict
-          {
-            iorig = (None, None);
-            inew = (Some " ", Some (type_expr_to_string te));
-          };
-      ]
+      [ Iconflict { iorig = None; inew = Some (" " ^ type_expr_to_string te) } ]
   | Changed (Removed te) ->
-      [
-        Iconflict
-          {
-            iorig = (Some " ", Some (type_expr_to_string te));
-            inew = (None, None);
-          };
-      ]
+      [ Iconflict { iorig = Some (" " ^ type_expr_to_string te); inew = None } ]
   | Changed (Modified { reference; current }) ->
       [
         Icommon " ";
         Iconflict
           {
-            iorig = (None, Some (type_expr_to_string reference));
-            inew = (None, Some (type_expr_to_string current));
+            iorig = Some (type_expr_to_string reference);
+            inew = Some (type_expr_to_string current);
           };
       ]
 
@@ -416,15 +382,9 @@ and process_record_type_diff record_diff =
 and process_label_diff name label_diff =
   match label_diff with
   | Added lbl ->
-      [
-        Iconflict
-          { iorig = (None, None); inew = (Some " ", Some (lbl_to_line lbl)) };
-      ]
+      [ Iconflict { iorig = None; inew = Some (" " ^ lbl_to_line lbl) } ]
   | Removed lbl ->
-      [
-        Iconflict
-          { iorig = (Some " ", Some (lbl_to_line lbl)); inew = (None, None) };
-      ]
+      [ Iconflict { iorig = Some (" " ^ lbl_to_line lbl); inew = None } ]
   | Modified diff ->
       let mutable_hunks = process_mutablity_diff diff.label_mutable in
       let name_hunk = Icommon (" " ^ name ^ " :") in
@@ -441,8 +401,8 @@ and process_label_type_diff label_type_diff =
         Icommon " ";
         Iconflict
           {
-            iorig = (None, Some (type_expr_to_string reference));
-            inew = (None, Some (type_expr_to_string current));
+            iorig = Some (type_expr_to_string reference);
+            inew = Some (type_expr_to_string current);
           };
       ]
 
@@ -452,10 +412,8 @@ and process_mutablity_diff mutablity_diff =
   match mutablity_diff with
   | Same Mutable -> [ Icommon " mutable" ]
   | Same Immutable -> []
-  | Changed Added_m ->
-      [ Iconflict { iorig = (None, None); inew = (Some " ", Some "mutable") } ]
-  | Changed Removed_m ->
-      [ Iconflict { iorig = (Some " ", Some "mutable"); inew = (None, None) } ]
+  | Changed Added_m -> [ Iconflict { iorig = None; inew = Some " mutable" } ]
+  | Changed Removed_m -> [ Iconflict { iorig = Some " mutable"; inew = None } ]
 
 and type_kind_to_lines type_kind =
   match type_kind with
@@ -491,8 +449,8 @@ and process_cstr_diff name cstr_diff =
               Icommon (Printf.sprintf "| %s of " name);
               Iconflict
                 {
-                  iorig = (None, Some (cstr_args_to_line reference));
-                  inew = (None, Some (cstr_args_to_line current));
+                  iorig = Some (cstr_args_to_line reference);
+                  inew = Some (cstr_args_to_line current);
                 };
             ]
       | Record_cstr record_diff ->
@@ -507,34 +465,26 @@ and process_tuple_type_diff tuple_diff =
   let open Stddiff in
   List.mapi
     (fun i te_diff ->
+      let star = if i > 0 then " * " else "" in
       match te_diff with
       | Same same_te ->
-          let star = if i > 0 then " * " else "" in
           [ Icommon (Printf.sprintf "%s%s" star (type_expr_to_string same_te)) ]
       | Changed (Added te) ->
-          let star = if i > 0 then Some " * " else None in
           [
             Iconflict
-              {
-                iorig = (None, None);
-                inew = (star, Some (type_expr_to_string te));
-              };
+              { iorig = None; inew = Some (star ^ type_expr_to_string te) };
           ]
       | Changed (Removed te) ->
-          let star = if i > 0 then Some " * " else None in
           [
             Iconflict
-              {
-                iorig = (star, Some (type_expr_to_string te));
-                inew = (None, None);
-              };
+              { iorig = Some (star ^ type_expr_to_string te); inew = None };
           ]
       | Changed (Modified { reference; current }) ->
           let te_hunk =
             Iconflict
               {
-                iorig = (None, Some (type_expr_to_string reference));
-                inew = (None, Some (type_expr_to_string current));
+                iorig = Some (type_expr_to_string reference);
+                inew = Some (type_expr_to_string current);
               }
           in
           if i > 0 then [ Icommon " * "; te_hunk ] else [ te_hunk ])
@@ -699,8 +649,7 @@ module With_colors = struct
 end
 
 module Word = struct
-  let pp_inline_conflict ~src ppf (common, conflict) =
-    Fmt.option ~none:Fmt.nop Fmt.string ppf common;
+  let pp_inline_conflict ~src ppf conflict =
     match src with
     | `Orig ->
         Fmt.styled `Red
