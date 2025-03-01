@@ -1,6 +1,19 @@
 let tool_name = "api-diff"
 
 type mode = Unwrapped | Wrapped of string | Cmi
+type word = Plain | Color
+type display = Line | Word of word
+
+let display_mode word : (display, string) result =
+  match word with
+  | Some "plain" -> Ok (Word Plain)
+  | Some "color" -> Ok (Word Color)
+  | None -> Ok Line
+  | _ ->
+      Error
+        "Invalid argument. --word-diff takes an optional mode arguemnt.\n\
+         The mode can be either color or plain. If no mode is provided, it \
+         defaults to plain."
 
 let both_directories reference current =
   match (Sys.is_directory reference, Sys.is_directory current) with
@@ -40,6 +53,18 @@ let mode ~reference ~current ~main_module ~unwrapped =
         "Either --main-module or --unwrapped must be provided when diffing \
          entire libraries."
 
+let print_diff diff word_diff =
+  let open CCResult.Infix in
+  let text_diff = Api_watch.Text_diff.from_diff diff in
+  let* display_mode = display_mode word_diff in
+  (match display_mode with
+  | Line -> Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff
+  | Word Plain ->
+      Api_watch.Text_diff.Word.pp ~mode:`Plain Format.std_formatter text_diff
+  | Word Color ->
+      Api_watch.Text_diff.Word.pp ~mode:`Color Format.std_formatter text_diff);
+  Ok ()
+
 let run (`Word_diff word_diff) (`Main_module main_module)
     (`Unwrapped_library unwrapped) (`Ref_cmi reference) (`Current_cmi current) =
   let open CCResult.Infix in
@@ -72,26 +97,29 @@ let run (`Word_diff word_diff) (`Main_module main_module)
     |> List.filter_map (fun (_, v) -> v)
   in
   let has_changes = not (List.is_empty diff_map) in
-  List.iter
-    (fun diff ->
-      let text_diff = Api_watch.Text_diff.from_diff diff in
-      if word_diff then
-        Api_watch.Text_diff.Word.pp Format.std_formatter text_diff
-      else Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff)
-    diff_map;
+  let* () =
+    List.fold_left
+      (fun acc diff ->
+        let* () = acc in
+        print_diff diff word_diff)
+      (Ok ()) diff_map
+  in
   if has_changes then Ok 1 else Ok 0
 
 let named f = Cmdliner.Term.(app (const f))
 
 let word_diff =
+  let docv = "MODE" in
   let doc =
-    "Show changes in a signature item inline, where a removed part of an item \
-     is wrapped in\n\
-    \      $(b,[-removed-]) and an added one is wrapped in $(b,{+added+})"
+    "Display the API diff in an inline word diff format rather than the usual \
+     line diff. Follows the same conventions as $(b,git diff --word-diff)."
   in
   named
     (fun x -> `Word_diff x)
-    Cmdliner.Arg.(value & flag & info ~doc [ "word-diff" ])
+    Cmdliner.Arg.(
+      value
+      & opt ~vopt:(Some "plain") (some string) None
+      & info ~doc ~docv [ "word-diff" ])
 
 let main_module =
   let docv = "MAIN_MODULE_NAME" in
