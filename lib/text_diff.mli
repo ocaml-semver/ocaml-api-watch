@@ -23,3 +23,9 @@ module With_colors : sig
   (** Same as regular [pp] but prints added lines in green and removed lines in
       red. *)
 end
+
+module Word : sig
+  val pp : mode:[ `Plain | `Color ] -> Format.formatter -> t -> unit
+  (** Pretty-print the text diff in an inlined word diff format, similar to
+      [git diff --word-diff=[<mode>]] *)
+end

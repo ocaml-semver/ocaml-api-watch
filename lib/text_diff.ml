@@ -235,36 +235,31 @@ and process_privacy_diff privacy_diff =
   | Changed Added_p -> [ Iconflict { iorig = None; inew = Some " private" } ]
   | Changed Removed_p -> [ Iconflict { iorig = Some " private"; inew = None } ]
 
-and punctuate p s f = Printf.sprintf "%s%s" (if f then p else "") s
-
 and process_type_params_diff params_diff =
+  let open Stddiff in
   let open Diff in
   let params_hunks =
     match params_diff with
     | Same params ->
         List.mapi
-          (fun i p -> Icommon (punctuate ", " (type_expr_to_string p) (i > 0)))
+          (fun i p ->
+            let comma = if i > 0 then ", " else "" in
+            Icommon (Printf.sprintf "%s%s" comma (type_expr_to_string p)))
           params
     | Changed changed_params ->
         List.mapi
           (fun i p ->
+            let comma = if i > 0 then ", " else "" in
             match p with
-            | Stddiff.Same same_param ->
+            | Same same_param ->
                 Icommon
-                  (punctuate ", " (type_expr_to_string same_param) (i > 0))
-            | Stddiff.Changed (Added_tp p) ->
+                  (Printf.sprintf "%s%s" comma (type_expr_to_string same_param))
+            | Changed (Added_tp p) ->
                 Iconflict
-                  {
-                    iorig = None;
-                    inew = Some (punctuate ", " (type_expr_to_string p) (i > 0));
-                  }
-            | Stddiff.Changed (Removed_tp p) ->
+                  { iorig = None; inew = Some (comma ^ type_expr_to_string p) }
+            | Changed (Removed_tp p) ->
                 Iconflict
-                  {
-                    iorig =
-                      Some (punctuate ", " (type_expr_to_string p) (i > 0));
-                    inew = None;
-                  })
+                  { iorig = Some (comma ^ type_expr_to_string p); inew = None })
           changed_params
   in
   let open_paren = Icommon " (" in
@@ -470,24 +465,19 @@ and process_tuple_type_diff tuple_diff =
   let open Stddiff in
   List.mapi
     (fun i te_diff ->
+      let star = if i > 0 then " * " else "" in
       match te_diff with
       | Same same_te ->
-          [ Icommon (punctuate " * " (type_expr_to_string same_te) (i > 0)) ]
+          [ Icommon (Printf.sprintf "%s%s" star (type_expr_to_string same_te)) ]
       | Changed (Added te) ->
           [
             Iconflict
-              {
-                iorig = None;
-                inew = Some (punctuate " * " (type_expr_to_string te) (i > 0));
-              };
+              { iorig = None; inew = Some (star ^ type_expr_to_string te) };
           ]
       | Changed (Removed te) ->
           [
             Iconflict
-              {
-                iorig = Some (punctuate " * " (type_expr_to_string te) (i > 0));
-                inew = None;
-              };
+              { iorig = Some (star ^ type_expr_to_string te); inew = None };
           ]
       | Changed (Modified { reference; current }) ->
           let te_hunk =
@@ -656,4 +646,34 @@ module With_colors = struct
 
   let pp_diff fmt diff = pp_ printer fmt diff
   let pp fmt t = gen_pp pp_diff fmt t
+end
+
+module Word = struct
+  let pp_inline_conflict_string ~src ~mode ppf s =
+    match (src, mode) with
+    | _, `Color -> Fmt.pf ppf "%s" s
+    | `Orig, `Plain -> Fmt.pf ppf "[-%s-]" s
+    | `New, `Plain -> Fmt.pf ppf "{+%s+}" s
+
+  let pp_inline_conflict ~src ~mode ppf conflict =
+    let color = match src with `Orig -> `Red | `New -> `Green in
+    Fmt.styled color
+      (Fmt.option ~none:Fmt.nop (pp_inline_conflict_string ~src ~mode))
+      ppf conflict
+
+  let pp_inline_hunk ~mode ppf inline_hunk =
+    match inline_hunk with
+    | Icommon s -> Fmt.string ppf s
+    | Iconflict { iorig; inew } ->
+        pp_inline_conflict ~src:`Orig ~mode ppf iorig;
+        pp_inline_conflict ~src:`New ~mode ppf inew
+
+  let pp_inline_hunks ~mode ppf ihunks =
+    Fmt.pf ppf " %a\n" (Fmt.list ~sep:Fmt.nop (pp_inline_hunk ~mode)) ihunks
+
+  let printer ~mode =
+    { With_colors.printer with inline_hunks = pp_inline_hunks ~mode }
+
+  let pp_diff ~mode fmt diff = pp_ (printer ~mode) fmt diff
+  let pp ~(mode : [ `Plain | `Color ]) fmt t = gen_pp (pp_diff ~mode) fmt t
 end
