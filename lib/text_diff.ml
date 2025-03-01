@@ -649,28 +649,31 @@ module With_colors = struct
 end
 
 module Word = struct
-  let pp_inline_conflict ~src ppf conflict =
-    match src with
-    | `Orig ->
-        Fmt.styled `Red
-          (Fmt.option ~none:Fmt.nop (fun ppf s -> Fmt.pf ppf "[-%s-]" s))
-          ppf conflict
-    | `New ->
-        Fmt.styled `Green
-          (Fmt.option ~none:Fmt.nop (fun ppf s -> Fmt.pf ppf "{+%s+}" s))
-          ppf conflict
+  let pp_inline_conflict_string ~src ~mode ppf s =
+    match (src, mode) with
+    | _, `Color -> Fmt.pf ppf "%s" s
+    | `Orig, `Plain -> Fmt.pf ppf "[-%s-]" s
+    | `New, `Plain -> Fmt.pf ppf "{+%s+}" s
 
-  let pp_inline_hunk ppf inline_hunk =
+  let pp_inline_conflict ~src ~mode ppf conflict =
+    let color = match src with `Orig -> `Red | `New -> `Green in
+    Fmt.styled color
+      (Fmt.option ~none:Fmt.nop (pp_inline_conflict_string ~src ~mode))
+      ppf conflict
+
+  let pp_inline_hunk ~mode ppf inline_hunk =
     match inline_hunk with
     | Icommon s -> Fmt.string ppf s
     | Iconflict { iorig; inew } ->
-        pp_inline_conflict ~src:`Orig ppf iorig;
-        pp_inline_conflict ~src:`New ppf inew
+        pp_inline_conflict ~src:`Orig ~mode ppf iorig;
+        pp_inline_conflict ~src:`New ~mode ppf inew
 
-  let pp_inline_hunks ppf ihunks =
-    Fmt.pf ppf " %a\n" (Fmt.list ~sep:Fmt.nop pp_inline_hunk) ihunks
+  let pp_inline_hunks ~mode ppf ihunks =
+    Fmt.pf ppf " %a\n" (Fmt.list ~sep:Fmt.nop (pp_inline_hunk ~mode)) ihunks
 
-  let printer = { With_colors.printer with inline_hunks = pp_inline_hunks }
-  let pp_diff fmt diff = pp_ printer fmt diff
-  let pp fmt t = gen_pp pp_diff fmt t
+  let printer ~mode =
+    { With_colors.printer with inline_hunks = pp_inline_hunks ~mode }
+
+  let pp_diff ~mode fmt diff = pp_ (printer ~mode) fmt diff
+  let pp ~(mode : [ `Plain | `Color ]) fmt t = gen_pp (pp_diff ~mode) fmt t
 end
