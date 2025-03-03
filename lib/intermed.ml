@@ -18,7 +18,7 @@ module rec TypeDecl : sig
 
     type t =
       | Abstract
-      | Alias of { manifest : Types.type_expr; private_ : bool }
+      | Alias of { type_expr : Types.type_expr; private_ : bool }
       | Concrete of {
           manifest : Types.type_expr option;
           private_ : bool;

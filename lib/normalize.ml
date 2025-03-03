@@ -20,22 +20,23 @@ let rec type_params reference current =
   | [], [] ->
       let _ = gen_unique_type_var_name ~reset:true in
       ()
-  | ref_param :: reference', [] ->
+  | { type_expr } :: reference', [] ->
       let normed_name = gen_unique_type_var_name ~reset:false in
-      mutate_type_expr (Tvar (Some normed_name)) ref_param;
+      mutate_type_expr (Tvar (Some normed_name)) type_expr;
       type_params reference' []
-  | [], cur_param :: current' ->
+  | [], { type_expr } :: current' ->
       let normed_name = gen_unique_type_var_name ~reset:false in
-      mutate_type_expr (Tvar (Some normed_name)) cur_param;
+      mutate_type_expr (Tvar (Some normed_name)) type_expr;
       type_params [] current'
-  | ref_param :: reference', cur_param :: current' ->
+  | ( { type_expr = ref_type_expr } :: reference',
+      { type_expr = cur_type_expr } :: current' ) ->
       let normed_name = gen_unique_type_var_name ~reset:false in
-      mutate_type_expr (Tvar (Some normed_name)) ref_param;
-      mutate_type_expr (Tvar (Some normed_name)) cur_param;
+      mutate_type_expr (Tvar (Some normed_name)) ref_type_expr;
+      mutate_type_expr (Tvar (Some normed_name)) cur_type_expr;
       type_params reference' current'
 
 let type_declarations ~reference ~current =
-  type_params reference.type_params current.type_params
+  type_params reference.params current.params
 
 let rec is_type_params ~reference ~current =
   match (reference, current) with
