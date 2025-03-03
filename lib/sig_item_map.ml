@@ -1,10 +1,11 @@
 open Types
+open Intermed
 
 type t = {
   values_map : value_description String_map.t;
   modules_map : module_declaration String_map.t;
   modtypes_map : modtype_declaration String_map.t;
-  types_map : (type_declaration * Ident.t) String_map.t;
+  types_map : TypeDecl.t String_map.t;
   class_map : class_declaration String_map.t;
   class_type_map : class_type_declaration String_map.t;
 }
@@ -13,7 +14,7 @@ type _ item_type =
   | Value : value_description item_type
   | Module : module_declaration item_type
   | Modtype : modtype_declaration item_type
-  | Type : (type_declaration * Ident.t) item_type
+  | Type : TypeDecl.t item_type
   | Class : class_declaration item_type
   | Classtype : class_type_declaration item_type
 
