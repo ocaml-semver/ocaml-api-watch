@@ -1,28 +1,31 @@
 open Types
 open Stddiff
+open Intermed
 
-let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) ~reference
+let type_expr ~typing_env ?(ref_params = [])
+    ?(cur_params = []) ~reference
     ~current () =
   let normed_ref, normed_cur =
     Normalize.type_params_arity ~reference:ref_params ~current:cur_params
   in
   if
     Ctype.is_equal typing_env true
-      (normed_ref @ [ reference ])
-      (normed_cur @ [ current ])
+      ((List.map (fun param -> param.TypeDecl.type_expr) normed_ref) @ [ reference ])
+      ((List.map (fun param -> param.TypeDecl.type_expr) normed_cur) @ [ current ])
   then None
   else Some { reference; current }
 
 module TypeDecl = struct
-  module TD = Intermed.TypeDecl
+  module TD = TypeDecl
 
   module Field = struct
+    module F = TD.Field
+
     type mutable_change = Added | Removed
-    type x = TD.Field.t
 
     type t = {
-      mutable_ : (bool, mutable_change) Stddiff.maybe_changed;
-      type_ : Types.type_expr Stddiff.maybe_changed_atomic;
+      mutable_ : (bool, mutable_change) maybe_changed;
+      type_ : type_expr maybe_changed_atomic;
     }
 
     let mutable_ ~reference ~current =
@@ -31,34 +34,54 @@ module TypeDecl = struct
       | true, false -> Changed Removed
       | false, true -> Changed Added
 
-    let field ~typing_env ~ref_params ~cur_params ~(reference : TD.Field.t)
-        ~(current : TD.Field.t) =
+    let field ~typing_env ~ref_params ~cur_params ~reference ~current =
       let mutable_ =
-        mutable_ ~reference:reference.mutable_ ~current:current.mutable_
+        mutable_ ~reference:reference.F.mutable_ ~current:current.F.mutable_
       in
       let type_ =
-        type_expr ~typing_env ~ref_params ~cur_params ~reference:reference.type_
-          ~current:current.type_ ()
+        type_expr ~typing_env ~ref_params ~cur_params ~reference:reference.F.type_
+          ~current:current.F.type_ ()
       in
       match (mutable_, type_) with
       | Same _, None -> None
       | _, None -> Some { mutable_; type_ = Same reference.type_ }
-      | _, Some type_diff -> Some { mutable_; type_ = Changed type_diff }
+      | _, Some type_change -> Some { mutable_; type_ = Changed type_change }
   end
 
-  module Constructor = struct
+  module rec Constructor : sig
+    module C = TD.Constructor
+    module F = TD.Field
+
     type args =
-      | Record of (Intermed.TypeDecl.Field.t, Field.t) Stddiff.map
-      | Tuple of Types.type_expr Stddiff.maybe_changed_atomic_entry list
-      | Unshared of Intermed.TypeDecl.Constructor.args Stddiff.atomic_modification
+      | Record of (F.t, Field.t) map
+      | Tuple of type_expr maybe_changed_atomic_entry list
+      | Unshared of C.args atomic_modification
+
+    type t = { args : args }
+
+    val args : typing_env:Env.t ref_params:TD.param list cur_params:TD.param list
+                   reference:C.args current:C.args
+
+
+    
+
+  end = struct
+  module rec Constructor = struct
+    module C = TD.Constructor
+    module F = TD.Field
+
+    type args =
+      | Record of (F.t, Field.t) map
+      | Tuple of type_expr maybe_changed_atomic_entry list
+      | Unshared of C.args atomic_modification
 
     type t = { args : args }
 
     let args ~typing_env ~ref_params ~cur_params ~reference ~current =
       match reference, current with
-      | Record ref_fields, Record cur_fields ->
+      | C.Record ref_fields, C.Record cur_fields ->
         let fields_map =
-          fields ~typing_env ~ref_params ~cur_params
+          Kind.fields ~typing_env ~ref_params ~cur_params
             ~reference:ref_fields ~current:cur_fields
         in
         if String_map.is_empty fields_map.changed_map then None
@@ -78,12 +101,17 @@ module TypeDecl = struct
       Option.map (fun args -> { args; }) args
   end
 
-  module Kind = struct
+
+  and Kind = struct
+    module K = TD.Kind
+    module F = TD.Field
+    module C = TD.Constructor
+
     type private_change = Added | Removed
 
     type definition =
-      | Record of (Intermed.TypeDecl.Field.t, Field.t) Stddiff.map
-      | Variant of (Intermed.TypeDecl.Constructor.t, Constructor.t) Stddiff.map
+      | Record of (F.t, Field.t) map
+      | Variant of (C.t, Constructor.t) Stddiff.map
       | Unshared_definition of
           Intermed.TypeDecl.Kind.definition Stddiff.atomic_modification
 
@@ -148,7 +176,6 @@ module TypeDecl = struct
         ~diff_one:(cstr ~typing_env ~ref_params ~cur_params)
         ~ref_map:ref_cstrs_map ~cur_map:cur_cstrs_map
 
-
     let definition ~typing_env ~ref_params ~cur_params ~reference ~current =
       match (reference, current) with
       | Open, Open -> Same Open
@@ -166,7 +193,6 @@ module TypeDecl = struct
         else Changed (Variant cstr_map)
       | ref_definition, cur_definition ->
         
-
     let concrete ~typing_env ~ref_params ~cur_params ~reference ~current =
       let manifest = manifest ~typing_env ~ref_params ~cur_params
           ~reference:reference.manifest ~current:current.manifest

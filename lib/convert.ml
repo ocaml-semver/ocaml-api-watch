@@ -29,8 +29,8 @@ let type_declaration ~src =
   let kind =
     match (src.type_manifest, src.type_kind) with
     | None, T.Type_abstract _ -> TD.Kind.Abstract
-    | Some manifest, Type_abstract _ ->
-        Alias { manifest; private_ = bool_of_private src.type_private }
+    | Some type_expr, Type_abstract _ ->
+        Alias { type_expr; private_ = bool_of_private src.type_private }
     | manifest, Type_open ->
         Concrete
           {
