@@ -4,7 +4,7 @@ type mode = Unwrapped | Wrapped of string | Cmi
 type word = Plain | Color
 type display = Line | Word of word
 
-let display_mode word : (display, string) result =
+let display_mode word =
   match word with
   | Some "plain" -> Ok (Word Plain)
   | Some "color" -> Ok (Word Color)
@@ -53,17 +53,13 @@ let mode ~reference ~current ~main_module ~unwrapped =
         "Either --main-module or --unwrapped must be provided when diffing \
          entire libraries."
 
-let print_diff diff word_diff =
-  let open CCResult.Infix in
-  let text_diff = Api_watch.Text_diff.from_diff diff in
-  let* display_mode = display_mode word_diff in
-  (match display_mode with
+let print_diff text_diff display_mode =
+  match display_mode with
   | Line -> Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff
   | Word Plain ->
       Api_watch.Text_diff.Word.pp ~mode:`Plain Format.std_formatter text_diff
   | Word Color ->
-      Api_watch.Text_diff.Word.pp ~mode:`Color Format.std_formatter text_diff);
-  Ok ()
+      Api_watch.Text_diff.Word.pp ~mode:`Color Format.std_formatter text_diff
 
 let run (`Word_diff word_diff) (`Main_module main_module)
     (`Unwrapped_library unwrapped) (`Ref_cmi reference) (`Current_cmi current) =
@@ -97,13 +93,12 @@ let run (`Word_diff word_diff) (`Main_module main_module)
     |> List.filter_map (fun (_, v) -> v)
   in
   let has_changes = not (List.is_empty diff_map) in
-  let* () =
-    List.fold_left
-      (fun acc diff ->
-        let* () = acc in
-        print_diff diff word_diff)
-      (Ok ()) diff_map
-  in
+  let* display_mode = display_mode word_diff in
+  List.iter
+    (fun diff ->
+      let text_diff = Api_watch.Text_diff.from_diff diff in
+      print_diff text_diff display_mode)
+    diff_map;
   if has_changes then Ok 1 else Ok 0
 
 let named f = Cmdliner.Term.(app (const f))
