@@ -1,8 +1,11 @@
-let print_cmi path =
+let print_raw = new Api_watch.Ocaml_types.print
+
+let print_cmi ~raw path =
   let cmi_infos = Cmi_format.read_cmi path in
   Format.printf "cmi_name: %s\n" cmi_infos.cmi_name;
   Format.printf "cmi_sign:\n";
-  Printtyp.signature Format.std_formatter cmi_infos.cmi_sign;
+  if raw then print_raw#signature cmi_infos.cmi_sign
+  else Printtyp.signature Format.std_formatter cmi_infos.cmi_sign;
   Format.printf "\n"
 
 let all_cmi_files path =
@@ -10,15 +13,15 @@ let all_cmi_files path =
   |> List.filter (fun p -> Filename.check_suffix p ".cmi")
   |> List.map (Filename.concat path)
 
-let run (`Main_module main_module) (`Input fn) =
+let run (`Raw raw) (`Main_module main_module) (`Input fn) =
   let open CCResult.Infix in
   match (Sys.is_directory fn, main_module) with
   | false, _ ->
-      print_cmi fn;
+      print_cmi ~raw fn;
       Ok ()
   | true, None ->
       let cmi_files = all_cmi_files fn in
-      List.iter print_cmi cmi_files;
+      List.iter (print_cmi ~raw) cmi_files;
       Ok ()
   | true, Some main_module ->
       let+ sig_map = Api_watch.Library.load ~main_module fn in
@@ -27,6 +30,13 @@ let run (`Main_module main_module) (`Input fn) =
       Format.printf "\n"
 
 let named f = Cmdliner.Term.(app (const f))
+
+let raw =
+  let doc = "" in
+  named
+    (fun x -> `Raw x)
+    Cmdliner.Arg.(
+      value & flag & info ~doc ["raw" ])
 
 let main_module =
   let docv = "MAIN_MODULE_NAME" in
@@ -57,7 +67,7 @@ let info =
   Cmd.info "print_api" ~version:"%%VERSION%%" ~exits:Cmd.Exit.defaults
     ~doc:"Pretty prints the API of a $(b,.cmi) file or a whole library"
 
-let term = Cmdliner.Term.(const run $ main_module $ input_file)
+let term = Cmdliner.Term.(const run $raw $ main_module $ input_file)
 
 let () =
   let exit_code = Cmdliner.Cmd.eval_result (Cmdliner.Cmd.v info term) in
