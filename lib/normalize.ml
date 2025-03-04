@@ -1,4 +1,5 @@
 open Types
+open Intermed.TypeDecl
 
 let get_type_param_name param =
   match get_desc param with Tvar (Some name) -> name | _ -> assert false
@@ -35,25 +36,27 @@ let rec type_params reference current =
       mutate_type_expr (Tvar (Some normed_name)) cur_type_expr;
       type_params reference' current'
 
-let type_declarations ~reference ~current =
+let type_decls ~reference ~current =
   type_params reference.params current.params
 
-let rec is_type_params ~reference ~current =
+let rec is_params ~reference ~current =
   match (reference, current) with
   | [], _ | _, [] -> true
-  | ref_type_param :: reference', cur_type_param :: current' ->
+  | { type_expr = ref_type_expr } :: reference',
+    { type_expr = cur_type_expr } :: current' ->
       String.equal
-        (get_type_param_name ref_type_param)
-        (get_type_param_name cur_type_param)
-      && is_type_params ~reference:reference' ~current:current'
+        (get_type_param_name ref_type_expr)
+        (get_type_param_name cur_type_expr)
+      && is_params ~reference:reference' ~current:current'
 
 let append_tvar_none n params_lst =
   let rest =
-    List.init n (fun _ -> create_expr (Tvar None) ~level:0 ~scope:0 ~id:0)
+    List.init n (fun _ -> { type_expr =
+                              create_expr (Tvar None) ~level:0 ~scope:0 ~id:0 })
   in
   params_lst @ rest
 
-let type_params_arity ~reference ~current =
+let params_arity ~reference ~current =
   let ref_len = List.length reference in
   let cur_len = List.length current in
   if ref_len = cur_len then (reference, current)

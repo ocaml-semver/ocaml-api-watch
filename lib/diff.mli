@@ -40,7 +40,7 @@ module TypeDecl : sig
               definition )
             Stddiff.maybe_changed;
         }
-      | Unshared of Intermed.TypeDecl.t Stddiff.atomic_modification
+      | Unshared of Intermed.TypeDecl.Kind.t Stddiff.atomic_modification
   end
 
   module Param : sig
@@ -59,7 +59,7 @@ end
 
 type type_ = {
   tname : string;
-  tdiff : (Types.type_declaration, TypeDecl.t) Stddiff.entry;
+  tdiff : (Intermed.TypeDecl.t, TypeDecl.t) Stddiff.entry;
 }
 
 type value = {

@@ -1,10 +1,10 @@
-val type_declarations :
+val type_decls :
   reference:Intermed.TypeDecl.t -> current:Intermed.TypeDecl.t -> unit
 (** Rename the occurances of each corresponding pair of type parameters in
     [reference] and [current] to a unique ti,
     where 1 <= i <= Int.max(List.length [current], List.length [reference]) *)
 
-val is_type_params :
+val is_params :
   reference:Intermed.TypeDecl.param list ->
   current:Intermed.TypeDecl.param list ->
   bool
@@ -12,7 +12,7 @@ val is_type_params :
     in [reference] and [current]
     have the same name, false otherwise *)
 
-val type_params_arity :
+val params_arity :
   reference:Intermed.TypeDecl.param list ->
   current:Intermed.TypeDecl.param list ->
   Intermed.TypeDecl.param list * Intermed.TypeDecl.param list

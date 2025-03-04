@@ -24,7 +24,7 @@ let cstr_args cd_args =
 let cstr cd = { TD.Constructor.id = cd.T.cd_id; args = cstr_args cd.cd_args }
 and param p = { TD.type_expr = p }
 
-let type_declaration ~src =
+let type_declaration src =
   let params = src.T.type_params in
   let kind =
     match (src.type_manifest, src.type_kind) with

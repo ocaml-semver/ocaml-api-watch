@@ -16,14 +16,15 @@ module rec TypeDecl : sig
       | Record of Field.t list
       | Variant of Constructor.t list
 
-    type t =
-      | Abstract
-      | Alias of { type_expr : Types.type_expr; private_ : bool }
-      | Concrete of {
-          manifest : Types.type_expr option;
-          private_ : bool;
-          definition : definition;
-        }
+    type alias = { type_expr : Types.type_expr; private_ : bool }
+
+    type concrete = {
+      manifest : Types.type_expr option;
+      private_ : bool;
+      definition : definition;
+    }
+
+    type t = Abstract | Alias of alias | Concrete of concrete
   end
 
   type t = { params : param list; kind : Kind.t }
