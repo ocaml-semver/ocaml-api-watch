@@ -67,9 +67,9 @@ let parse_interface content =
   Parse.interface lexbuf
 
 let generate_signature intf =
+  Compmisc.init_path ~dir:(Sys.getenv "OCAMLPATH") ();
   let typing_env =
-    Typemod.initial_env ~loc:Location.none ~initially_opened_module:None
-      ~open_implicit_modules:[]
+    Compmisc.initial_env ()
   in
   let typed_tree = Typemod.type_interface typing_env intf in
   typed_tree.sig_type
