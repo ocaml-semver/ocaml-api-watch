@@ -33,7 +33,7 @@ type type_ = {
 
 type value = {
   vname : string;
-  vdiff : Types.value_description Types_.atomic_entry;
+  vdiff : (Types.value_description, Types.type_expr atomic_modification) entry;
 }
 
 type class_ = {

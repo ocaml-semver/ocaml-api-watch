@@ -2,7 +2,9 @@
 
 open Types
 
-val for_diff : reference:signature -> current:signature -> Env.t
+type t = { subst : Subst.t; env : Env.t }
+
+val for_diff : reference:signature -> current:signature -> t
 (** Returns a typing environment suited for diffing two versions,
     [reference] and [current], of the same signature.
     We need to force the compiler to treat types from the two signatures

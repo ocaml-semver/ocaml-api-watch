@@ -78,3 +78,27 @@ Run the api-watcher on two abstract type kinds cmi files
 Run the api-watcher on two open type kinds cmi files
 
   $ api-diff ref_open_kind.cmi ref_open_kind.cmi
+
+Here we generate a `.mli` file with a private type abbreviation
+
+  $ cat > recursive.mli << EOF
+  > type 'a lst = Nil | Cons of 'a * 'a lst
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc recursive.mli
+
+# Removing a private type abbreviation from a type declaration
+
+  $ cat > add_param.mli << EOF
+  > type 'a lst = Nil | Cons of 'a * 'a lst
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc add_param.mli
+
+Run the api-watcher on the two cmi files
+
+  $ api-diff recursive.cmi add_param.cmi

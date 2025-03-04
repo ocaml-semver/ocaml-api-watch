@@ -139,16 +139,19 @@ let process_atomic_diff
           { orig = to_lines name reference; new_ = to_lines name current };
       ]
 
-let rec process_type_diff (type_diff : Diff.type_) =
-  match type_diff.tdiff with
-  | Modified { type_kind; type_privacy; type_manifest; type_params } ->
-      process_modified_type_diff type_diff.tname type_kind type_privacy
-        type_manifest type_params
-  | Added td -> process_atomic_diff (Added td) type_diff.tname td_to_lines
-  | Removed td -> process_atomic_diff (Removed td) type_diff.tname td_to_lines
+let process_entry ~entry_to_string ~process_modification ~name diff =
+  match (diff : (_, _) Diff.entry) with
+  | Added x -> process_atomic_diff (Added x) name entry_to_string
+  | Removed x -> process_atomic_diff (Removed x) name entry_to_string
+  | Modified d -> process_modification name d
 
-and process_modified_type_diff name type_kind type_privacy type_manifest
-    type_params =
+let rec process_type_diff (type_diff : Diff.type_) =
+  process_entry ~entry_to_string:td_to_lines
+    ~process_modification:process_modified_type_diff ~name:type_diff.tname
+    type_diff.tdiff
+
+and process_modified_type_diff name
+    { Diff.type_kind; type_privacy; type_manifest; type_params } =
   let type_header_hunk =
     process_type_header_diff name type_privacy type_manifest type_params
       type_kind
@@ -511,8 +514,21 @@ and lbls_to_line lbls =
 and tuple_to_line tuple =
   List.map type_expr_to_string tuple |> String.concat " * "
 
+let process_vd_diff name
+    ({ reference; current } : Types.type_expr Diff.atomic_modification) =
+  let _, _ = (reference, current) in
+  let _ = name in
+  let header = Icommon (Some (Format.sprintf "val %s : " name)) in
+  let type_ =
+    let iorig = Some (typ_expr_to_line reference) in
+    let inew = Some (typ_expr_to_line current) in
+    Iconflict { iorig; inew }
+  in
+  [ Inline_hunks [ header; type_ ] ]
+
 let process_value_diff (val_diff : Diff.value) =
-  process_atomic_diff val_diff.vdiff val_diff.vname vd_to_lines
+  process_entry ~entry_to_string:vd_to_lines
+    ~process_modification:process_vd_diff ~name:val_diff.vname val_diff.vdiff
 
 let process_class_diff (class_diff : Diff.class_) =
   process_atomic_diff class_diff.cdiff class_diff.cname cd_to_lines
