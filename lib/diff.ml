@@ -21,9 +21,7 @@ module TypeDecl = struct
   module F = TD.Field
   module C = TD.Constructor
 
-
   module Field = struct
-
     type mutable_change = Added | Removed
 
     type t = {
@@ -52,7 +50,6 @@ module TypeDecl = struct
   end
 
   module Constructor = struct
-
     type args =
       | Record of (F.t, Field.t) map
       | Tuple of type_expr maybe_changed_atomic_entry list
@@ -62,7 +59,7 @@ module TypeDecl = struct
 
     let build_field_map fields =
       List.fold_left
-        (fun map field -> String_map.add (Ident.name field.F.id) field map)
+        (fun map field -> String_map.add field.F.name field map)
         String_map.empty fields
 
     let fields ~typing_env ~ref_params ~cur_params ~reference ~current =
@@ -171,12 +168,12 @@ module TypeDecl = struct
 
     let build_cstr_map cstrs =
       List.fold_left
-        (fun map cstr -> String_map.add (Ident.name cstr.C.id) cstr map)
+        (fun map cstr -> String_map.add cstr.C.name cstr map)
         String_map.empty cstrs
 
     let build_field_map fields =
       List.fold_left
-        (fun map field -> String_map.add (Ident.name field.F.id) field map)
+        (fun map field -> String_map.add field.F.name field map)
         String_map.empty fields
 
     let fields ~typing_env ~ref_params ~cur_params ~reference ~current =
@@ -218,10 +215,9 @@ module TypeDecl = struct
                { reference = ref_definition; current = cur_definition })
 
     let concrete ~typing_env ~ref_params ~cur_params ~reference ~current =
-      let open K in
       let manifest =
         manifest ~typing_env ~ref_params ~cur_params
-          ~reference:reference.manifest ~current:current.manifest
+          ~reference:reference.K.manifest ~current:current.K.manifest
       in
       let private_ =
         private_ ~reference:reference.private_ ~current:current.private_
@@ -230,7 +226,10 @@ module TypeDecl = struct
         definition ~typing_env ~ref_params ~cur_params
           ~reference:reference.definition ~current:current.definition
       in
-      match (manifest, private_, definition) with _ -> assert false
+      match (manifest, private_, definition) with
+      | Same manifest, Same private_, Same definition ->
+          Same (K.Concrete { manifest; private_; definition })
+      | _ -> Changed (Concrete { manifest; private_; definition })
 
     let kind ~typing_env ~ref_params ~cur_params ~reference ~current =
       match (reference, current) with
@@ -246,10 +245,7 @@ module TypeDecl = struct
   end
 
   module Param = struct
-    type param_change =
-      | Added of TD.param
-      | Removed of TD.param
-
+    type param_change = Added of TD.param | Removed of TD.param
     type t = (TD.param, param_change) maybe_changed
 
     let params ~reference ~current =
@@ -267,7 +263,6 @@ module TypeDecl = struct
     params : (TD.param, Param.t) list_;
     kind : (K.t, Kind.t) maybe_changed;
   }
-
 end
 
 type type_ = { tname : string; tdiff : (Intermed.TypeDecl.t, TypeDecl.t) entry }
@@ -354,8 +349,8 @@ let type_decls ~typing_env ~name ~reference ~current =
     TypeDecl.Param.params ~reference:reference.params ~current:current.params
   in
   let kind =
-    Kind.kind ~typing_env ~ref_params ~cur_params
-      ~reference:reference.kind ~current:current.kind
+    Kind.kind ~typing_env ~ref_params ~cur_params ~reference:reference.kind
+      ~current:current.kind
   in
   match { params; kind } with
   | { params = Same _; kind = Same _ } -> None

@@ -11,7 +11,7 @@ let bool_of_mutable = function
 
 let field lbl =
   {
-    TD.Field.id = lbl.T.ld_id;
+    TD.Field.name = Ident.name lbl.T.ld_id;
     mutable_ = bool_of_mutable lbl.ld_mutable;
     type_ = lbl.ld_type;
   }
@@ -21,7 +21,9 @@ let cstr_args cd_args =
   | T.Cstr_tuple type_exprs -> TD.Constructor.Tuple type_exprs
   | T.Cstr_record lbls -> Record (List.map field lbls)
 
-let cstr cd = { TD.Constructor.id = cd.T.cd_id; args = cstr_args cd.cd_args }
+let cstr cd =
+  { TD.Constructor.name = Ident.name cd.T.cd_id; args = cstr_args cd.cd_args }
+
 and param p = { TD.type_expr = p }
 
 let type_declaration src =
