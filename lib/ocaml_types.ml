@@ -246,9 +246,7 @@ class virtual _iter =
   object
     inherit iter
     inherit Ppxlib_traverse_builtins.iter
-
     method ref iter_a a_ref = iter_a !a_ref
-
     method virtual_flag _ = ()
     method types__vars__t _ _ = ()
     method types__variance__t _ = ()
@@ -276,36 +274,31 @@ class virtual _iter =
 class virtual iter = _iter
 
 class print =
-  object(self)
+  object (self)
     inherit iter as super
 
     method! type_expr te =
       Format.printf "{%d:" (Types.get_id te);
       self#type_desc (Types.get_desc te);
-      Format.printf "}";
+      Format.printf "}"
 
     method! type_desc td =
       match td with
       | Tsubst (ty, None) ->
-        Format.printf "Subst(";
-        self#type_expr ty;
-        Format.printf ", None)";
+          Format.printf "Subst(";
+          self#type_expr ty;
+          Format.printf ", None)"
       | Tsubst (ty, Some ty') ->
-        Format.printf "Subst(";
-        self#type_expr ty;
-        Format.printf ", ";
-        self#type_expr ty';
-        Format.printf ")";
-      | Tconstr (path, _, _) ->
-        Path.print Format.std_formatter path
-      | Tvar (Some s) ->
-        Format.printf "var:'%s" s
-      | Tvar None ->
-        Format.printf "var:NONE" 
-      | Tunivar (Some s) ->
-        Format.printf "uvar:'%s" s
-      | Tunivar None ->
-        Format.printf "uvar:NONE" 
+          Format.printf "Subst(";
+          self#type_expr ty;
+          Format.printf ", ";
+          self#type_expr ty';
+          Format.printf ")"
+      | Tconstr (path, _, _) -> Path.print Format.std_formatter path
+      | Tvar (Some s) -> Format.printf "var:'%s" s
+      | Tvar None -> Format.printf "var:NONE"
+      | Tunivar (Some s) -> Format.printf "uvar:'%s" s
+      | Tunivar None -> Format.printf "uvar:NONE"
       | _ -> super#type_desc td
 
     method! signature_item sigi =
@@ -317,14 +310,13 @@ class print =
           Printtyp.signature Format.std_formatter [ sigi ];
           Format.print_newline ()
       | Sig_value (id, value, _) ->
-        Format.printf "value desc: %a\n" (Printtyp.value_description id) value;
+          Format.printf "value desc: %a\n" (Printtyp.value_description id) value;
           Format.printf "id:%s uid:%a\n" (Ident.unique_name id) Shape.Uid.print
             value.val_uid;
-        Format.printf "val %s :" (Ident.name id);
-        self#type_expr value.val_type;
-        Format.print_newline ()
+          Format.printf "val %s :" (Ident.name id);
+          self#type_expr value.val_type;
+          Format.print_newline ()
       | _ ->
-        Printtyp.signature Format.std_formatter [ sigi ];
-        Format.print_newline ()
+          Printtyp.signature Format.std_formatter [ sigi ];
+          Format.print_newline ()
   end
-

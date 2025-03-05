@@ -33,10 +33,7 @@ let named f = Cmdliner.Term.(app (const f))
 
 let raw =
   let doc = "" in
-  named
-    (fun x -> `Raw x)
-    Cmdliner.Arg.(
-      value & flag & info ~doc ["raw" ])
+  named (fun x -> `Raw x) Cmdliner.Arg.(value & flag & info ~doc [ "raw" ])
 
 let main_module =
   let docv = "MAIN_MODULE_NAME" in
@@ -67,7 +64,7 @@ let info =
   Cmd.info "print_api" ~version:"%%VERSION%%" ~exits:Cmd.Exit.defaults
     ~doc:"Pretty prints the API of a $(b,.cmi) file or a whole library"
 
-let term = Cmdliner.Term.(const run $raw $ main_module $ input_file)
+let term = Cmdliner.Term.(const run $ raw $ main_module $ input_file)
 
 let () =
   let exit_code = Cmdliner.Cmd.eval_result (Cmdliner.Cmd.v info term) in

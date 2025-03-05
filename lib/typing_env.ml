@@ -20,7 +20,7 @@ let type_subst ~reference ~current =
           let name = Ident.name curr_id in
           match String_map.find_opt name ref_non_alias_types with
           | Some (ref_id, _) ->
-            Subst.add_type curr_id (Path.Pident ref_id) subst
+              Subst.add_type curr_id (Path.Pident ref_id) subst
           | None -> subst)
       | _ -> subst)
     Subst.identity current

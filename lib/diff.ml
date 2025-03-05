@@ -85,8 +85,7 @@ let extract_items items subst =
           then tbl
           else
             let t = Subst.type_declaration subst _type_decl in
-            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
-              (t, id) tbl
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type (t, id) tbl
       | Sig_class (id, cls_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
       | Sig_class_type (id, class_type_decl, _, Exported) ->
@@ -132,14 +131,18 @@ let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
   let sub_ref = Subst.type_expr subst reference in
   let sub_cur = Subst.type_expr subst current in
   if
-    Ctype.is_equal env true
-      (normed_ref @ [ sub_ref ])
-      (normed_cur @ [ sub_cur ])
+    Ctype.is_equal env true (normed_ref @ [ sub_ref ]) (normed_cur @ [ sub_cur ])
   then None
-  else Some { reference = Ctype.full_expand ~may_forget_scope:false
-                  typing_env.Typing_env.env sub_ref;
-              current = Ctype.full_expand ~may_forget_scope:false
-                  typing_env.Typing_env.env sub_cur }
+  else
+    Some
+      {
+        reference =
+          Ctype.full_expand ~may_forget_scope:false typing_env.Typing_env.env
+            sub_ref;
+        current =
+          Ctype.full_expand ~may_forget_scope:false typing_env.Typing_env.env
+            sub_cur;
+      }
 
 let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
