@@ -141,9 +141,9 @@ let process_atomic_diff
 
 let process_entry ~entry_to_string ~process_modification ~name diff =
   match (diff : (_, _) Diff.entry) with
-  | Added x -> process_atomic_diff (Added x) name entry_to_string
-  | Removed x -> process_atomic_diff (Removed x) name entry_to_string
-  | Modified d -> process_modification name d
+  | Added item -> process_atomic_diff (Added item) name entry_to_string
+  | Removed item -> process_atomic_diff (Removed item) name entry_to_string
+  | Modified entry_change -> process_modification name entry_change
 
 let rec process_type_diff (type_diff : Diff.type_) =
   process_entry ~entry_to_string:td_to_lines
@@ -516,8 +516,6 @@ and tuple_to_line tuple =
 
 let process_vd_diff name
     ({ reference; current } : Types.type_expr Diff.atomic_modification) =
-  let _, _ = (reference, current) in
-  let _ = name in
   let header = Icommon (Some (Format.sprintf "val %s : " name)) in
   let type_ =
     let iorig = Some (typ_expr_to_line reference) in

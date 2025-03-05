@@ -66,7 +66,7 @@ and sig_item =
   | Class of class_
   | Classtype of cltype
 
-let extract_items items =
+let extract_items items subst =
   List.fold_left
     (fun tbl item ->
       match item with
@@ -78,14 +78,15 @@ let extract_items items =
             tbl
       | Sig_value (id, val_des, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl
-      | Sig_type (id, type_decl, _, Exported) ->
+      | Sig_type (id, _type_decl, _, Exported) as _sig_i ->
           if
             Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl
             || Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Classtype tbl
           then tbl
           else
+            let t = Subst.type_declaration subst _type_decl in
             Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
-              (type_decl, id) tbl
+              (t, id) tbl
       | Sig_class (id, cls_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
       | Sig_class_type (id, class_type_decl, _, Exported) ->
@@ -128,14 +129,17 @@ let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
   let normed_ref, normed_cur =
     Normalize.type_params_arity ~reference:ref_params ~current:cur_params
   in
-  let sub_ref = Subst.type_expr subst current in
-  let sub_cur = Subst.type_expr subst reference in
+  let sub_ref = Subst.type_expr subst reference in
+  let sub_cur = Subst.type_expr subst current in
   if
     Ctype.is_equal env true
       (normed_ref @ [ sub_ref ])
       (normed_cur @ [ sub_cur ])
   then None
-  else Some { reference; current }
+  else Some { reference = Ctype.full_expand ~may_forget_scope:false
+                  typing_env.Typing_env.env sub_ref;
+              current = Ctype.full_expand ~may_forget_scope:false
+                  typing_env.Typing_env.env sub_cur }
 
 let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
@@ -364,8 +368,8 @@ let class_type_item ~typing_env ~name
                }))
 
 let rec items ~typing_env ~reference ~current =
-  let ref_items = extract_items reference in
-  let curr_items = extract_items current in
+  let ref_items = extract_items reference typing_env.Typing_env.subst in
+  let curr_items = extract_items current typing_env.Typing_env.subst in
   let diff_item : type a. (a, 'diff) Sig_item_map.diff_item =
    fun item_type name reference current ->
     match item_type with

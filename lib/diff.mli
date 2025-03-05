@@ -96,3 +96,14 @@ val library :
   reference:Types.signature String_map.t ->
   current:Types.signature String_map.t ->
   module_ option String_map.t
+
+(**/**)
+
+(* Private API, use at your own risk *)
+
+val type_expr : typing_env:Typing_env.t ->
+         ?ref_params:Types.type_expr list ->
+         ?cur_params:Types.type_expr list ->
+         Types.type_expr ->
+         Types.type_expr -> Types.type_expr atomic_modification option
+
