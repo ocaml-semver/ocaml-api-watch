@@ -429,11 +429,13 @@ and signatures ~reference ~current =
     items ~reference:modified_reference ~current:modified_current ~typing_env
   with
   | [] -> (
+      Compmisc.init_path ();
+      let initialized_env = Compmisc.initial_env () in
       let coercion1 () =
-        Includemod.signatures Env.empty ~mark:Mark_both reference current
+        Includemod.signatures initialized_env ~mark:Mark_both reference current
       in
       let coercion2 () =
-        Includemod.signatures Env.empty ~mark:Mark_both current reference
+        Includemod.signatures initialized_env ~mark:Mark_both current reference
       in
       match (coercion1 (), coercion2 ()) with
       | Tcoerce_none, Tcoerce_none -> None
