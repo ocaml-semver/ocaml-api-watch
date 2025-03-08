@@ -29,7 +29,8 @@ let for_diff ~reference ~current =
   let subst = type_subst ~reference ~current in
   let env = Env.empty in
   let env = Env.add_signature reference env in
-  Env.add_signature modified_current env
+  let env = Env.add_signature current env in
+  { subst; env }
 
 let pp fmt t =
   let summary = Env.summary t in

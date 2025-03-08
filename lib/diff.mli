@@ -26,25 +26,9 @@ and cstr_args =
 and type_privacy = Added_p | Removed_p
 and type_param = (Types.type_expr, type_param_diff) Stddiff.maybe_changed
 
-type type_ = {
-  tname : string;
-  tdiff : (Types.type_declaration, type_modification) entry;
-}
-
-type value = {
-  vname : string;
-  vdiff : (Types.value_description, Types.type_expr atomic_modification) entry;
-}
-
-type class_ = {
-  cname : string;
-  cdiff : Types.class_declaration Types_.atomic_entry;
-}
-
-type cltype = {
-  ctname : string;
-  ctdiff : Types.class_type_declaration Types_.atomic_entry;
-}
+and type_param_diff =
+  | Added_tp of Types.type_expr
+  | Removed_tp of Types.type_expr
 
 type type_ = {
   tname : string;
@@ -53,7 +37,10 @@ type type_ = {
 
 type value = {
   vname : string;
-  vdiff : Types.value_description Stddiff.atomic_entry;
+  vdiff :
+    ( Types.value_description,
+      Types.type_expr Stddiff.atomic_modification )
+    Stddiff.entry;
 }
 
 type class_ = {
@@ -107,4 +94,4 @@ val type_expr :
   ?cur_params:Types.type_expr list ->
   Types.type_expr ->
   Types.type_expr ->
-  Types.type_expr atomic_modification option
+  Types.type_expr Stddiff.atomic_modification option

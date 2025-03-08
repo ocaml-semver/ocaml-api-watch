@@ -4,8 +4,8 @@ open Stddiff
 type type_modification = {
   type_kind : (type_decl_kind, type_kind) maybe_changed;
   type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
-  type_manifest : type_expr Types_.atomic_option;
-  type_params : (type_expr, type_param) Types_.list_;
+  type_manifest : type_expr Stddiff.atomic_option;
+  type_params : (type_expr, type_param) Stddiff.list_;
 }
 
 and type_kind =
@@ -14,7 +14,7 @@ and type_kind =
   | Atomic_tk of type_decl_kind atomic_modification
 
 and label = {
-  label_type : type_expr Types_.maybe_changed_atomic;
+  label_type : type_expr Stddiff.maybe_changed_atomic;
   label_mutable : (Asttypes.mutable_flag, field_mutability) maybe_changed;
 }
 
@@ -39,11 +39,11 @@ type value = {
   vdiff : (value_description, type_expr atomic_modification) entry;
 }
 
-type class_ = { cname : string; cdiff : class_declaration Types_.atomic_entry }
+type class_ = { cname : string; cdiff : class_declaration Stddiff.atomic_entry }
 
 type cltype = {
   ctname : string;
-  ctdiff : class_type_declaration Types_.atomic_entry;
+  ctdiff : class_type_declaration Stddiff.atomic_entry;
 }
 
 type module_ = {
@@ -252,9 +252,7 @@ and cstr ~typing_env ~ref_params ~cur_params reference current =
         tuple_type ~typing_env ~ref_params ~cur_params ~reference:ref_tuple
           ~current:cur_tuple
       in
-      match tuple with
-      | Same _ -> None
-      | Changed diff -> Some (Same_variant (Tuple_cstr diff)))
+      match tuple with Same _ -> None | Changed diff -> Some (Tuple_cstr diff))
   | Cstr_record ref_record, Cstr_record cur_record ->
       let label_map =
         record_type ~typing_env ~ref_params ~cur_params

@@ -140,7 +140,7 @@ let process_atomic_diff
       ]
 
 let process_entry ~entry_to_string ~process_modification ~name diff =
-  match (diff : (_, _) Diff.entry) with
+  match (diff : (_, _) Stddiff.entry) with
   | Added item -> process_atomic_diff (Added item) name entry_to_string
   | Removed item -> process_atomic_diff (Removed item) name entry_to_string
   | Modified entry_change -> process_modification name entry_change
@@ -515,11 +515,11 @@ and tuple_to_line tuple =
   List.map type_expr_to_string tuple |> String.concat " * "
 
 let process_vd_diff name
-    ({ reference; current } : Types.type_expr Diff.atomic_modification) =
-  let header = Icommon (Some (Format.sprintf "val %s : " name)) in
+    ({ reference; current } : Types.type_expr Stddiff.atomic_modification) =
+  let header = Icommon (Format.sprintf "val %s : " name) in
   let type_ =
-    let iorig = Some (typ_expr_to_line reference) in
-    let inew = Some (typ_expr_to_line current) in
+    let iorig = Some (type_expr_to_string reference) in
+    let inew = Some (type_expr_to_string current) in
     Iconflict { iorig; inew }
   in
   [ Inline_hunks [ header; type_ ] ]
