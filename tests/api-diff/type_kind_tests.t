@@ -79,7 +79,7 @@ Run the api-watcher on two open type kinds cmi files
 
   $ api-diff ref_open_kind.cmi ref_open_kind.cmi
 
-Here we generate a `.mli` file with a private type abbreviation
+Here we generate a `.mli` file with a recursive type
 
   $ cat > recursive.mli << EOF
   > type 'a lst = Nil | Cons of 'a * 'a lst
@@ -89,16 +89,23 @@ We generate the .cmi file
 
   $ ocamlc recursive.mli
 
-# Removing a private type abbreviation from a type declaration
+# Adding another item to the Cons constructor
 
-  $ cat > add_param.mli << EOF
-  > type 'a lst = Nil | Cons of 'a * 'a lst
+  $ cat > add_item.mli << EOF
+  > type 'a lst = Nil | Cons of 'a * 'a * 'a lst
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc add_param.mli
+  $ ocamlc add_item.mli
 
 Run the api-watcher on the two cmi files
 
-  $ api-diff recursive.cmi add_param.cmi
+  $ api-diff recursive.cmi add_item.cmi
+  diff module Add_item:
+   type 'a lst =
+     | Nil
+  -  | Cons of 'a * 'a lst
+  +  | Cons of 'a * 'a * 'a lst
+  
+  [1]

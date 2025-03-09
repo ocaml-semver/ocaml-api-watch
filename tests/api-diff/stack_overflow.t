@@ -1,5 +1,5 @@
 Here we generate a basic `.mli` file with two types and a function:
-Referencing a paramterized type should cause a stackoverflow
+Referencing a paramterized type should not cause a stackoverflow
 
   $ cat > ref.mli << EOF
   > type 'a t

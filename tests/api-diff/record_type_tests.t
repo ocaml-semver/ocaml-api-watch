@@ -83,7 +83,7 @@ We generate the .cmi file
 
 Run api-watcher on the two cmi files
 
-  $ api-diff ref.cmi alias_field_type.cmi
+  $ api-diff --word-diff -- ref.cmi alias_field_type.cmi
   diff module Alias_field_type:
   +type y = int option
   

@@ -66,34 +66,47 @@ and sig_item =
   | Class of class_
   | Classtype of cltype
 
-let extract_items items subst =
+let extract_items items ~sub subst =
   List.fold_left
     (fun tbl item ->
       match item with
       | Sig_module (id, _, mod_decl, _, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module
+            (if sub then Subst.module_declaration Subst.Keep subst mod_decl
+             else mod_decl)
             tbl
       | Sig_modtype (id, mtd_decl, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Modtype mtd_decl
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Modtype
+            (if sub then Subst.modtype_declaration Subst.Keep subst mtd_decl
+             else mtd_decl)
             tbl
       | Sig_value (id, val_des, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl
-      | Sig_type (id, _type_decl, _, Exported) as _sig_i ->
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value
+            (if sub then Subst.value_description subst val_des else val_des)
+            tbl
+      | Sig_type (id, type_decl, _, Exported) ->
           if
             Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl
             || Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Classtype tbl
           then tbl
           else
-            let t = Subst.type_declaration subst _type_decl in
-            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type (t, id) tbl
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
+              ( (if sub then Subst.type_declaration subst type_decl
+                 else type_decl),
+                id )
+              tbl
       | Sig_class (id, cls_decl, _, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class
+            (if sub then Subst.class_declaration subst cls_decl else cls_decl)
+            tbl
       | Sig_class_type (id, class_type_decl, _, Exported) ->
           if Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl then
             tbl
           else
             Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Classtype
-              class_type_decl tbl
+              (if sub then Subst.cltype_declaration subst class_type_decl
+               else class_type_decl)
+              tbl
       | _ -> tbl)
     Sig_item_map.empty items
 
@@ -124,34 +137,33 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
 
 let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
     current =
-  let { env; subst } : Typing_env.t = typing_env in
   let normed_ref, normed_cur =
     Normalize.type_params_arity ~reference:ref_params ~current:cur_params
   in
-  let sub_ref = Subst.type_expr subst reference in
-  let sub_cur = Subst.type_expr subst current in
   if
-    Ctype.is_equal env true (normed_ref @ [ sub_ref ]) (normed_cur @ [ sub_cur ])
+    Ctype.is_equal typing_env.Typing_env.env true
+      (normed_ref @ [ reference ])
+      (normed_cur @ [ current ])
   then None
   else
     Some
       {
         reference =
           Ctype.full_expand ~may_forget_scope:false typing_env.Typing_env.env
-            sub_ref;
+            reference;
         current =
           Ctype.full_expand ~may_forget_scope:false typing_env.Typing_env.env
-            sub_cur;
+            current;
       }
 
 let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
-  | Some (reference, _), None ->
+  | Some (reference, _ref_id), None ->
       Some (Type { tname = name; tdiff = Removed reference })
-  | None, Some (current, _) ->
+  | None, Some (current, _cur_id) ->
       Some (Type { tname = name; tdiff = Added current })
-  | Some (reference, _), Some (current, _) ->
+  | Some (reference, _ref_id), Some (current, _cur_id) ->
       type_declarations ~typing_env ~name ~reference ~current
 
 and type_declarations ~typing_env ~name ~reference ~current =
@@ -368,9 +380,13 @@ let class_type_item ~typing_env ~name
                      { reference = ref_class_type; current = curr_class_type };
                }))
 
-let rec items ~typing_env ~reference ~current =
-  let ref_items = extract_items reference typing_env.Typing_env.subst in
-  let curr_items = extract_items current typing_env.Typing_env.subst in
+let rec items ~reference ~current ~typing_env =
+  let ref_items =
+    extract_items reference ~sub:false typing_env.Typing_env.subst
+  in
+  let curr_items =
+    extract_items current ~sub:true typing_env.Typing_env.subst
+  in
   let diff_item : type a. (a, 'diff) Sig_item_map.diff_item =
    fun item_type name reference current ->
     match item_type with
@@ -427,15 +443,13 @@ and module_type ~typing_env ~name ~ref_module_type ~current_module_type
         ~reference:ref_modtype ~current:curr_modtype
 
 and signatures ~typing_env ~reference ~current =
-  match items ~typing_env ~reference ~current with
+  match items ~reference ~current ~typing_env with
   | [] -> (
       let coercion1 () =
-        Includemod.signatures typing_env.Typing_env.env ~mark:Mark_both
-          reference current
+        Includemod.signatures Env.empty ~mark:Mark_both reference current
       in
       let coercion2 () =
-        Includemod.signatures typing_env.Typing_env.env ~mark:Mark_both current
-          reference
+        Includemod.signatures Env.empty ~mark:Mark_both current reference
       in
       match (coercion1 (), coercion2 ()) with
       | Tcoerce_none, Tcoerce_none -> None
@@ -444,7 +458,9 @@ and signatures ~typing_env ~reference ~current =
   | item_changes -> Some (Modified (Supported item_changes))
 
 let interface ~module_name ~reference ~current =
-  let typing_env = Typing_env.for_diff ~reference ~current in
+  let reference, current, typing_env =
+    Typing_env.for_diff ~reference ~current
+  in
   let sig_out = signatures ~typing_env ~reference ~current in
   Option.map (fun mdiff -> { mname = module_name; mdiff }) sig_out
 
