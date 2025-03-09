@@ -2,15 +2,15 @@ open Api_watch
 open Test_helpers
 
 let%expect_test "test_normalize_type_declarations" =
-  let ref_id, reference =
+  let reference =
     compile_interface {|type ('a, 'b) t = 'a * 'b|}
-    |> first_type_declaration |> Option.get
+    |> first_type_decl |> Option.get
   in
-  let cur_id, current =
+  let current =
     compile_interface {|type ('c, 'd, 'e) t = 'c * 'd * 'e|}
-    |> first_type_declaration |> Option.get
+    |> first_type_decl |> Option.get
   in
-  Normalize.type_declarations ~reference ~current;
+  Normalize.type_decls ~reference ~current;
   Printtyp.type_declaration ref_id Format.std_formatter reference;
   Format.force_newline ();
   Printtyp.type_declaration cur_id Format.std_formatter current;

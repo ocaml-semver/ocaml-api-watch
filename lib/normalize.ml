@@ -36,14 +36,13 @@ let rec type_params reference current =
       mutate_type_expr (Tvar (Some normed_name)) cur_type_expr;
       type_params reference' current'
 
-let type_decls ~reference ~current =
-  type_params reference.params current.params
+let type_decls ~reference ~current = type_params reference.params current.params
 
 let rec is_params ~reference ~current =
   match (reference, current) with
   | [], _ | _, [] -> true
-  | { type_expr = ref_type_expr } :: reference',
-    { type_expr = cur_type_expr } :: current' ->
+  | ( { type_expr = ref_type_expr } :: reference',
+      { type_expr = cur_type_expr } :: current' ) ->
       String.equal
         (get_type_param_name ref_type_expr)
         (get_type_param_name cur_type_expr)
@@ -51,8 +50,8 @@ let rec is_params ~reference ~current =
 
 let append_tvar_none n params_lst =
   let rest =
-    List.init n (fun _ -> { type_expr =
-                              create_expr (Tvar None) ~level:0 ~scope:0 ~id:0 })
+    List.init n (fun _ ->
+        { type_expr = create_expr (Tvar None) ~level:0 ~scope:0 ~id:0 })
   in
   params_lst @ rest
 

@@ -1,11 +1,11 @@
 module rec TypeDecl : sig
   module Field : sig
-    type t = { id : Ident.t; mutable_ : bool; type_ : Types.type_expr }
+    type t = { name : string; mutable_ : bool; type_ : Types.type_expr }
   end
 
   module Constructor : sig
     type args = Tuple of Types.type_expr list | Record of Field.t list
-    type t = { id : Ident.t; args : args }
+    type t = { name : string; args : args }
   end
 
   type param = { type_expr : Types.type_expr }
