@@ -40,9 +40,10 @@ let set_type_equalities ~reference ~current =
     current
 
 let for_diff ~reference ~current =
+  Compmisc.init_path ();
+  let initialized_env = Compmisc.initial_env () in
   let modified_current = set_type_equalities ~reference ~current in
-  let env = Env.empty in
-  let env = Env.in_signature true env in
+  let env = Env.in_signature true initialized_env in
   let env = Env.add_signature reference env in
   Env.add_signature modified_current env
 
