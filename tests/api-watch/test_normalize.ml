@@ -1,5 +1,6 @@
 open Api_watch
 open Test_helpers
+open Intermed.TypeDecl
 
 let%expect_test "test_normalize_type_declarations" =
   let reference =
@@ -22,50 +23,50 @@ let%expect_test "test_normalize_type_declarations" =
 let%expect_test "test_normalize_is_type_params_true" =
   let reference =
     List.init 5 (fun i ->
-        Types.create_expr
+        { type_expr = Types.create_expr
           (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i)))))
-          ~level:0 ~scope:0 ~id:i)
+          ~level:0 ~scope:0 ~id:i })
   in
   let current =
     List.init 3 (fun i ->
-        Types.create_expr
+        { type_expr = Types.create_expr
           (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i)))))
-          ~level:0 ~scope:0 ~id:i)
+          ~level:0 ~scope:0 ~id:i })
   in
-  Printf.printf "%b" (Normalize.is_type_params ~reference ~current);
+  Printf.printf "%b" (Normalize.is_params ~reference ~current);
   [%expect "true"]
 
 let%expect_test "test_normalize_is_type_params_false" =
   let reference =
     List.init 5 (fun i ->
-        Types.create_expr
+        { type_expr = Types.create_expr
           (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i + 1)))))
-          ~level:0 ~scope:0 ~id:i)
+          ~level:0 ~scope:0 ~id:i })
   in
   let current =
     List.init 3 (fun i ->
-        Types.create_expr
+        { type_expr = Types.create_expr
           (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i)))))
-          ~level:0 ~scope:0 ~id:i)
+          ~level:0 ~scope:0 ~id:i })
   in
-  Printf.printf "%b" (Normalize.is_type_params ~reference ~current);
+  Printf.printf "%b" (Normalize.is_params ~reference ~current);
   [%expect "false"]
 
 let%expect_test "test_normalize_type_params_arity" =
   let reference =
     List.init 5 (fun i ->
-        Types.create_expr
+        { type_expr = Types.create_expr
           (Tvar (Some (Printf.sprintf "t%d" i)))
-          ~level:0 ~scope:0 ~id:i)
+          ~level:0 ~scope:0 ~id:i })
   in
   let current =
     List.init 3 (fun i ->
-        Types.create_expr
+        { type_expr = Types.create_expr
           (Tvar (Some (Printf.sprintf "t%d" i)))
-          ~level:0 ~scope:0 ~id:i)
+          ~level:0 ~scope:0 ~id:i })
   in
   let normed_ref, normed_cur =
-    Normalize.type_params_arity ~reference ~current
+    Normalize.params_arity ~reference ~current
   in
   Printf.printf "%b"
     (Ctype.is_equal Env.empty true normed_ref reference
