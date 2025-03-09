@@ -32,7 +32,7 @@ let run (`Raw raw) (`Main_module main_module) (`Input fn) =
 let named f = Cmdliner.Term.(app (const f))
 
 let raw =
-  let doc = "" in
+  let doc = "Prints the IDs of different signature items." in
   named (fun x -> `Raw x) Cmdliner.Arg.(value & flag & info ~doc [ "raw" ])
 
 let main_module =

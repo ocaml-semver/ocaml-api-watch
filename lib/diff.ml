@@ -159,11 +159,11 @@ let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
 let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
-  | Some (reference, _ref_id), None ->
+  | Some (reference, _), None ->
       Some (Type { tname = name; tdiff = Removed reference })
-  | None, Some (current, _cur_id) ->
+  | None, Some (current, _) ->
       Some (Type { tname = name; tdiff = Added current })
-  | Some (reference, _ref_id), Some (current, _cur_id) ->
+  | Some (reference, _), Some (current, _) ->
       type_declarations ~typing_env ~name ~reference ~current
 
 and type_declarations ~typing_env ~name ~reference ~current =
