@@ -67,10 +67,8 @@ let parse_interface content =
   Parse.interface lexbuf
 
 let generate_signature intf =
-  let typing_env =
-    Typemod.initial_env ~loc:Location.none ~initially_opened_module:None
-      ~open_implicit_modules:[]
-  in
+  Compmisc.init_path ();
+  let typing_env = Compmisc.initial_env () in
   let typed_tree = Typemod.type_interface typing_env intf in
   typed_tree.sig_type
 
