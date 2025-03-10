@@ -419,12 +419,39 @@ let process_cstrs_diff variant_diff =
   common_hunks @ different_hunks
 
 let process_definition_diff diff =
-  let module K = Diff.TypeDecl.Kind in
+  let module S = Stddiff in
+  let module K = Intermed.TypeDecl.Kind in
+  let module KD = Diff.TypeDecl.Kind in
   match diff with
-  | K.Record fields_change ->
-      [ Inline_hunks (process_fields_diff fields_change) ]
-  | Variant cstrs_change -> process_cstrs_diff cstrs_change
-  | Unshared_definition { reference; current } -> assert false
+  | S.Same K.Open -> ( [ Icommon " .." ], [])
+  | Same (Record fields) -> ([], [ Common ([ fields_to_line fields ]) ])
+  | Same (Variant cstrs) -> ([], [ Common (cstrs_to_lines cstrs) ])
+  | Changed (KD.Record fields_change) ->
+      ([], [ Inline_hunks (process_fields_diff fields_change) ])
+  | Changed (Variant cstrs_change) -> ([], process_cstrs_diff cstrs_change)
+  | Changed (Unshared_definition { reference; current }) -> (
+      match (reference, current) with
+      | Open, _ ->
+          ( [ Iconflict { iorig = Some " .."; inew = None } ],
+            [
+              Line_conflict
+                { orig = []; new_ = type_definition_to_lines current };
+            ] )
+      | _, Open ->
+          ( [ Iconflict { iorig = None; inew = Some " .." } ],
+            [
+              Line_conflict
+                { orig = type_definition_to_lines reference; new_ = [] };
+            ] )
+      | _ ->
+          ( [],
+            [
+              Line_conflict
+                {
+                  orig = type_definition_to_lines reference;
+                  new_ = type_definition_to_lines current;
+                };
+            ] ))
 
 let process_type_kind_diff diff : inline_hunk list * hunk list =
   let module S = Stddiff in
@@ -439,8 +466,8 @@ let process_type_kind_diff diff : inline_hunk list * hunk list =
     | Changed (Concrete { private_; manifest; definition }) ->
         let manifest_ihunk = process_manifest_diff manifest in
         let private_ihunk = process_privacy_diff private_ in
-        let definition_hunk = process_definition_diff definition in
-        ([ manifest_ihunk; private_ihunk ], definition_hunk)
+        let header_ihunks, definition_hunk = process_definition_diff definition in
+        ([ manifest_ihunk; private_ihunk ] @ header_ihunks, definition_hunk)
     | Changed (Unshared { reference; current }) -> assert false
   in
   (header_ihunks, definition_hunk)
