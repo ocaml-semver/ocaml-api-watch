@@ -423,8 +423,8 @@ let process_definition_diff diff =
   let module K = Intermed.TypeDecl.Kind in
   let module KD = Diff.TypeDecl.Kind in
   match diff with
-  | S.Same K.Open -> ( [ Icommon " .." ], [])
-  | Same (Record fields) -> ([], [ Common ([ fields_to_line fields ]) ])
+  | S.Same K.Open -> ([ Icommon " .." ], [])
+  | Same (Record fields) -> ([], [ Common [ fields_to_line fields ] ])
   | Same (Variant cstrs) -> ([], [ Common (cstrs_to_lines cstrs) ])
   | Changed (KD.Record fields_change) ->
       ([], [ Inline_hunks (process_fields_diff fields_change) ])
@@ -466,9 +466,25 @@ let process_type_kind_diff diff : inline_hunk list * hunk list =
     | Changed (Concrete { private_; manifest; definition }) ->
         let manifest_ihunk = process_manifest_diff manifest in
         let private_ihunk = process_privacy_diff private_ in
-        let header_ihunks, definition_hunk = process_definition_diff definition in
-        ([ manifest_ihunk; private_ihunk ] @ header_ihunks, definition_hunk)
-    | Changed (Unshared { reference; current }) -> assert false
+        let header_ihunks, definition_hunk =
+          process_definition_diff definition
+        in
+        (manifest_ihunk @ [ private_ihunk ] @ header_ihunks, definition_hunk)
+    | Changed (Unshared { reference; current }) -> (
+        match (reference, current) with
+        | ( Alias { private_; type_expr },
+            Concrete { manifest; private_; definition = Open } ) ->
+            assert false
+        | ( Concrete { manifest; private_; definition = Open },
+            Alias { private_; type_expr } ) ->
+            assert false
+        | ( Alias { private_; type_expr },
+            Concrete { manifest; private_; definition = _ } ) ->
+            assert false
+        | ( Concrete { manifest; private_; definition = _ },
+            Alias { private_; type_expr } ) ->
+          assert false
+        | _ -> (* use type kind to lines! *))
   in
   (header_ihunks, definition_hunk)
 
