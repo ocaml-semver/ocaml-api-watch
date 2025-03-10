@@ -1,16 +1,17 @@
 open Api_watch
 open Test_helpers
+open Intermed.TypeDecl
 
 let%expect_test "test_normalize_type_declarations" =
-  let ref_id, reference =
+  let reference =
     compile_interface {|type ('a, 'b) t = 'a * 'b|}
-    |> first_type_declaration |> Option.get
+    |> first_type_decl |> Option.get
   in
-  let cur_id, current =
+  let current =
     compile_interface {|type ('c, 'd, 'e) t = 'c * 'd * 'e|}
-    |> first_type_declaration |> Option.get
+    |> first_type_decl |> Option.get
   in
-  Normalize.type_declarations ~reference ~current;
+  Normalize.type_decls ~reference ~current;
   Printtyp.type_declaration ref_id Format.std_formatter reference;
   Format.force_newline ();
   Printtyp.type_declaration cur_id Format.std_formatter current;
@@ -22,51 +23,67 @@ let%expect_test "test_normalize_type_declarations" =
 let%expect_test "test_normalize_is_type_params_true" =
   let reference =
     List.init 5 (fun i ->
-        Types.create_expr
-          (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i)))))
-          ~level:0 ~scope:0 ~id:i)
+        {
+          type_expr =
+            Types.create_expr
+              (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i)))))
+              ~level:0 ~scope:0 ~id:i;
+        })
   in
   let current =
     List.init 3 (fun i ->
-        Types.create_expr
-          (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i)))))
-          ~level:0 ~scope:0 ~id:i)
+        {
+          type_expr =
+            Types.create_expr
+              (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i)))))
+              ~level:0 ~scope:0 ~id:i;
+        })
   in
-  Printf.printf "%b" (Normalize.is_type_params ~reference ~current);
+  Printf.printf "%b" (Normalize.is_params ~reference ~current);
   [%expect "true"]
 
 let%expect_test "test_normalize_is_type_params_false" =
   let reference =
     List.init 5 (fun i ->
-        Types.create_expr
-          (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i + 1)))))
-          ~level:0 ~scope:0 ~id:i)
+        {
+          type_expr =
+            Types.create_expr
+              (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i + 1)))))
+              ~level:0 ~scope:0 ~id:i;
+        })
   in
   let current =
     List.init 3 (fun i ->
-        Types.create_expr
-          (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i)))))
-          ~level:0 ~scope:0 ~id:i)
+        {
+          type_expr =
+            Types.create_expr
+              (Tvar (Some (CCString.of_char (Char.chr (Char.code 'a' + i)))))
+              ~level:0 ~scope:0 ~id:i;
+        })
   in
-  Printf.printf "%b" (Normalize.is_type_params ~reference ~current);
+  Printf.printf "%b" (Normalize.is_params ~reference ~current);
   [%expect "false"]
 
 let%expect_test "test_normalize_type_params_arity" =
   let reference =
     List.init 5 (fun i ->
-        Types.create_expr
-          (Tvar (Some (Printf.sprintf "t%d" i)))
-          ~level:0 ~scope:0 ~id:i)
+        {
+          type_expr =
+            Types.create_expr
+              (Tvar (Some (Printf.sprintf "t%d" i)))
+              ~level:0 ~scope:0 ~id:i;
+        })
   in
   let current =
     List.init 3 (fun i ->
-        Types.create_expr
-          (Tvar (Some (Printf.sprintf "t%d" i)))
-          ~level:0 ~scope:0 ~id:i)
+        {
+          type_expr =
+            Types.create_expr
+              (Tvar (Some (Printf.sprintf "t%d" i)))
+              ~level:0 ~scope:0 ~id:i;
+        })
   in
-  let normed_ref, normed_cur =
-    Normalize.type_params_arity ~reference ~current
-  in
+  let normed_ref, normed_cur = Normalize.params_arity ~reference ~current in
   Printf.printf "%b"
     (Ctype.is_equal Env.empty true normed_ref reference
     && Ctype.is_equal Env.empty true normed_cur
