@@ -356,7 +356,7 @@ let type_decls ~typing_env ~name ~reference ~current =
   | { params = Same _; kind = Same _ } -> None
   | diff -> Some (Type { tname = name; tdiff = Modified diff })
 
-let rec type_item ~typing_env ~name ~reference ~current =
+let type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
   | Some reference, None ->

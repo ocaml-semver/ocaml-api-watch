@@ -83,7 +83,7 @@ let first_type_decl signature =
   List.find_map
     (fun sig_item ->
       match sig_item with
-      | Types.Sig_type (_, td, _, _) ->
-          Some (Api_watch.Convert.type_declaration td)
+      | Types.Sig_type (id, td, _, _) ->
+          Some (Ident.name id, Api_watch.Convert.type_declaration td)
       | _ -> None)
     signature
