@@ -72,7 +72,7 @@ Run api-diff and check the output
 
 ### Value referencing an abstract type
 
-api-diff should be able to tell two, non alias types from both versions of the
+api-diff should be able to tell two, alias types from both versions of the
 API should be considered equal when referenced by a value.
 
 Generate a reference .mli file:

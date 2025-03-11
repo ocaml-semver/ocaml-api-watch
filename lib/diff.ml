@@ -135,6 +135,9 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
   | exception Includemod.Error _ ->
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
+let expand_alias_types ~typing_env ~type_expr =
+  Ctype.full_expand ~may_forget_scope:false typing_env.Typing_env.env type_expr
+
 let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
     current =
   let normed_ref, normed_cur =
@@ -148,12 +151,8 @@ let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
   else
     Some
       {
-        reference =
-          Ctype.full_expand ~may_forget_scope:false typing_env.Typing_env.env
-            reference;
-        current =
-          Ctype.full_expand ~may_forget_scope:false typing_env.Typing_env.env
-            current;
+        reference = expand_alias_types ~typing_env ~type_expr:reference;
+        current = expand_alias_types ~typing_env ~type_expr:current;
       }
 
 let rec type_item ~typing_env ~name ~reference ~current =

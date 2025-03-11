@@ -7,7 +7,7 @@ module Subst_item_map = Map.Make (struct
   type t = subst_kind * string [@@deriving ord]
 end)
 
-let uniq_signature_ids ~reference ~current =
+let replace_matching_ids ~reference ~current =
   let ref_env = Env.add_signature reference Env.empty in
   let subst, modified_current =
     List.fold_right
@@ -87,7 +87,7 @@ let extract_subst_items signature =
       | _ -> acc)
     Subst_item_map.empty signature
 
-let items_subst ~reference ~current =
+let pair_items ~reference ~current =
   let subst_items = extract_subst_items reference in
   List.fold_left
     (fun subst item ->
@@ -111,10 +111,10 @@ let items_subst ~reference ~current =
     Subst.identity current
 
 let for_diff ~reference ~current =
-  let current = uniq_signature_ids ~reference ~current in
+  let current = replace_matching_ids ~reference ~current in
   let env = Env.add_signature reference (Env.in_signature true Env.empty) in
   let env = Env.add_signature current env in
-  let subst = items_subst ~reference ~current in
+  let subst = pair_items ~reference ~current in
   (reference, current, { env; subst })
 
 let pp fmt t =
