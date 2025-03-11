@@ -106,7 +106,7 @@ let named f = Cmdliner.Term.(app (const f))
 
 let plain =
   let doc =
-    "Add test markers to the output to highlight inline changes. Deleted parts \
+    "Add text markers to the output to highlight inline changes. Deleted parts \
      are wrapped between [-and-] and added parts between {+and+}. Useful for \
      terminals or outputs that don't support colors."
   in
