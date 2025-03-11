@@ -7,6 +7,10 @@ module Subst_item_map = Map.Make (struct
   type t = subst_kind * string [@@deriving ord]
 end)
 
+(* Traverses the current signature and generates unique IDs for items
+   that have conflicting IDs with items in the reference signature. It then
+   replaces the old IDs with the new generated ones using substitutions.
+*)
 let replace_matching_ids ~reference ~current =
   let ref_env = Env.add_signature reference Env.empty in
   let subst, modified_current =
