@@ -1,15 +1,15 @@
 let tool_name = "api-diff"
 
 type mode = Unwrapped | Wrapped of string | Cmi
-type word = Plain | Color
-type display = Line | Word of word
+type mark = Plain | Color
+type display = Line of mark | Word of mark
 
-let display_mode word_diff color =
-  match (word_diff, color) with
-  | false, false -> Ok Line
-  | true, false -> Ok (Word Plain)
-  | false, true -> Ok (Word Color)
-  | true, true -> Error "--word-diff and --color cannot be specified together"
+let display_mode word_diff plain =
+  match (word_diff, plain) with
+  | false, false -> Ok (Line Color)
+  | false, true -> Ok (Line Plain)
+  | true, false -> Ok (Word Color)
+  | true, true -> Ok (Word Plain)
 
 let both_directories reference current =
   match (Sys.is_directory reference, Sys.is_directory current) with
@@ -51,13 +51,18 @@ let mode ~reference ~current ~main_module ~unwrapped =
 
 let print_diff text_diff display_mode =
   match display_mode with
-  | Line -> Api_watch.Text_diff.With_colors.pp Format.std_formatter text_diff
-  | Word Plain ->
-      Api_watch.Text_diff.Word.pp ~mode:`Plain Format.std_formatter text_diff
+  | Line Color ->
+      Api_watch.Text_diff.With_colors.pp ~mode:`Color Format.std_formatter
+        text_diff
+  | Line Plain ->
+      Api_watch.Text_diff.With_colors.pp ~mode:`Plain Format.std_formatter
+        text_diff
   | Word Color ->
       Api_watch.Text_diff.Word.pp ~mode:`Color Format.std_formatter text_diff
+  | Word Plain ->
+      Api_watch.Text_diff.Word.pp ~mode:`Plain Format.std_formatter text_diff
 
-let run (`Word_diff word_diff) (`Color color) (`Main_module main_module)
+let run (`Word_diff word_diff) (`Plain plain) (`Main_module main_module)
     (`Unwrapped_library unwrapped) (`Ref_cmi reference) (`Current_cmi current) =
   let open CCResult.Infix in
   let* reference_map, current_map =
@@ -89,7 +94,7 @@ let run (`Word_diff word_diff) (`Color color) (`Main_module main_module)
     |> List.filter_map (fun (_, v) -> v)
   in
   let has_changes = not (List.is_empty diff_map) in
-  let* display_mode = display_mode word_diff color in
+  let* display_mode = display_mode word_diff plain in
   List.iter
     (fun diff ->
       let text_diff = Api_watch.Text_diff.from_diff diff in
@@ -99,18 +104,16 @@ let run (`Word_diff word_diff) (`Color color) (`Main_module main_module)
 
 let named f = Cmdliner.Term.(app (const f))
 
-let color =
+let plain =
   let doc =
-    "Dispaly API changes in an inline word diff format, the inline changes are \
-     showed in colors."
+    "Add test markers to the output to highlight inline changes. Deleted parts \
+     are wrapped between [-and-] and added parts between {+and+}. Useful for \
+     terminals or outputs that don't support colors."
   in
-  named (fun x -> `Color x) Cmdliner.Arg.(value & flag & info ~doc [ "color" ])
+  named (fun x -> `Plain x) Cmdliner.Arg.(value & flag & info ~doc [ "plain" ])
 
 let word_diff =
-  let doc =
-    "Display API changes in an inline word diff format, the inline changes are \
-     showed as [-removed-] and {+added+}."
-  in
+  let doc = "Display API changes in an inline word diff format." in
   named
     (fun x -> `Word_diff x)
     Cmdliner.Arg.(value & flag & info ~doc [ "word-diff" ])
@@ -162,7 +165,7 @@ let info =
 
 let term =
   Cmdliner.Term.(
-    const run $ word_diff $ color $ main_module $ unwrapped_library $ ref_cmi
+    const run $ word_diff $ plain $ main_module $ unwrapped_library $ ref_cmi
     $ current_cmi)
 
 let () =
