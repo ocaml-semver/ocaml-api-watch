@@ -1,38 +1,65 @@
-type type_modification = {
-  type_kind : (Types.type_decl_kind, type_kind) Stddiff.maybe_changed;
-  type_privacy : (Asttypes.private_flag, type_privacy) Stddiff.maybe_changed;
-  type_manifest : Types.type_expr Stddiff.atomic_option;
-  type_params : (Types.type_expr, type_param) Stddiff.list_;
-}
+module TypeDecl : sig
+  module Field : sig
+    type mutable_change = Added | Removed
 
-and type_kind =
-  | Record_tk of (Types.label_declaration, label) Stddiff.map
-  | Variant_tk of (Types.constructor_declaration, cstr_args) Stddiff.map
-  | Atomic_tk of Types.type_decl_kind Stddiff.atomic_modification
+    type t = {
+      mutable_ : (bool, mutable_change) Stddiff.maybe_changed;
+      type_ : Types.type_expr Stddiff.maybe_changed_atomic;
+    }
+  end
 
-and label = {
-  label_type : Types.type_expr Stddiff.maybe_changed_atomic;
-  label_mutable :
-    (Asttypes.mutable_flag, field_mutability) Stddiff.maybe_changed;
-}
+  module Constructor : sig
+    type args =
+      | Record of (Intermed.TypeDecl.Field.t, Field.t) Stddiff.map
+      | Tuple of Types.type_expr Stddiff.maybe_changed_atomic_entry list
+      | Unshared of
+          Intermed.TypeDecl.Constructor.args Stddiff.atomic_modification
 
-and field_mutability = Added_m | Removed_m
+    type t = { args : args }
+  end
 
-and cstr_args =
-  | Record_cstr of (Types.label_declaration, label) Stddiff.map
-  | Tuple_cstr of Types.type_expr Stddiff.maybe_changed_atomic_entry list
-  | Atomic_cstr of Types.constructor_arguments Stddiff.atomic_modification
+  module Kind : sig
+    type private_change = Added | Removed
 
-and type_privacy = Added_p | Removed_p
-and type_param = (Types.type_expr, type_param_diff) Stddiff.maybe_changed
+    type definition =
+      | Record of (Intermed.TypeDecl.Field.t, Field.t) Stddiff.map
+      | Variant of (Intermed.TypeDecl.Constructor.t, Constructor.t) Stddiff.map
+      | Unshared_definition of
+          Intermed.TypeDecl.Kind.definition Stddiff.atomic_modification
 
-and type_param_diff =
-  | Added_tp of Types.type_expr
-  | Removed_tp of Types.type_expr
+    type t =
+      | Alias of {
+          type_expr : Types.type_expr Stddiff.maybe_changed_atomic;
+          private_ : (bool, private_change) Stddiff.maybe_changed;
+        }
+      | Concrete of {
+          manifest : Types.type_expr Stddiff.atomic_option;
+          private_ : (bool, private_change) Stddiff.maybe_changed;
+          definition :
+            ( Intermed.TypeDecl.Kind.definition,
+              definition )
+            Stddiff.maybe_changed;
+        }
+      | Unshared of Intermed.TypeDecl.Kind.t Stddiff.atomic_modification
+  end
+
+  module Param : sig
+    type param_change =
+      | Added of Intermed.TypeDecl.param
+      | Removed of Intermed.TypeDecl.param
+
+    type t = (Intermed.TypeDecl.param, param_change) Stddiff.maybe_changed
+  end
+
+  type t = {
+    params : (Intermed.TypeDecl.param, Param.t) Stddiff.list_;
+    kind : (Intermed.TypeDecl.Kind.t, Kind.t) Stddiff.maybe_changed;
+  }
+end
 
 type type_ = {
   tname : string;
-  tdiff : (Types.type_declaration, type_modification) Stddiff.entry;
+  tdiff : (Intermed.TypeDecl.t, TypeDecl.t) Stddiff.entry;
 }
 
 type value = {

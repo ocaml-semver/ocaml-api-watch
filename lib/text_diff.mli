@@ -18,6 +18,8 @@ val pp : Format.formatter -> t -> unit
 val from_diff : Diff.module_ -> t
 (** Converts from a low-level diff to a textual diff *)
 
+val td_to_lines : string -> Intermed.TypeDecl.t -> string list
+
 module With_colors : sig
   val pp : Format.formatter -> t -> unit
   (** Same as regular [pp] but prints added lines in green and removed lines in

@@ -1,39 +1,271 @@
 open Types
 open Stddiff
+open Intermed
 
-type type_modification = {
-  type_kind : (type_decl_kind, type_kind) maybe_changed;
-  type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
-  type_manifest : type_expr atomic_option;
-  type_params : (type_expr, type_param) list_;
-}
+let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) ~reference
+    ~current () =
+  let normed_ref, normed_cur =
+    Normalize.params_arity ~reference:ref_params ~current:cur_params
+  in
+  if
+    Ctype.is_equal typing_env true
+      (List.map (fun param -> param.TypeDecl.type_expr) normed_ref
+      @ [ reference ])
+      (List.map (fun param -> param.TypeDecl.type_expr) normed_cur @ [ current ])
+  then None
+  else Some { reference; current }
 
-and type_kind =
-  | Record_tk of (label_declaration, label) map
-  | Variant_tk of (Types.constructor_declaration, cstr_args) map
-  | Atomic_tk of type_decl_kind atomic_modification
+module TypeDecl = struct
+  module TD = TypeDecl
+  module K = TD.Kind
+  module F = TD.Field
+  module C = TD.Constructor
 
-and label = {
-  label_type : type_expr maybe_changed_atomic;
-  label_mutable : (Asttypes.mutable_flag, field_mutability) maybe_changed;
-}
+  module Field = struct
+    type mutable_change = Added | Removed
 
-and field_mutability = Added_m | Removed_m
+    type t = {
+      mutable_ : (bool, mutable_change) maybe_changed;
+      type_ : type_expr maybe_changed_atomic;
+    }
 
-and cstr_args =
-  | Record_cstr of (label_declaration, label) map
-  | Tuple_cstr of type_expr maybe_changed_atomic_entry list
-  | Atomic_cstr of Types.constructor_arguments Stddiff.atomic_modification
+    let mutable_ ~reference ~current =
+      match (reference, current) with
+      | true, true | false, false -> Same reference
+      | true, false -> Changed Removed
+      | false, true -> Changed Added
 
-and type_privacy = Added_p | Removed_p
-and type_param = (type_expr, type_param_diff) maybe_changed
-and type_param_diff = Added_tp of type_expr | Removed_tp of type_expr
+    let field ~typing_env ~ref_params ~cur_params reference current =
+      let mutable_ =
+        mutable_ ~reference:reference.F.mutable_ ~current:current.F.mutable_
+      in
+      let type_ =
+        type_expr ~typing_env ~ref_params ~cur_params
+          ~reference:reference.F.type_ ~current:current.F.type_ ()
+      in
+      match (mutable_, type_) with
+      | Same _, None -> None
+      | _, None -> Some { mutable_; type_ = Same reference.type_ }
+      | _, Some type_change -> Some { mutable_; type_ = Changed type_change }
+  end
 
-type type_ = {
-  tname : string;
-  tdiff : (type_declaration, type_modification) entry;
-}
+  module Constructor = struct
+    type args =
+      | Record of (F.t, Field.t) map
+      | Tuple of type_expr maybe_changed_atomic_entry list
+      | Unshared of C.args atomic_modification
 
+    type t = { args : args }
+
+    let build_field_map fields =
+      List.fold_left
+        (fun map field -> String_map.add field.F.name field map)
+        String_map.empty fields
+
+    let fields ~typing_env ~ref_params ~cur_params ~reference ~current =
+      let ref_fields_map = build_field_map reference in
+      let cur_fields_map = build_field_map current in
+      let fields_map =
+        diff_map
+          ~diff_one:(Field.field ~typing_env ~ref_params ~cur_params)
+          ~ref_map:ref_fields_map ~cur_map:cur_fields_map
+      in
+      if String_map.is_empty fields_map.changed_map then None
+      else Some (Record fields_map)
+
+    let tuple ~typing_env ~ref_params ~cur_params ~reference ~current =
+      let tuple =
+        diff_list
+          ~diff_one:(fun t1 t2 ->
+            match (t1, t2) with
+            | None, None -> assert false
+            | Some t1, None -> Changed (Removed t1)
+            | None, Some t2 -> Changed (Added t2)
+            | Some t1, Some t2 -> (
+                match
+                  type_expr ~typing_env ~ref_params ~cur_params ~reference:t1
+                    ~current:t2 ()
+                with
+                | None -> Same t1
+                | Some diff -> Changed (Modified diff)))
+          ~ref_list:reference ~cur_list:current
+      in
+      match tuple with
+      | Same _ -> None
+      | Changed tuple_change -> Some (Tuple tuple_change)
+
+    let args ~typing_env ~ref_params ~cur_params ~reference ~current =
+      match (reference, current) with
+      | C.Record ref_fields, C.Record cur_fields ->
+          fields ~typing_env ~ref_params ~cur_params ~reference:ref_fields
+            ~current:cur_fields
+      | C.Tuple ref_tuple, C.Tuple cur_tuple ->
+          tuple ~typing_env ~ref_params ~cur_params ~reference:ref_tuple
+            ~current:cur_tuple
+      | _ -> Some (Unshared { reference; current })
+
+    let cstr ~typing_env ~ref_params ~cur_params reference current =
+      let args =
+        args ~typing_env ~ref_params ~cur_params ~reference:reference.C.args
+          ~current:current.C.args
+      in
+      Option.map (fun args -> { args }) args
+  end
+
+  module Kind = struct
+    type private_change = Added | Removed
+
+    type definition =
+      | Record of (F.t, Field.t) map
+      | Variant of (C.t, Constructor.t) map
+      | Unshared_definition of K.definition atomic_modification
+
+    type t =
+      | Alias of {
+          type_expr : type_expr maybe_changed_atomic;
+          private_ : (bool, private_change) maybe_changed;
+        }
+      | Concrete of {
+          manifest : type_expr atomic_option;
+          private_ : (bool, private_change) maybe_changed;
+          definition : (K.definition, definition) maybe_changed;
+        }
+      | Unshared of K.t atomic_modification
+
+    let private_ ~reference ~current =
+      match (reference, current) with
+      | true, true | false, false -> Same reference
+      | true, false -> Changed Removed
+      | false, true -> Changed Added
+
+    let alias ~typing_env ~ref_params ~cur_params ~reference ~current =
+      let type_expr =
+        type_expr ~typing_env ~ref_params ~cur_params
+          ~reference:reference.K.type_expr ~current:current.K.type_expr ()
+      in
+      let private_ =
+        private_ ~reference:reference.private_ ~current:current.private_
+      in
+      match (type_expr, private_) with
+      | None, Same _ -> Same (K.Alias reference)
+      | Some type_expr_change, private_ ->
+          Changed (Alias { type_expr = Changed type_expr_change; private_ })
+      | None, private_ ->
+          Changed (Alias { type_expr = Same reference.type_expr; private_ })
+
+    let manifest ~typing_env ~ref_params ~cur_params ~reference ~current =
+      match (reference, current) with
+      | None, None -> Same None
+      | Some ref_type_expr, None -> Changed (Stddiff.Removed ref_type_expr)
+      | None, Some cur_type_expr -> Changed (Stddiff.Added cur_type_expr)
+      | Some ref_type_expr, Some cur_type_expr -> (
+          match
+            type_expr ~typing_env ~ref_params ~cur_params
+              ~reference:ref_type_expr ~current:cur_type_expr ()
+          with
+          | None -> Same (Some ref_type_expr)
+          | Some type_expr_change -> Changed (Modified type_expr_change))
+
+    let build_cstr_map cstrs =
+      List.fold_left
+        (fun map cstr -> String_map.add cstr.C.name cstr map)
+        String_map.empty cstrs
+
+    let build_field_map fields =
+      List.fold_left
+        (fun map field -> String_map.add field.F.name field map)
+        String_map.empty fields
+
+    let fields ~typing_env ~ref_params ~cur_params ~reference ~current =
+      let ref_fields_map = build_field_map reference in
+      let cur_fields_map = build_field_map current in
+      let fields_map =
+        diff_map
+          ~diff_one:(Field.field ~typing_env ~ref_params ~cur_params)
+          ~ref_map:ref_fields_map ~cur_map:cur_fields_map
+      in
+      if String_map.is_empty fields_map.changed_map then
+        Same (K.Record reference)
+      else Changed (Record fields_map)
+
+    let cstrs ~typing_env ~ref_params ~cur_params ~reference ~current =
+      let ref_cstrs_map = build_cstr_map reference in
+      let cur_cstrs_map = build_cstr_map current in
+      let cstrs_map =
+        diff_map
+          ~diff_one:(Constructor.cstr ~typing_env ~ref_params ~cur_params)
+          ~ref_map:ref_cstrs_map ~cur_map:cur_cstrs_map
+      in
+      if String_map.is_empty cstrs_map.changed_map then
+        Same (K.Variant reference)
+      else Changed (Variant cstrs_map)
+
+    let definition ~typing_env ~ref_params ~cur_params ~reference ~current =
+      match (reference, current) with
+      | K.Open, K.Open -> Same K.Open
+      | Record ref_fields, Record cur_fields ->
+          fields ~typing_env ~ref_params ~cur_params ~reference:ref_fields
+            ~current:cur_fields
+      | Variant ref_cstrs, Variant cur_cstrs ->
+          cstrs ~typing_env ~ref_params ~cur_params ~reference:ref_cstrs
+            ~current:cur_cstrs
+      | ref_definition, cur_definition ->
+          Changed
+            (Unshared_definition
+               { reference = ref_definition; current = cur_definition })
+
+    let concrete ~typing_env ~ref_params ~cur_params ~reference ~current =
+      let manifest =
+        manifest ~typing_env ~ref_params ~cur_params
+          ~reference:reference.K.manifest ~current:current.K.manifest
+      in
+      let private_ =
+        private_ ~reference:reference.private_ ~current:current.private_
+      in
+      let definition =
+        definition ~typing_env ~ref_params ~cur_params
+          ~reference:reference.definition ~current:current.definition
+      in
+      match (manifest, private_, definition) with
+      | Same manifest, Same private_, Same definition ->
+          Same (K.Concrete { manifest; private_; definition })
+      | _ -> Changed (Concrete { manifest; private_; definition })
+
+    let kind ~typing_env ~ref_params ~cur_params ~reference ~current =
+      match (reference, current) with
+      | K.Abstract, K.Abstract -> Same reference
+      | K.Alias ref_alias, K.Alias cur_alias ->
+          alias ~typing_env ~ref_params ~cur_params ~reference:ref_alias
+            ~current:cur_alias
+      | K.Concrete ref_concrete, K.Concrete cur_concrete ->
+          concrete ~typing_env ~ref_params ~cur_params ~reference:ref_concrete
+            ~current:cur_concrete
+      | ref_kind, cur_kind ->
+          Changed (Unshared { reference = ref_kind; current = cur_kind })
+  end
+
+  module Param = struct
+    type param_change = Added of TD.param | Removed of TD.param
+    type t = (TD.param, param_change) maybe_changed
+
+    let params ~reference ~current =
+      diff_list
+        ~diff_one:(fun ref_param cur_param ->
+          match (ref_param, cur_param) with
+          | None, None -> assert false
+          | Some param, None -> Changed (Removed param)
+          | None, Some param -> Changed (Added param)
+          | Some param, Some _ -> Same param)
+        ~ref_list:reference ~cur_list:current
+  end
+
+  type t = {
+    params : (TD.param, Param.t) list_;
+    kind : (K.t, Kind.t) maybe_changed;
+  }
+end
+
+type type_ = { tname : string; tdiff : (Intermed.TypeDecl.t, TypeDecl.t) entry }
 type value = { vname : string; vdiff : value_description atomic_entry }
 type class_ = { cname : string; cdiff : class_declaration atomic_entry }
 type cltype = { ctname : string; ctdiff : class_type_declaration atomic_entry }
@@ -77,7 +309,8 @@ let extract_items items =
           then tbl
           else
             Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
-              (type_decl, id) tbl
+              (Convert.type_declaration type_decl)
+              tbl
       | Sig_class (id, cls_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
       | Sig_class_type (id, class_type_decl, _, Exported) ->
@@ -88,16 +321,6 @@ let extract_items items =
               class_type_decl tbl
       | _ -> tbl)
     Sig_item_map.empty items
-
-let extract_lbls lbls =
-  List.fold_left
-    (fun map lbl -> String_map.add (Ident.name lbl.ld_id) lbl map)
-    String_map.empty lbls
-
-let extract_cstrs cstrs =
-  List.fold_left
-    (fun map cstr -> String_map.add (Ident.name cstr.cd_id) cstr map)
-    String_map.empty cstrs
 
 let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
   let modtype_coercion1 () =
@@ -112,178 +335,35 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
   | exception Includemod.Error _ ->
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
-let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
-    current =
-  let normed_ref, normed_cur =
-    Normalize.type_params_arity ~reference:ref_params ~current:cur_params
-  in
+let type_decls ~typing_env ~name ~reference ~current =
+  let module TD = Intermed.TypeDecl in
+  let open TypeDecl in
   if
-    Ctype.is_equal typing_env true
-      (normed_ref @ [ reference ])
-      (normed_cur @ [ current ])
-  then None
-  else Some { reference; current }
-
-let rec type_item ~typing_env ~name ~reference ~current =
-  match (reference, current) with
-  | None, None -> None
-  | Some (reference, _), None ->
-      Some (Type { tname = name; tdiff = Removed reference })
-  | None, Some (current, _) ->
-      Some (Type { tname = name; tdiff = Added current })
-  | Some (reference, _), Some (current, _) ->
-      type_declarations ~typing_env ~name ~reference ~current
-
-and type_declarations ~typing_env ~name ~reference ~current =
-  if
-    Normalize.is_type_params ~reference:reference.Types.type_params
-      ~current:current.Types.type_params
+    Normalize.is_params ~reference:reference.TD.params
+      ~current:current.TD.params
   then ()
-  else Normalize.type_declarations ~reference ~current;
-  let ref_params = reference.type_params in
-  let cur_params = current.type_params in
-  let type_kind =
-    type_kind ~typing_env ~ref_params ~cur_params ~reference:reference.type_kind
-      ~current:current.type_kind
+  else Normalize.type_decls ~reference ~current;
+  let ref_params = reference.TD.params in
+  let cur_params = current.TD.params in
+  let params =
+    TypeDecl.Param.params ~reference:reference.params ~current:current.params
   in
-  let type_privacy =
-    type_privacy ~reference:reference.type_private ~current:current.type_private
+  let kind =
+    Kind.kind ~typing_env ~ref_params ~cur_params ~reference:reference.kind
+      ~current:current.kind
   in
-  let type_manifest =
-    type_manifest ~typing_env ~ref_params ~cur_params
-      ~reference:reference.type_manifest ~current:current.type_manifest
-  in
-  let type_params = type_params ~reference:ref_params ~current:cur_params in
-  match { type_kind; type_privacy; type_manifest; type_params } with
-  | {
-   type_kind = Same _;
-   type_privacy = Same _;
-   type_manifest = Same _;
-   type_params = Same _;
-  } ->
-      None
+  match { params; kind } with
+  | { params = Same _; kind = Same _ } -> None
   | diff -> Some (Type { tname = name; tdiff = Modified diff })
 
-and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
+let type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
-  | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) ->
-      let label_map =
-        record_type ~typing_env ~ref_params ~cur_params ~ref_label_lst
-          ~cur_label_lst
-      in
-      if String_map.is_empty label_map.changed_map then Same reference
-      else Changed (Record_tk label_map)
-  | Type_variant (ref_constructor_lst, _), Type_variant (cur_constructor_lst, _)
-    ->
-      let cstr_map =
-        variant_type ~typing_env ~ref_params ~cur_params ~ref_constructor_lst
-          ~cur_constructor_lst
-      in
-      if String_map.is_empty cstr_map.changed_map then Same reference
-      else Changed (Variant_tk cstr_map)
-  | Type_abstract _, Type_abstract _ -> Same reference
-  | Type_open, Type_open -> Same reference
-  | ref_type_kind, cur_type_kind ->
-      Changed (Atomic_tk { reference = ref_type_kind; current = cur_type_kind })
-
-and record_type ~typing_env ~ref_params ~cur_params ~ref_label_lst
-    ~cur_label_lst =
-  let ref_lbls = extract_lbls ref_label_lst in
-  let cur_lbls = extract_lbls cur_label_lst in
-  diff_map
-    ~diff_one:(label ~typing_env ~ref_params ~cur_params)
-    ~ref_map:ref_lbls ~cur_map:cur_lbls
-
-and label ~typing_env ~ref_params ~cur_params reference current =
-  let label_type =
-    type_expr ~typing_env ~ref_params ~cur_params reference.ld_type
-      current.ld_type
-  in
-  let label_mutable =
-    label_mutable ~reference:reference.ld_mutable ~current:current.ld_mutable
-  in
-  match (label_type, label_mutable) with
-  | None, Same _ -> None
-  | None, label_mutable ->
-      Some { label_type = Same reference.ld_type; label_mutable }
-  | Some type_diff, label_mutable ->
-      Some { label_type = Changed type_diff; label_mutable }
-
-and label_mutable ~reference ~current =
-  match (reference, current) with
-  | Asttypes.Mutable, Asttypes.Mutable | Asttypes.Immutable, Asttypes.Immutable
-    ->
-      Same reference
-  | Asttypes.Mutable, Asttypes.Immutable -> Changed Removed_m
-  | Asttypes.Immutable, Asttypes.Mutable -> Changed Added_m
-
-and variant_type ~typing_env ~ref_params ~cur_params ~ref_constructor_lst
-    ~cur_constructor_lst =
-  let ref_cstrs = extract_cstrs ref_constructor_lst in
-  let cur_cstrs = extract_cstrs cur_constructor_lst in
-  diff_map
-    ~diff_one:(cstr ~typing_env ~ref_params ~cur_params)
-    ~ref_map:ref_cstrs ~cur_map:cur_cstrs
-
-and cstr ~typing_env ~ref_params ~cur_params reference current =
-  match (reference.cd_args, current.cd_args) with
-  | Cstr_tuple ref_tuple, Cstr_tuple cur_tuple -> (
-      let tuple =
-        tuple_type ~typing_env ~ref_params ~cur_params ~reference:ref_tuple
-          ~current:cur_tuple
-      in
-      match tuple with Same _ -> None | Changed diff -> Some (Tuple_cstr diff))
-  | Cstr_record ref_record, Cstr_record cur_record ->
-      let label_map =
-        record_type ~typing_env ~ref_params ~cur_params
-          ~ref_label_lst:ref_record ~cur_label_lst:cur_record
-      in
-      if String_map.is_empty label_map.changed_map then None
-      else Some (Record_cstr label_map)
-  | _ ->
-      Some
-        (Atomic_cstr
-           { reference = reference.cd_args; current = current.cd_args })
-
-and tuple_type ~typing_env ~ref_params ~cur_params ~reference ~current =
-  diff_list
-    ~diff_one:(fun t1 t2 ->
-      match (t1, t2) with
-      | None, None -> assert false
-      | Some t1, None -> Changed (Removed t1)
-      | None, Some t2 -> Changed (Added t2)
-      | Some t1, Some t2 -> (
-          match type_expr ~typing_env ~ref_params ~cur_params t1 t2 with
-          | None -> Same t1
-          | Some diff -> Changed (Modified diff)))
-    ~ref_list:reference ~cur_list:current
-
-and type_params ~reference ~current =
-  diff_list
-    ~diff_one:(fun t1 t2 ->
-      match (t1, t2) with
-      | None, None -> assert false
-      | Some t1, None -> Changed (Removed_tp t1)
-      | None, Some t2 -> Changed (Added_tp t2)
-      | Some t1, Some _ -> Same t1)
-    ~ref_list:reference ~cur_list:current
-
-and type_privacy ~reference ~current =
-  match (reference, current) with
-  | Asttypes.Public, Asttypes.Public -> Same Asttypes.Public
-  | Asttypes.Public, Asttypes.Private -> Changed Added_p
-  | Asttypes.Private, Asttypes.Public -> Changed Removed_p
-  | Asttypes.Private, Asttypes.Private -> Same Asttypes.Private
-
-and type_manifest ~typing_env ~ref_params ~cur_params ~reference ~current =
-  match (reference, current) with
-  | None, None -> Same None
-  | Some t1, None -> Changed (Removed t1)
-  | None, Some t2 -> Changed (Added t2)
-  | Some t1, Some t2 -> (
-      match type_expr ~typing_env ~ref_params ~cur_params t1 t2 with
-      | None -> Same (Some t1)
-      | Some diff -> Changed (Modified diff))
+  | None, None -> None
+  | Some reference, None ->
+      Some (Type { tname = name; tdiff = Removed reference })
+  | None, Some current -> Some (Type { tname = name; tdiff = Added current })
+  | Some reference, Some current ->
+      type_decls ~typing_env ~name ~reference ~current
 
 let value_item ~typing_env ~name ~reference ~current =
   match (reference, current) with

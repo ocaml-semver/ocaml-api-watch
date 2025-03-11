@@ -79,11 +79,11 @@ let compile_interface (content : string) : Types.signature =
   let signature = generate_signature intf in
   signature
 
-let first_type_declaration (signature : Types.signature) :
-    (Ident.t * Types.type_declaration) option =
+let first_type_decl signature =
   List.find_map
     (fun sig_item ->
       match sig_item with
-      | Types.Sig_type (id, td, _, _) -> Some (id, td)
+      | Types.Sig_type (id, td, _, _) ->
+          Some (Ident.name id, Api_watch.Convert.type_declaration td)
       | _ -> None)
     signature
