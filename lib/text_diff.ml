@@ -630,22 +630,28 @@ module With_colors = struct
     List.iter (pp_remove fmt) orig;
     List.iter (pp_add fmt) new_
 
-  let pp_inline_hunks fmt ihunks =
+  let pp_inline_conflict ~src ~mode =
+    match (src, mode) with
+    | _, `Color -> Fmt.(styled `Reverse string)
+    | `Orig, `Plain -> fun ppf s -> Fmt.pf ppf "[-%s-]" s
+    | `New, `Plain -> fun ppf s -> Fmt.pf ppf "{+%s+}" s
+
+  let pp_inline_hunks ~mode fmt ihunks =
     Fmt.styled (`Fg `Red)
       (pp_inline_hunks ~src:`Orig
-         ~pp_inline_conflict:Fmt.(styled `Reverse string))
+         ~pp_inline_conflict:(pp_inline_conflict ~src:`Orig ~mode))
       fmt ihunks;
     Fmt.styled (`Fg `Green)
       (pp_inline_hunks ~src:`New
-         ~pp_inline_conflict:Fmt.(styled `Reverse string))
+         ~pp_inline_conflict:(pp_inline_conflict ~src:`New ~mode))
       fmt ihunks
 
-  let printer =
+  let printer ~mode =
     printer ~common:pp_common ~line_conflict:pp_line_conflict
-      ~inline_hunks:pp_inline_hunks
+      ~inline_hunks:(pp_inline_hunks ~mode)
 
-  let pp_diff fmt diff = pp_ printer fmt diff
-  let pp fmt t = gen_pp pp_diff fmt t
+  let pp_diff ~mode fmt diff = pp_ (printer ~mode) fmt diff
+  let pp ~(mode : [ `Plain | `Color ]) fmt t = gen_pp (pp_diff ~mode) fmt t
 end
 
 module Word = struct
@@ -672,7 +678,7 @@ module Word = struct
     Fmt.pf ppf " %a\n" (Fmt.list ~sep:Fmt.nop (pp_inline_hunk ~mode)) ihunks
 
   let printer ~mode =
-    { With_colors.printer with inline_hunks = pp_inline_hunks ~mode }
+    { (With_colors.printer ~mode) with inline_hunks = pp_inline_hunks ~mode }
 
   let pp_diff ~mode fmt diff = pp_ (printer ~mode) fmt diff
   let pp ~(mode : [ `Plain | `Color ]) fmt t = gen_pp (pp_diff ~mode) fmt t

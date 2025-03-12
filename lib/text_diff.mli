@@ -19,7 +19,7 @@ val from_diff : Diff.module_ -> t
 (** Converts from a low-level diff to a textual diff *)
 
 module With_colors : sig
-  val pp : Format.formatter -> t -> unit
+  val pp : mode:[ `Plain | `Color ] -> Format.formatter -> t -> unit
   (** Same as regular [pp] but prints added lines in green and removed lines in
       red. *)
 end

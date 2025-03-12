@@ -8,7 +8,10 @@
 - Add detection of addition and removal of class type declarations (#103, @azzsal)
 - Add initial support for unwrapped libraries (#107, @Siddhi-agg, @azzsal)
 - Add detection of modified class declarations and class types (#106, @azzsal)
-- Add word-level display of textual diffs (#131, @azzsal)
+- Add word-level display of textual diffs in `api-diff`, enabled with the
+  `--word-diff` flag (#131, #136, @azzsal)
+- Add `--plain` flag to `api-diff` to use text markers for inline highlighting.
+  Can be used when the output doesn't support colors (#136, @azzsal)
 
 ### Changed
 
