@@ -49,8 +49,7 @@ let mode ~reference ~current ~main_module ~unwrapped =
 let print_diff text_diff display_mode =
   match display_mode with
   | Line mode ->
-      Api_watch.Text_diff.With_colors.pp ~mode Format.std_formatter
-        text_diff
+      Api_watch.Text_diff.With_colors.pp ~mode Format.std_formatter text_diff
   | Word mode ->
       Api_watch.Text_diff.Word.pp ~mode Format.std_formatter text_diff
 
