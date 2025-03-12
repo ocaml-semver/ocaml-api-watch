@@ -1,11 +1,31 @@
 open Types
 
-type t = { env : Env.t; subst : Subst.t }
+type t = Env.t
 type subst_kind = Type | Module | Modtype [@@deriving ord]
 
 module Subst_item_map = Map.Make (struct
   type t = subst_kind * string [@@deriving ord]
 end)
+
+let apply_subst subst signature =
+  List.map
+    (function
+      | Sig_type (id, td, r, v) ->
+          Sig_type (id, Subst.type_declaration subst td, r, v)
+      | Sig_value (id, vd, v) ->
+          Sig_value (id, Subst.value_description subst vd, v)
+      | Sig_class (id, cd, rc, v) ->
+          Sig_class (id, Subst.class_declaration subst cd, rc, v)
+      | Sig_class_type (id, ct, rc, v) ->
+          Sig_class_type (id, Subst.cltype_declaration subst ct, rc, v)
+      | Sig_modtype (id, m, v) ->
+          Sig_modtype (id, Subst.modtype_declaration Subst.Keep subst m, v)
+      | Sig_module (id, mp, md, rc, v) ->
+          Sig_module
+            (id, mp, Subst.module_declaration Subst.Keep subst md, rc, v)
+      | Sig_typext (id, ec, es, v) ->
+          Sig_typext (id, Subst.extension_constructor subst ec, es, v))
+    signature
 
 (* Traverses the current signature and generates unique IDs for items
    that have conflicting IDs with items in the reference signature. It then
@@ -59,24 +79,7 @@ let replace_matching_ids ~reference ~current =
         | _ -> (subst, item :: lst))
       current (Subst.identity, [])
   in
-  List.map
-    (function
-      | Sig_type (id, td, r, v) ->
-          Sig_type (id, Subst.type_declaration subst td, r, v)
-      | Sig_value (id, vd, v) ->
-          Sig_value (id, Subst.value_description subst vd, v)
-      | Sig_class (id, cd, rc, v) ->
-          Sig_class (id, Subst.class_declaration subst cd, rc, v)
-      | Sig_class_type (id, ct, rc, v) ->
-          Sig_class_type (id, Subst.cltype_declaration subst ct, rc, v)
-      | Sig_modtype (id, m, v) ->
-          Sig_modtype (id, Subst.modtype_declaration Subst.Keep subst m, v)
-      | Sig_module (id, mp, md, rc, v) ->
-          Sig_module
-            (id, mp, Subst.module_declaration Subst.Keep subst md, rc, v)
-      | Sig_typext (id, ec, es, v) ->
-          Sig_typext (id, Subst.extension_constructor subst ec, es, v))
-    modified_current
+  apply_subst subst modified_current
 
 let extract_subst_items signature =
   List.fold_left
@@ -119,7 +122,8 @@ let for_diff ~reference ~current =
   let env = Env.add_signature reference (Env.in_signature true Env.empty) in
   let env = Env.add_signature current env in
   let subst = pair_items ~reference ~current in
-  (reference, current, { env; subst })
+  let modified_current = apply_subst subst current in
+  (reference, modified_current, env)
 
 let pp fmt t =
   let summary = Env.summary t in
