@@ -4,8 +4,8 @@ open Stddiff
 type type_modification = {
   type_kind : (type_decl_kind, type_kind) maybe_changed;
   type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
-  type_manifest : type_expr atomic_option;
-  type_params : (type_expr, type_param) list_;
+  type_manifest : type_expr Stddiff.atomic_option;
+  type_params : (type_expr, type_param) Stddiff.list_;
 }
 
 and type_kind =
@@ -14,7 +14,7 @@ and type_kind =
   | Atomic_tk of type_decl_kind atomic_modification
 
 and label = {
-  label_type : type_expr maybe_changed_atomic;
+  label_type : type_expr Stddiff.maybe_changed_atomic;
   label_mutable : (Asttypes.mutable_flag, field_mutability) maybe_changed;
 }
 
@@ -34,9 +34,17 @@ type type_ = {
   tdiff : (type_declaration, type_modification) entry;
 }
 
-type value = { vname : string; vdiff : value_description atomic_entry }
-type class_ = { cname : string; cdiff : class_declaration atomic_entry }
-type cltype = { ctname : string; ctdiff : class_type_declaration atomic_entry }
+type value = {
+  vname : string;
+  vdiff : (value_description, type_expr atomic_modification) entry;
+}
+
+type class_ = { cname : string; cdiff : class_declaration Stddiff.atomic_entry }
+
+type cltype = {
+  ctname : string;
+  ctdiff : class_type_declaration Stddiff.atomic_entry;
+}
 
 type module_ = {
   mname : string;
@@ -112,6 +120,9 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
   | exception Includemod.Error _ ->
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
+let expand_alias_types ~typing_env ~type_expr =
+  Ctype.full_expand ~may_forget_scope:false typing_env type_expr
+
 let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
     current =
   let normed_ref, normed_cur =
@@ -122,7 +133,12 @@ let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
       (normed_ref @ [ reference ])
       (normed_cur @ [ current ])
   then None
-  else Some { reference; current }
+  else
+    Some
+      {
+        reference = expand_alias_types ~typing_env ~type_expr:reference;
+        current = expand_alias_types ~typing_env ~type_expr:current;
+      }
 
 let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
@@ -285,6 +301,9 @@ and type_manifest ~typing_env ~ref_params ~cur_params ~reference ~current =
       | None -> Same (Some t1)
       | Some diff -> Changed (Modified diff))
 
+let value_descripiton ~typing_env reference current =
+  type_expr ~typing_env reference.val_type current.val_type
+
 let value_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
@@ -292,21 +311,11 @@ let value_item ~typing_env ~name ~reference ~current =
       Some (Value { vname = name; vdiff = Removed reference })
   | None, Some current -> Some (Value { vname = name; vdiff = Added current })
   | Some reference, Some current -> (
-      let val_coercion1 () =
-        Includecore.value_descriptions ~loc:current.val_loc typing_env name
-          current reference
-      in
-      let val_coercion2 () =
-        Includecore.value_descriptions ~loc:reference.val_loc typing_env name
-          reference current
-      in
-      match (val_coercion1 (), val_coercion2 ()) with
-      | Tcoerce_none, Tcoerce_none -> None
-      | _, _ ->
-          Some (Value { vname = name; vdiff = Modified { reference; current } })
-      | exception Includecore.Dont_match _ ->
-          Some (Value { vname = name; vdiff = Modified { reference; current } })
-      )
+      let val_type_diff = value_descripiton ~typing_env reference current in
+      match val_type_diff with
+      | None -> None
+      | Some type_expr_diff ->
+          Some (Value { vname = name; vdiff = Modified type_expr_diff }))
 
 let class_item ~typing_env ~name ~(reference : class_declaration option)
     ~(current : class_declaration option) =
@@ -354,19 +363,18 @@ let class_type_item ~typing_env ~name
                      { reference = ref_class_type; current = curr_class_type };
                }))
 
-let rec items ~reference ~current =
-  let env = Typing_env.for_diff ~reference ~current in
+let rec items ~reference ~current ~typing_env =
   let ref_items = extract_items reference in
   let curr_items = extract_items current in
   let diff_item : type a. (a, 'diff) Sig_item_map.diff_item =
    fun item_type name reference current ->
     match item_type with
-    | Value -> value_item ~typing_env:env ~name ~reference ~current
-    | Module -> module_item ~typing_env:env ~name ~reference ~current
-    | Modtype -> module_type_item ~typing_env:env ~name ~reference ~current
-    | Type -> type_item ~typing_env:env ~name ~reference ~current
-    | Class -> class_item ~typing_env:env ~name ~reference ~current
-    | Classtype -> class_type_item ~typing_env:env ~name ~reference ~current
+    | Value -> value_item ~typing_env ~name ~reference ~current
+    | Module -> module_item ~typing_env ~name ~reference ~current
+    | Modtype -> module_type_item ~typing_env ~name ~reference ~current
+    | Type -> type_item ~typing_env ~name ~reference ~current
+    | Class -> class_item ~typing_env ~name ~reference ~current
+    | Classtype -> class_type_item ~typing_env ~name ~reference ~current
   in
   Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 
@@ -407,20 +415,25 @@ and module_type ~typing_env ~name ~ref_module_type ~current_module_type
     ~reference_location =
   match (ref_module_type, current_module_type) with
   | Mty_signature ref_submod, Mty_signature curr_submod ->
-      signatures ~typing_env ~reference:ref_submod ~current:curr_submod
+      signatures ~reference:ref_submod ~current:curr_submod
       |> Option.map (fun mdiff -> Module { mname = name; mdiff })
   | ref_modtype, curr_modtype ->
       module_type_fallback ~loc:reference_location ~typing_env ~name
         ~reference:ref_modtype ~current:curr_modtype
 
-and signatures ~typing_env ~reference ~current =
-  match items ~reference ~current with
+and signatures ~reference ~current =
+  let modified_reference, modified_current, typing_env =
+    Typing_env.for_diff ~reference ~current
+  in
+  match
+    items ~reference:modified_reference ~current:modified_current ~typing_env
+  with
   | [] -> (
       let coercion1 () =
-        Includemod.signatures typing_env ~mark:Mark_both reference current
+        Includemod.signatures Env.empty ~mark:Mark_both reference current
       in
       let coercion2 () =
-        Includemod.signatures typing_env ~mark:Mark_both current reference
+        Includemod.signatures Env.empty ~mark:Mark_both current reference
       in
       match (coercion1 (), coercion2 ()) with
       | Tcoerce_none, Tcoerce_none -> None
@@ -429,8 +442,7 @@ and signatures ~typing_env ~reference ~current =
   | item_changes -> Some (Modified (Supported item_changes))
 
 let interface ~module_name ~reference ~current =
-  let typing_env = Env.empty in
-  let sig_out = signatures ~typing_env ~reference ~current in
+  let sig_out = signatures ~reference ~current in
   Option.map (fun mdiff -> { mname = module_name; mdiff }) sig_out
 
 let library ~reference ~current =

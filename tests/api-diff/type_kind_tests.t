@@ -78,3 +78,34 @@ Run the api-watcher on two abstract type kinds cmi files
 Run the api-watcher on two open type kinds cmi files
 
   $ api-diff ref_open_kind.cmi ref_open_kind.cmi
+
+Here we generate a `.mli` file with a recursive type
+
+  $ cat > recursive.mli << EOF
+  > type 'a lst = Nil | Cons of 'a * 'a lst
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc recursive.mli
+
+# Adding another item to the Cons constructor
+
+  $ cat > add_item.mli << EOF
+  > type 'a lst = Nil | Cons of 'a * 'a * 'a lst
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc add_item.mli
+
+Run the api-watcher on the two cmi files
+
+  $ api-diff recursive.cmi add_item.cmi
+  diff module Add_item:
+   type 'a lst =
+     | Nil
+  -  | Cons of 'a * 'a lst
+  +  | Cons of 'a * 'a * 'a lst
+  
+  [1]

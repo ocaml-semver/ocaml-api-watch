@@ -2,21 +2,21 @@
 
 open Types
 
-val for_diff : reference:signature -> current:signature -> Env.t
-(** Returns a typing environment suited for diffing two versions,
-    [reference] and [current], of the same signature.
-    We need to force the compiler to treat types from the two signatures
-    as equal.
-    
-    To do so, we first add the [reference] signature to our fresh
-    typing environment and then add a modified version of [current]
-    with type equalities set.
-    Roughly put, if there is a [type t] declared in both signatures,
-    by default, those will be attributed a separate ID by the compiler
-    and considered incompatible, treating them as [type t1] and [type t2].
-    To work around that, we first add [type t1] and then [type t2 = t1].
-    It can be the case that the types are structuraly incompatible because they
-    were modified between the two versions but the compiler will accept those.
+type t = Env.t
+
+val for_diff :
+  reference:signature -> current:signature -> signature * signature * t
+(** Returns two modified signatures with unique IDs that are suitable
+    for placing in the same typing environment that we use for diffing.
+
+    To do so, we first add the [reference] signature to a fresh typing
+    environment and then modify the [current] signature items to have
+    different IDs from the [reference] signature items.
+    We then build a subsitition for non alias types, modules and module types,
+    so that these items appearing in the [current] signature are treated
+    equally across the two signatures by the compiler.
+    We then run the subst aganist the signature items in the [current]
+    signature before diffing it with signature item in the [reference] signature.
 *)
 
 val pp : Format.formatter -> Env.t -> unit

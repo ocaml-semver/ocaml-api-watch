@@ -22,6 +22,8 @@
   - Improve the diff representation of type declarations to have type parameters diff (#113,@azzsal)
   - Improve the textual diff representation output to have highlighting of exact
     changes in a line (#126,@azzsal)
+  - Improve handling of type equalities across the reference and current
+    versions of the interface. (#134, @azzsal)
 
 ### Deprecated
 
@@ -31,6 +33,9 @@
 - Remove duplicate items in class and class types (#105, @azzsal)
 - Fixed loading of modules whose signature is given by a path to a module type:
   `module X : Y` (#128, @panglesd)
+- Fixed initialization of the typing enviorment (#134, @azzsal)
+- Fix a bug the was causing the tool to stack overflow when dealing with
+  some instances of parametrized types (#134, @azzsal)
 
 ### Removed
 

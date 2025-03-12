@@ -69,3 +69,33 @@ Run api-diff and check the output
   +val f : t -> t
   
   [1]
+
+### Value referencing an abstract type
+
+api-diff should be able to tell two, non alias types from both versions of the
+API should be considered equal when referenced by a value.
+
+Generate a reference .mli file:
+  $ cat > value_with_abstract_type_ref.mli << EOF
+  > type t = { a : int }
+  > val x : t
+  > EOF
+
+and the current .mli file, (identical):
+  $ cat > value_with_abstract_type_cur.mli << EOF
+  > type t = { a : float }
+  > val x : t
+  > EOF
+
+Let's compile both interfaces:
+  $ ocamlc value_with_abstract_type_ref.mli
+  $ ocamlc value_with_abstract_type_cur.mli
+
+and run the tool, it should report no diff:
+  $ api-diff value_with_abstract_type_ref.cmi value_with_abstract_type_cur.cmi
+  diff module Value_with_abstract_type_cur:
+   type t =
+  -  { a : int; }
+  +  { a : float; }
+  
+  [1]
