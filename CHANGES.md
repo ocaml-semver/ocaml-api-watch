@@ -24,6 +24,7 @@
     changes in a line (#126,@azzsal)
   - Improve handling of type equalities across the reference and current
     versions of the interface. (#134, @azzsal)
+  - Initialize the typing enviorment with the standard library
 
 ### Deprecated
 
