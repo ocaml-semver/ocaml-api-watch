@@ -1,15 +1,12 @@
 let tool_name = "api-diff"
 
 type mode = Unwrapped | Wrapped of string | Cmi
-type mark = Plain | Color
+type mark = [ `Plain | `Color ]
 type display = Line of mark | Word of mark
 
 let display_mode word_diff plain =
-  match (word_diff, plain) with
-  | false, false -> Ok (Line Color)
-  | false, true -> Ok (Line Plain)
-  | true, false -> Ok (Word Color)
-  | true, true -> Ok (Word Plain)
+  let mark = if plain then `Plain else `Color in
+  if word_diff then Word mark else Line mark
 
 let both_directories reference current =
   match (Sys.is_directory reference, Sys.is_directory current) with
@@ -51,16 +48,11 @@ let mode ~reference ~current ~main_module ~unwrapped =
 
 let print_diff text_diff display_mode =
   match display_mode with
-  | Line Color ->
-      Api_watch.Text_diff.With_colors.pp ~mode:`Color Format.std_formatter
+  | Line mode ->
+      Api_watch.Text_diff.With_colors.pp ~mode Format.std_formatter
         text_diff
-  | Line Plain ->
-      Api_watch.Text_diff.With_colors.pp ~mode:`Plain Format.std_formatter
-        text_diff
-  | Word Color ->
-      Api_watch.Text_diff.Word.pp ~mode:`Color Format.std_formatter text_diff
-  | Word Plain ->
-      Api_watch.Text_diff.Word.pp ~mode:`Plain Format.std_formatter text_diff
+  | Word mode ->
+      Api_watch.Text_diff.Word.pp ~mode Format.std_formatter text_diff
 
 let run (`Word_diff word_diff) (`Plain plain) (`Main_module main_module)
     (`Unwrapped_library unwrapped) (`Ref_cmi reference) (`Current_cmi current) =
@@ -94,7 +86,7 @@ let run (`Word_diff word_diff) (`Plain plain) (`Main_module main_module)
     |> List.filter_map (fun (_, v) -> v)
   in
   let has_changes = not (List.is_empty diff_map) in
-  let* display_mode = display_mode word_diff plain in
+  let display_mode = display_mode word_diff plain in
   List.iter
     (fun diff ->
       let text_diff = Api_watch.Text_diff.from_diff diff in
