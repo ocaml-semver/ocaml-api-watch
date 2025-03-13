@@ -124,13 +124,13 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
     current =
   match (Types.get_desc reference, Types.get_desc current) with
   | Ttuple ref_exps, Ttuple cur_exps -> (
-      let tuple_ =
-        tuple ~typing_env ~ref_params ~cur_params ~reference:ref_exps
+      let type_exprs =
+        type_exprs ~typing_env ~ref_params ~cur_params ~reference:ref_exps
           ~current:cur_exps
       in
-      match tuple_ with
+      match type_exprs with
       | Same _ -> Same reference
-      | Changed tuple_change -> Changed (Tuple tuple_change))
+      | Changed change -> Changed (Tuple change))
   | _ ->
       let normed_ref, normed_cur =
         Normalize.type_params_arity ~reference:ref_params ~current:cur_params
@@ -148,7 +148,7 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
                current = expand_alias_types ~typing_env ~type_expr:current;
              })
 
-and tuple ~typing_env ~ref_params ~cur_params ~reference ~current =
+and type_exprs ~typing_env ~ref_params ~cur_params ~reference ~current =
   List_.diff
     ~diff_one:(fun ref cur ->
       type_expr ~typing_env ~ref_params ~cur_params ref cur)
@@ -257,12 +257,12 @@ and variant_type ~typing_env ~ref_params ~cur_params ~ref_constructor_lst
 
 and cstr ~typing_env ~ref_params ~cur_params reference current =
   match (reference.cd_args, current.cd_args) with
-  | Cstr_tuple ref_tuple, Cstr_tuple cur_tuple -> (
-      let tuple =
-        tuple ~typing_env ~ref_params ~cur_params ~reference:ref_tuple
-          ~current:cur_tuple
+  | Cstr_tuple ref_type_exprs, Cstr_tuple cur_type_exprs -> (
+      let type_exprs =
+        type_exprs ~typing_env ~ref_params ~cur_params ~reference:ref_type_exprs
+          ~current:cur_type_exprs
       in
-      match tuple with
+      match type_exprs with
       | Same _ -> Same reference
       | Changed change -> Changed (Tuple_cstr change))
   | Cstr_record ref_record, Cstr_record cur_record ->

@@ -482,7 +482,8 @@ and process_type_expr_diff (diff : Diff.typ_exp) : inline_hunk list =
             inew = Some (type_expr_to_string current);
           };
       ]
-  | Tuple tuple_diff -> process_tuple_type_diff tuple_diff
+  | Tuple tuple_diff ->
+      (Icommon "(" :: process_tuple_type_diff tuple_diff) @ [ Icommon ")" ]
 
 and cstr_args_to_line cstr_args =
   match cstr_args with
