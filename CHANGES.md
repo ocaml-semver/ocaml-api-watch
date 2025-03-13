@@ -12,6 +12,7 @@
   `--word-diff` flag (#131, #136, @azzsal)
 - Add `--plain` flag to `api-diff` to use text markers for inline highlighting.
   Can be used when the output doesn't support colors (#136, @azzsal)
+- Add fine-grained diff of tuple types (#139, @azzsal)
 
 ### Changed
 
