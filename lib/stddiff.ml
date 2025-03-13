@@ -29,13 +29,42 @@ type ('same, 'diff) option_ = ('same option, ('same, 'diff) entry) maybe_changed
 type 'same atomic_option = ('same, 'same atomic_modification) option_
 type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
 
-let diff_list :
-      'a 'diff.
-      diff_one:('a option -> 'a option -> ('a, 'diff) maybe_changed) ->
-      ref_list:'a list ->
-      cur_list:'a list ->
-      ('a list, ('a, 'diff) maybe_changed list) maybe_changed =
- fun ~diff_one ~ref_list ~cur_list ->
+module List_ = struct
+  type ('a, 'diff) t = ('a, ('a, 'diff) entry) maybe_changed list
+
+  let diff ~diff_one ~reference ~current =
+    let rec aux reference current (acc, all) =
+      match (reference, current) with
+      | [], [] -> (List.rev acc, all)
+      | hd :: tl, [] -> aux tl [] (Changed (Removed hd) :: acc, false)
+      | [], hd :: tl -> aux [] tl (Changed (Added hd) :: acc, false)
+      | hd :: tl, hd' :: tl' -> (
+          let res = diff_one hd hd' in
+          match res with
+          | Same same -> aux tl tl' (Same same :: acc, true && all)
+          | Changed change ->
+              aux tl tl' (Changed (Modified change) :: acc, false && all))
+    in
+    let list_diff, all_same = aux reference current ([], true) in
+    if all_same then Same reference else Changed list_diff
+end
+
+module Option_ = struct
+  type ('a, 'diff) t = ('a option, ('a, 'diff) entry) maybe_changed
+
+  let diff ~diff_one ~reference ~current =
+    match (reference, current) with
+    | None, None -> Same None
+    | Some ref, None -> Changed (Removed ref)
+    | None, Some cur -> Changed (Added cur)
+    | Some ref, Some cur -> (
+        let res = diff_one ref cur in
+        match res with
+        | Same same -> Same (Some same)
+        | Changed change -> Changed (Modified change))
+end
+
+let diff_list ~diff_one ~ref_list ~cur_list =
   let rec aux reference current (acc, all) =
     match (reference, current) with
     | [], [] -> (List.rev acc, all)

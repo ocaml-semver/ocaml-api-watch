@@ -1,3 +1,9 @@
+type typ_exp =
+  | Tuple of tuple
+  | Atomic of Types.type_expr Stddiff.atomic_modification
+
+and tuple = (Types.type_expr, typ_exp) Stddiff.List_.t
+
 type type_modification = {
   type_kind : (Types.type_decl_kind, type_kind) Stddiff.maybe_changed;
   type_privacy : (Asttypes.private_flag, type_privacy) Stddiff.maybe_changed;

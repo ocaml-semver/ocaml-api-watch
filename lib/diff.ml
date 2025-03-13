@@ -1,10 +1,13 @@
 open Types
 open Stddiff
 
+type typ_exp = Tuple of tuple | Atomic of type_expr atomic_modification
+and tuple = (type_expr, typ_exp) List_.t
+
 type type_modification = {
   type_kind : (type_decl_kind, type_kind) maybe_changed;
   type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
-  type_manifest : type_expr Stddiff.atomic_option;
+  type_manifest : (Types.type_expr, typ_exp) Option_.t;
   type_params : (type_expr, type_param) Stddiff.list_;
 }
 
@@ -14,7 +17,7 @@ and type_kind =
   | Atomic_tk of type_decl_kind atomic_modification
 
 and label = {
-  label_type : type_expr Stddiff.maybe_changed_atomic;
+  label_type : (Types.type_expr, typ_exp) maybe_changed;
   label_mutable : (Asttypes.mutable_flag, field_mutability) maybe_changed;
 }
 
@@ -34,11 +37,7 @@ type type_ = {
   tdiff : (type_declaration, type_modification) entry;
 }
 
-type value = {
-  vname : string;
-  vdiff : (value_description, type_expr atomic_modification) entry;
-}
-
+type value = { vname : string; vdiff : (value_description, typ_exp) entry }
 type class_ = { cname : string; cdiff : class_declaration Stddiff.atomic_entry }
 
 type cltype = {
@@ -123,22 +122,39 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
 let expand_alias_types ~typing_env ~type_expr =
   Ctype.full_expand ~may_forget_scope:false typing_env type_expr
 
-let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
+let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
     current =
-  let normed_ref, normed_cur =
-    Normalize.type_params_arity ~reference:ref_params ~current:cur_params
-  in
-  if
-    Ctype.is_equal typing_env true
-      (normed_ref @ [ reference ])
-      (normed_cur @ [ current ])
-  then None
-  else
-    Some
-      {
-        reference = expand_alias_types ~typing_env ~type_expr:reference;
-        current = expand_alias_types ~typing_env ~type_expr:current;
-      }
+  match (Types.get_desc reference, Types.get_desc current) with
+  | Ttuple ref_exps, Ttuple cur_exps -> (
+      let tuple_ =
+        tuple ~typing_env ~ref_params ~cur_params ~reference:ref_exps
+          ~current:cur_exps
+      in
+      match tuple_ with
+      | Same _ -> Same reference
+      | Changed tuple_change -> Changed (Tuple tuple_change))
+  | _ ->
+      let normed_ref, normed_cur =
+        Normalize.type_params_arity ~reference:ref_params ~current:cur_params
+      in
+      if
+        Ctype.is_equal typing_env true
+          (normed_ref @ [ reference ])
+          (normed_cur @ [ current ])
+      then Same reference
+      else
+        Changed
+          (Atomic
+             {
+               reference = expand_alias_types ~typing_env ~type_expr:reference;
+               current = expand_alias_types ~typing_env ~type_expr:current;
+             })
+
+and tuple ~typing_env ~ref_params ~cur_params ~reference ~current =
+  List_.diff
+    ~diff_one:(fun ref cur ->
+      type_expr ~typing_env ~ref_params ~cur_params ref cur)
+    ~reference ~current
 
 let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
@@ -219,10 +235,10 @@ and label ~typing_env ~ref_params ~cur_params reference current =
     label_mutable ~reference:reference.ld_mutable ~current:current.ld_mutable
   in
   match (label_type, label_mutable) with
-  | None, Same _ -> None
-  | None, label_mutable ->
+  | Same _, Same _ -> None
+  | Same _, label_mutable ->
       Some { label_type = Same reference.ld_type; label_mutable }
-  | Some type_diff, label_mutable ->
+  | Changed type_diff, label_mutable ->
       Some { label_type = Changed type_diff; label_mutable }
 
 and label_mutable ~reference ~current =
@@ -292,14 +308,9 @@ and type_privacy ~reference ~current =
   | Asttypes.Private, Asttypes.Private -> Same Asttypes.Private
 
 and type_manifest ~typing_env ~ref_params ~cur_params ~reference ~current =
-  match (reference, current) with
-  | None, None -> Same None
-  | Some t1, None -> Changed (Removed t1)
-  | None, Some t2 -> Changed (Added t2)
-  | Some t1, Some t2 -> (
-      match type_expr ~typing_env ~ref_params ~cur_params t1 t2 with
-      | None -> Same (Some t1)
-      | Some diff -> Changed (Modified diff))
+  Option_.diff
+    ~diff_one:(type_expr ~typing_env ~ref_params ~cur_params)
+    ~reference ~current
 
 let value_descripiton ~typing_env reference current =
   type_expr ~typing_env reference.val_type current.val_type
@@ -313,8 +324,8 @@ let value_item ~typing_env ~name ~reference ~current =
   | Some reference, Some current -> (
       let val_type_diff = value_descripiton ~typing_env reference current in
       match val_type_diff with
-      | None -> None
-      | Some type_expr_diff ->
+      | Same _ -> None
+      | Changed type_expr_diff ->
           Some (Value { vname = name; vdiff = Modified type_expr_diff }))
 
 let class_item ~typing_env ~name ~(reference : class_declaration option)

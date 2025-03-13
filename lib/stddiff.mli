@@ -29,6 +29,26 @@ type ('same, 'diff) option_ = ('same option, ('same, 'diff) entry) maybe_changed
 type 'same atomic_option = ('same, 'same atomic_modification) option_
 type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
 
+module List_ : sig
+  type ('a, 'diff) t = ('a, ('a, 'diff) entry) maybe_changed list
+
+  val diff :
+    diff_one:('a -> 'a -> ('a, 'diff) maybe_changed) ->
+    reference:'a list ->
+    current:'a list ->
+    ('a list, ('a, 'diff) t) maybe_changed
+end
+
+module Option_ : sig
+  type ('a, 'diff) t = ('a option, ('a, 'diff) entry) maybe_changed
+
+  val diff :
+    diff_one:('a -> 'a -> ('a, 'diff) maybe_changed) ->
+    reference:'a option ->
+    current:'a option ->
+    ('a, 'diff) t
+end
+
 val diff_list :
   'a 'diff.
   diff_one:('a option -> 'a option -> ('a, 'diff) maybe_changed) ->
