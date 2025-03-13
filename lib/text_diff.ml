@@ -257,12 +257,13 @@ and process_type_params_diff params_diff =
             | Same same_param ->
                 Icommon
                   (Printf.sprintf "%s%s" comma (type_expr_to_string same_param))
-            | Changed (Added_tp p) ->
+            | Changed (Added p) ->
                 Iconflict
                   { iorig = None; inew = Some (comma ^ type_expr_to_string p) }
-            | Changed (Removed_tp p) ->
+            | Changed (Removed p) ->
                 Iconflict
-                  { iorig = Some (comma ^ type_expr_to_string p); inew = None })
+                  { iorig = Some (comma ^ type_expr_to_string p); inew = None }
+            | Changed (Modified _) -> assert false)
           changed_params
   in
   let open_paren = Icommon " (" in
