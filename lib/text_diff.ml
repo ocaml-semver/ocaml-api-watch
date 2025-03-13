@@ -394,8 +394,7 @@ and process_label_diff name label_diff =
 and process_label_type_diff label_type_diff =
   match label_type_diff with
   | Stddiff.Same te -> [ Icommon (" " ^ type_expr_to_string te) ]
-  | Stddiff.Changed te_diff ->
-        Icommon " " :: (process_type_expr_diff te_diff)
+  | Stddiff.Changed te_diff -> Icommon " " :: process_type_expr_diff te_diff
 
 and process_mutablity_diff mutablity_diff =
   let open Stddiff in
@@ -474,7 +473,7 @@ and process_tuple_type_diff diff =
           let te_hunks = process_type_expr_diff ~paren:true te in
           if i > 0 then Icommon " * " :: te_hunks else te_hunks)
     diff
-  |> List.concat
+            |> List.concat
 
 and process_type_expr_diff ?(paren = true) (diff : Diff.type_expr) :
     inline_hunk list =
