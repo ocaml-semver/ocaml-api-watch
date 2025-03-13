@@ -12,7 +12,6 @@ type 'a atomic_modification = { reference : 'a; current : 'a }
     occured. Use this type when there is no better representation available. *)
 
 type 'item atomic_entry = ('item, 'item atomic_modification) entry
-
 type ('same, 'change) maybe_changed = Same of 'same | Changed of 'change
 
 module List_ = struct

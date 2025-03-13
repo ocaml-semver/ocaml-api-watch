@@ -346,10 +346,7 @@ and process_manifest_diff manifest_diff =
       [ Iconflict { iorig = None; inew = Some (" " ^ type_expr_to_string te) } ]
   | Changed (Removed te) ->
       [ Iconflict { iorig = Some (" " ^ type_expr_to_string te); inew = None } ]
-  | Changed (Modified te_diff) ->
-        Icommon " " ::
-        process_type_expr_diff te_diff
-
+  | Changed (Modified te_diff) -> Icommon " " :: process_type_expr_diff te_diff
 
 and process_type_kind_diff kind_diff =
   match kind_diff with
@@ -394,8 +391,7 @@ and process_label_diff name label_diff =
 and process_label_type_diff label_type_diff =
   match label_type_diff with
   | Stddiff.Same te -> [ Icommon (" " ^ type_expr_to_string te) ]
-  | Stddiff.Changed te_diff ->
-        Icommon " " :: (process_type_expr_diff te_diff)
+  | Stddiff.Changed te_diff -> Icommon " " :: process_type_expr_diff te_diff
 
 and process_mutablity_diff mutablity_diff =
   let open Stddiff in
@@ -472,18 +468,20 @@ and process_tuple_type_diff tuple_diff =
           ]
       | Changed (Modified te) ->
           let te_hunks = process_type_expr_diff te in
-          if i > 0 then Icommon " * " :: te_hunks else te_hunks )
+          if i > 0 then Icommon " * " :: te_hunks else te_hunks)
     tuple_diff
   |> List.concat
 
 and process_type_expr_diff (diff : Diff.typ_exp) : inline_hunk list =
   match diff with
   | Diff.Atomic { reference; current } ->
-    [ Iconflict
-      {
-        iorig = Some (type_expr_to_string reference);
-        inew = Some (type_expr_to_string current);
-      } ]
+      [
+        Iconflict
+          {
+            iorig = Some (type_expr_to_string reference);
+            inew = Some (type_expr_to_string current);
+          };
+      ]
   | Tuple tuple_diff -> process_tuple_type_diff tuple_diff
 
 and cstr_args_to_line cstr_args =
@@ -509,7 +507,7 @@ and tuple_to_line tuple =
 let process_vd_diff name diff =
   let header = Icommon (Format.sprintf "val %s : " name) in
   let type_ = process_type_expr_diff diff in
-  [ Inline_hunks (header :: type_)  ]
+  [ Inline_hunks (header :: type_) ]
 
 let process_value_diff (val_diff : Diff.value) =
   process_entry ~entry_to_string:vd_to_lines
