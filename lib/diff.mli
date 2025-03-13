@@ -13,8 +13,7 @@ type type_modification = {
     Stddiff.maybe_changed;
   type_params :
     ( Types.type_expr list,
-      (Types.type_expr, type_expr) Stddiff.List.t )
-    Stddiff.maybe_changed;
+      (Types.type_expr, type_expr) Stddiff.List.t) Stddiff.maybe_changed
 }
 
 and type_kind =
