@@ -25,6 +25,8 @@ components of the two tuples
   diff module Change:
   -type t = [-int-] * int * int
   +type t = {+float+} * int * int
+  
+  [1]
 
 ### Adding a component to a tuple
 
@@ -41,4 +43,6 @@ Run the api-watcher on the two cmi files, the added component should be marked
   $ api-diff --plain ref.cmi add.cmi
   diff module Add:
   -type t = int * int * int
-  +type t = int * int * int {+* string+}
+  +type t = int * int * int{+ * string+}
+  
+  [1]

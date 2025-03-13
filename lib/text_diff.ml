@@ -240,7 +240,6 @@ and process_privacy_diff privacy_diff =
 
 and process_type_params_diff params_diff =
   let open Stddiff in
-  let open Diff in
   let params_hunks =
     match params_diff with
     | Same params ->
@@ -347,15 +346,10 @@ and process_manifest_diff manifest_diff =
       [ Iconflict { iorig = None; inew = Some (" " ^ type_expr_to_string te) } ]
   | Changed (Removed te) ->
       [ Iconflict { iorig = Some (" " ^ type_expr_to_string te); inew = None } ]
-  | Changed (Modified { reference; current }) ->
-      [
-        Icommon " ";
-        Iconflict
-          {
-            iorig = Some (type_expr_to_string reference);
-            inew = Some (type_expr_to_string current);
-          };
-      ]
+  | Changed (Modified te_diff) ->
+        Icommon " " ::
+        process_type_expr_diff te_diff
+
 
 and process_type_kind_diff kind_diff =
   match kind_diff with
@@ -369,7 +363,7 @@ and process_type_kind_diff kind_diff =
       [ Line_conflict { orig; new_ } ]
 
 and process_record_type_diff record_diff =
-  let open Stddiff in
+  let open Stddiff.Map_ in
   let { same_map = same_lbls; changed_map = changed_lbls } = record_diff in
   let common_hunks =
     List.map
@@ -400,15 +394,8 @@ and process_label_diff name label_diff =
 and process_label_type_diff label_type_diff =
   match label_type_diff with
   | Stddiff.Same te -> [ Icommon (" " ^ type_expr_to_string te) ]
-  | Stddiff.Changed { reference; current } ->
-      [
-        Icommon " ";
-        Iconflict
-          {
-            iorig = Some (type_expr_to_string reference);
-            inew = Some (type_expr_to_string current);
-          };
-      ]
+  | Stddiff.Changed te_diff ->
+        Icommon " " :: (process_type_expr_diff te_diff)
 
 and process_mutablity_diff mutablity_diff =
   let open Stddiff in
@@ -427,7 +414,7 @@ and type_kind_to_lines type_kind =
   | Type_open -> [ ".." ]
 
 and process_variant_type_diff variant_diff =
-  let open Stddiff in
+  let open Stddiff.Map_ in
   let { same_map = same_cstrs; changed_map = changed_cstrs } = variant_diff in
   let common_hunks =
     List.map
@@ -483,17 +470,21 @@ and process_tuple_type_diff tuple_diff =
             Iconflict
               { iorig = Some (star ^ type_expr_to_string te); inew = None };
           ]
-      | Changed (Modified { reference; current }) ->
-          let te_hunk =
-            Iconflict
-              {
-                iorig = Some (type_expr_to_string reference);
-                inew = Some (type_expr_to_string current);
-              }
-          in
-          if i > 0 then [ Icommon " * "; te_hunk ] else [ te_hunk ])
+      | Changed (Modified te) ->
+          let te_hunks = process_type_expr_diff te in
+          if i > 0 then Icommon " * " :: te_hunks else te_hunks )
     tuple_diff
   |> List.concat
+
+and process_type_expr_diff (diff : Diff.typ_exp) : inline_hunk list =
+  match diff with
+  | Diff.Atomic { reference; current } ->
+    [ Iconflict
+      {
+        iorig = Some (type_expr_to_string reference);
+        inew = Some (type_expr_to_string current);
+      } ]
+  | Tuple tuple_diff -> process_tuple_type_diff tuple_diff
 
 and cstr_args_to_line cstr_args =
   match cstr_args with
@@ -515,15 +506,10 @@ and lbls_to_line lbls =
 and tuple_to_line tuple =
   List.map type_expr_to_string tuple |> String.concat " * "
 
-let process_vd_diff name
-    ({ reference; current } : Types.type_expr Stddiff.atomic_modification) =
+let process_vd_diff name diff =
   let header = Icommon (Format.sprintf "val %s : " name) in
-  let type_ =
-    let iorig = Some (type_expr_to_string reference) in
-    let inew = Some (type_expr_to_string current) in
-    Iconflict { iorig; inew }
-  in
-  [ Inline_hunks [ header; type_ ] ]
+  let type_ = process_type_expr_diff diff in
+  [ Inline_hunks (header :: type_)  ]
 
 let process_value_diff (val_diff : Diff.value) =
   process_entry ~entry_to_string:vd_to_lines

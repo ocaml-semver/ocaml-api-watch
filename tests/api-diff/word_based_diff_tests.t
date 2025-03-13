@@ -28,7 +28,7 @@ Run api-watcher on the two cmi file with word-level diffing flag enabled
 
   $ api-diff --word-diff ref.cmi cur.cmi
   diff module Cur:
-   type 'a p = 'a * 'aint * int
+   type 'a p = 'aint * 'aint
    type t = int
    type ('a, 'b, 'c) u =
      { mutable a : 'a; b : 'bint; c : 'c; }
@@ -42,7 +42,7 @@ Run api-watcher on the two cmi file with plain and word-level diffing flags enab
 
   $ api-diff --word-diff --plain ref.cmi cur.cmi
   diff module Cur:
-   type [-'a-] p = [-'a * 'a-]{+int * int+}
+   type [-'a-] p = [-'a-]{+int+} * [-'a-]{+int+}
    type t[- =-][- int-]
    type ('a[-, 'b-][-, 'c-]) u =
      {[- mutable-] a : 'a; b : [-'b-]{+int+};[- c : 'c;-] }
