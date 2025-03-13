@@ -394,7 +394,8 @@ and process_label_diff name label_diff =
 and process_label_type_diff label_type_diff =
   match label_type_diff with
   | Stddiff.Same te -> [ Icommon (" " ^ type_expr_to_string te) ]
-  | Stddiff.Changed te_diff -> Icommon " " :: process_type_expr_diff te_diff
+  | Stddiff.Changed te_diff ->
+        Icommon " " :: (process_type_expr_diff te_diff)
 
 and process_mutablity_diff mutablity_diff =
   let open Stddiff in
