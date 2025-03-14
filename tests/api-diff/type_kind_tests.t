@@ -65,9 +65,9 @@ Run the api-watcher on record and open type kinds cmi files
 
   $ api-diff ref_record_kind.cmi ref_open_kind.cmi
   diff module Ref_open_kind:
-   type t =
+  -type t =
+  +type t = ..
   -  { a : int; b : float; }
-  +  ..
   
   [1]
 

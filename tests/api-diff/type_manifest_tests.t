@@ -64,6 +64,7 @@ Run the api-watcher on the two cmi files
   -type t
   +type t = u = private
   +  { a : int; }
-  +type u = { a : int; }
+  +type u =
+  +  { a : int; }
   
   [1]

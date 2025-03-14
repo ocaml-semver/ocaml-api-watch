@@ -100,22 +100,22 @@ let params_to_string params =
   let module TD = Intermed.TypeDecl in
   match params with
   | [] -> ""
-  | param :: [] -> type_expr_to_string param.TD.type_expr
+  | param :: [] -> " " ^ type_expr_to_string param.TD.type_expr
   | _ ->
-      Printf.sprintf "(%s)"
+      Printf.sprintf " (%s)"
         (String.concat ", "
            (List.map
               (fun param -> type_expr_to_string param.TD.type_expr)
               params))
 
-let private_to_string private_ = if private_ then "private" else ""
-let mutable_to_string mutable_ = if mutable_ then "mutable" else ""
+let private_to_string private_ = if private_ then " private" else ""
+let mutable_to_string mutable_ = if mutable_ then " mutable" else ""
 
 let field_to_string field =
   let open Intermed.TypeDecl.Field in
   let mutable_string = mutable_to_string field.mutable_ in
   let type_expr_string = type_expr_to_string field.type_ in
-  Printf.sprintf " %s %s : %s;" mutable_string field.name type_expr_string
+  Printf.sprintf " %s%s : %s;" mutable_string field.name type_expr_string
 
 let fields_to_line fields =
   let len = List.length fields in
@@ -127,7 +127,7 @@ let fields_to_line fields =
       else if i = len - 1 then Printf.sprintf "%s }" s
       else s)
     fields
-  |> String.concat " "
+  |> String.concat ""
 
 and tuple_to_line tuple =
   List.map type_expr_to_string tuple |> String.concat " * "
@@ -135,13 +135,14 @@ and tuple_to_line tuple =
 let cstr_args_to_string =
   let module C = Intermed.TypeDecl.Constructor in
   function
-  | C.Tuple [] | Record [] -> ""
-  | C.Tuple type_exprs -> Printf.sprintf " of %s" (tuple_to_line type_exprs)
-  | Record fields -> Printf.sprintf " of %s" (fields_to_line fields)
+  | C.Tuple type_exprs -> tuple_to_line type_exprs
+  | Record fields -> fields_to_line fields
 
 let cstr_to_string cstr =
   let module C = Intermed.TypeDecl.Constructor in
-  Printf.sprintf "| %s%s" cstr.C.name (cstr_args_to_string cstr.args)
+  match cstr.C.args with
+  | C.Tuple [] | C.Record [] -> Printf.sprintf "| %s" cstr.C.name
+  | _ -> Printf.sprintf "| %s of %s" cstr.C.name (cstr_args_to_string cstr.args)
 
 let cstrs_to_lines cstrs = List.map cstr_to_string cstrs
 
@@ -155,35 +156,36 @@ let type_definition_to_lines definition =
 let type_header_to_line private_ manifest definition =
   let module K = Intermed.TypeDecl.Kind in
   match (manifest, definition) with
-  | None, K.Open -> Printf.sprintf " = %s .." (private_to_string private_)
+  | None, K.Open -> Printf.sprintf " =%s .." (private_to_string private_)
   | Some type_expr, Open ->
-      Printf.sprintf " = %s = %s .."
+      Printf.sprintf " = %s =%s .."
         (type_expr_to_string type_expr)
         (private_to_string private_)
-  | None, _ -> Printf.sprintf " = %s" (private_to_string private_)
+  | None, _ -> Printf.sprintf " =%s" (private_to_string private_)
   | Some type_expr, _ ->
-      Printf.sprintf " = %s = %s"
+      Printf.sprintf " = %s =%s"
         (type_expr_to_string type_expr)
         (private_to_string private_)
 
 let type_kind_to_lines kind =
   let open Intermed.TypeDecl.Kind in
   match kind with
-  | Abstract -> ("", [])
+  | Abstract -> (None, [])
   | Alias { private_; type_expr } ->
       let private_string = private_to_string private_ in
       let type_expr_string = type_expr_to_string type_expr in
-      (Printf.sprintf " = %s %s" private_string type_expr_string, [])
+      (Some (Printf.sprintf " =%s %s" private_string type_expr_string), [])
   | Concrete { manifest; private_; definition } ->
-      ( type_header_to_line private_ manifest definition,
+      ( Some (type_header_to_line private_ manifest definition),
         type_definition_to_lines definition )
 
 let td_to_lines name td =
   let open Intermed.TypeDecl in
   let params_string = params_to_string td.params in
   let header_string, definition_string = type_kind_to_lines td.kind in
-  Printf.sprintf "type %s %s%s" params_string name header_string
-  :: definition_string
+  Printf.sprintf "type%s %s%s" params_string name
+    (Option.value header_string ~default:"")
+  :: List.map (indent 2) definition_string
 
 let md_to_lines name md =
   let buf = Buffer.create 256 in
@@ -271,15 +273,17 @@ and process_privacy_diff diff =
   let module S = Stddiff in
   let module K = Diff.TypeDecl.Kind in
   match diff with
-  | S.Same true -> Icommon " = private"
-  | Same false -> Icommon " ="
-  | Changed K.Added -> Iconflict { iorig = None; inew = Some " = private" }
-  | Changed K.Removed -> Iconflict { iorig = Some " = private"; inew = None }
+  | S.Same true -> [ Icommon " = private" ]
+  | Same false -> [ Icommon " =" ]
+  | Changed K.Added ->
+      [ Icommon " ="; Iconflict { iorig = None; inew = Some " private" } ]
+  | Changed K.Removed ->
+      [ Icommon " ="; Iconflict { iorig = Some " private"; inew = None } ]
 
 and process_type_expr_diff diff =
   let module S = Stddiff in
   match diff with
-  | S.Same type_expr -> Icommon (type_expr_to_string type_expr)
+  | S.Same type_expr -> Icommon (" " ^ type_expr_to_string type_expr)
   | S.Changed { S.reference; current } ->
       Iconflict
         {
@@ -330,7 +334,7 @@ let process_field_diff name diff =
       [ Iconflict { iorig = Some (field_to_string field); inew = None } ]
   | Modified field_change ->
       let mutable_hunk = process_mutable_diff field_change.F.mutable_ in
-      let name_hunk = Icommon (Printf.sprintf "%s :" name) in
+      let name_hunk = Icommon (Printf.sprintf " %s :" name) in
       let type_hunk = process_type_expr_diff field_change.type_ in
       let semicolon_hunk = Icommon ";" in
       [ mutable_hunk; name_hunk; type_hunk; semicolon_hunk ]
@@ -380,6 +384,49 @@ let process_tuple_type_diff tuple_diff =
     tuple_diff
   |> List.concat
 
+let process_cstr_of diff =
+  let module DC = Diff.TypeDecl.Constructor in
+  let module C = Intermed.TypeDecl.Constructor in
+  let module S = Stddiff in
+  match diff with
+  | DC.Record { same_map; changed_map } ->
+      if String_map.is_empty same_map && String_map.is_empty changed_map then
+        Icommon ""
+      else if
+        String_map.is_empty same_map
+        && String_map.for_all
+             (fun _ change ->
+               match change with S.Added _ -> true | _ -> false)
+             changed_map
+      then Iconflict { iorig = None; inew = Some " of " }
+      else if
+        String_map.is_empty same_map
+        && String_map.for_all
+             (fun _ change ->
+               match change with S.Removed _ -> true | _ -> false)
+             changed_map
+      then Iconflict { iorig = Some " of "; inew = None }
+      else Icommon " of "
+  | Tuple [] -> Icommon ""
+  | Tuple lst ->
+      if
+        List.for_all (function S.Changed (S.Added _) -> true | _ -> false) lst
+      then Iconflict { iorig = None; inew = Some " of " }
+      else if
+        List.for_all
+          (function S.Changed (S.Removed _) -> true | _ -> false)
+          lst
+      then Iconflict { iorig = Some " of "; inew = None }
+      else Icommon " of "
+  | Unshared
+      { reference = C.Tuple [] | Record []; current = Tuple [] | Record [] } ->
+      Icommon ""
+  | Unshared { reference = C.Tuple [] | Record []; current = _ } ->
+      Iconflict { iorig = None; inew = Some " of " }
+  | Unshared { reference = _; current = C.Tuple [] | Record [] } ->
+      Iconflict { iorig = Some " of "; inew = None }
+  | _ -> Icommon " of "
+
 let process_cstr_diff name cstr_diff =
   let module S = Stddiff in
   let module C = Diff.TypeDecl.Constructor in
@@ -387,11 +434,13 @@ let process_cstr_diff name cstr_diff =
   | S.Added cstr -> Line_conflict { orig = []; new_ = [ cstr_to_string cstr ] }
   | Removed cstr -> Line_conflict { orig = [ cstr_to_string cstr ]; new_ = [] }
   | Modified cstr_change -> (
+      let of_ihunk = process_cstr_of cstr_change.C.args in
       match cstr_change.C.args with
       | C.Unshared { reference; current } ->
           Inline_hunks
             [
-              Icommon (Printf.sprintf "| %s of " name);
+              Icommon (Printf.sprintf "| %s" name);
+              of_ihunk;
               Iconflict
                 {
                   iorig = Some (cstr_args_to_string reference);
@@ -400,11 +449,14 @@ let process_cstr_diff name cstr_diff =
             ]
       | Record fields_change ->
           let record_hunks = process_fields_diff fields_change in
-          Inline_hunks (Icommon (Printf.sprintf "| %s of " name) :: record_hunks)
+          Inline_hunks
+            ((Icommon (Printf.sprintf "| %s" name) :: [ of_ihunk ])
+            @ record_hunks)
       | Tuple tuple_change ->
           let tuple_hunks = process_tuple_type_diff tuple_change in
-          Inline_hunks (Icommon (Printf.sprintf "| %s of " name) :: tuple_hunks)
-      )
+          Inline_hunks
+            ((Icommon (Printf.sprintf "| %s" name) :: [ of_ihunk ])
+            @ tuple_hunks))
 
 let process_cstrs_diff variant_diff =
   let open Stddiff in
@@ -463,20 +515,22 @@ let process_type_kind_diff diff : inline_hunk list * hunk list =
     match diff with
     | S.Same kind ->
         let header_string, definition_strings = type_kind_to_lines kind in
-        ([ Icommon header_string ], [ Common definition_strings ])
+        ( Option.fold ~none:[] ~some:(fun s -> [ Icommon s ]) header_string,
+          [ Common definition_strings ] )
     | Changed (K.Alias { type_expr; private_ }) ->
-        ([ process_privacy_diff private_; process_type_expr_diff type_expr ], [])
+        ( process_privacy_diff private_ @ [ process_type_expr_diff type_expr ],
+          [] )
     | Changed (Concrete { private_; manifest; definition }) ->
         let manifest_ihunk = process_manifest_diff manifest in
         let private_ihunk = process_privacy_diff private_ in
         let header_ihunks, definition_hunk =
           process_definition_diff definition
         in
-        (manifest_ihunk @ [ private_ihunk ] @ header_ihunks, definition_hunk)
+        (manifest_ihunk @ private_ihunk @ header_ihunks, definition_hunk)
     | Changed (Unshared { reference; current }) ->
         let orig_header, orig_definition = type_kind_to_lines reference in
         let new_header, new_definition = type_kind_to_lines current in
-        ( [ Iconflict { iorig = Some orig_header; inew = Some new_header } ],
+        ( [ Iconflict { iorig = orig_header; inew = new_header } ],
           [ Line_conflict { orig = orig_definition; new_ = new_definition } ] )
   in
   (header_ihunks, definition_hunk)
