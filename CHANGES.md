@@ -9,6 +9,7 @@
 - Add initial support for unwrapped libraries (#107, @Siddhi-agg, @azzsal)
 - Add detection of modified class declarations and class types (#106, @azzsal)
 - Add word-level display of textual diffs (#131, @azzsal)
+- Add an intermediate representation for type declarations (#133, @azzsal)
 
 ### Changed
 
