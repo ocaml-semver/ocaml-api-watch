@@ -1,8 +1,25 @@
 type type_expr =
   | Tuple of tuple
+  | Arrow of arrow
   | Atomic of Types.type_expr Stddiff.atomic_modification
 
 and tuple = (Types.type_expr, type_expr) Stddiff.List.t
+
+and arrow = {
+  arg_label : (arg_label option, (arg_label, arg_label_diff) Stddiff.Option.t)
+      Stddiff.maybe_changed;
+  arg_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
+  return_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
+}
+
+and arg_label = Labelled_arg of string | Optional_arg of string
+
+and arg_label_diff = {
+  name : (string, string Stddiff.atomic_modification) Stddiff.maybe_changed;
+  arg_optional : (bool, arg_optional) Stddiff.maybe_changed;
+}
+
+and arg_optional = Added_opt_arg | Removed_opt_arg
 
 type type_modification = {
   type_kind : (Types.type_decl_kind, type_kind) Stddiff.maybe_changed;
@@ -145,6 +162,16 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
       match type_exprs with
       | Stddiff.Same _ -> Stddiff.Same reference
       | Changed change -> Changed (Tuple change))
+  | ( Tarrow (ref_arg_label, ref_arg_type, ref_return_type, _),
+      Tarrow (cur_arg_label, cur_arg_type, cur_return_type, _) ) -> (
+      let arrow =
+        arrow ~typing_env ~ref_params ~cur_params
+          ~reference:(ref_arg_label, ref_arg_type, ref_return_type)
+          ~current:(cur_arg_label, cur_arg_type, cur_return_type)
+      in
+      match arrow with
+      | Stddiff.Same _ -> Stddiff.Same reference
+      | Changed change -> Changed (Arrow change))
   | _ ->
       let normed_ref, normed_cur =
         Normalize.type_params_arity ~reference:ref_params ~current:cur_params
@@ -167,6 +194,74 @@ and type_exprs ~typing_env ~ref_params ~cur_params ~reference ~current =
     ~diff_one:(fun ref cur ->
       type_expr ~typing_env ~ref_params ~cur_params ref cur)
     ~reference ~current
+
+and arrow ~typing_env ~ref_params ~cur_params ~reference ~current =
+  let arg_type lbl typ =
+    match lbl with
+    | Asttypes.Nolabel
+    | Labelled _ -> typ
+    | Optional _ -> (
+        match (Types.get_desc typ) with
+        | Tconstr (_, [ te ], _) -> te
+        | _ -> assert false
+      )
+  in
+  let ref_arg_label, ref_arg_type, ref_return_type = reference in
+  let cur_arg_label, cur_arg_type, cur_return_type = current in
+  let arg_label = arg_label ~reference:ref_arg_label ~current:cur_arg_label in
+  let arg_type =
+    type_expr ~typing_env ~ref_params ~cur_params (arg_type ref_arg_label ref_arg_type)
+      (arg_type cur_arg_label cur_arg_type)
+  in
+  let return_type =
+    type_expr ~typing_env ~ref_params ~cur_params ref_return_type
+      cur_return_type
+  in
+  match (arg_label, arg_type, return_type) with
+  | Stddiff.Same _, Same _, Same _ -> Same reference
+  | _ -> Changed { arg_label; arg_type; return_type }
+
+and arg_label ~reference ~current =
+  let open Stddiff in
+  let convert = function
+    | Asttypes.Nolabel -> None
+    | Labelled name -> Some (Labelled_arg name)
+    | Optional name -> Some (Optional_arg name)
+  in
+  Option.diff
+    ~diff_one:(fun ref cur ->
+      match (ref, cur) with
+      | Labelled_arg ref_name, Labelled_arg cur_name ->
+          if String.equal ref_name cur_name then Same (Labelled_arg ref_name)
+          else
+            Changed
+              {
+                name = Changed { reference = ref_name; current = cur_name };
+                arg_optional = Same false;
+              }
+      | Labelled_arg ref_name, Optional_arg cur_name ->
+          let name =
+            if String.equal ref_name cur_name then Same ref_name
+            else Changed { reference = ref_name; current = cur_name }
+          in
+          let arg_optional = Changed Added_opt_arg in
+          Changed { name; arg_optional }
+      | Optional_arg ref_name, Labelled_arg cur_name ->
+          let name =
+            if String.equal ref_name cur_name then Same ref_name
+            else Changed { reference = ref_name; current = cur_name }
+          in
+          let arg_optional = Changed Removed_opt_arg in
+          Changed { name; arg_optional }
+      | Optional_arg ref_name, Optional_arg cur_name ->
+          if String.equal ref_name cur_name then Same (Optional_arg ref_name)
+          else
+            Changed
+              {
+                name = Changed { reference = ref_name; current = cur_name };
+                arg_optional = Same true;
+              })
+    ~reference:(convert reference) ~current:(convert current)
 
 let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with

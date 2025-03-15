@@ -475,6 +475,71 @@ and process_tuple_type_diff diff =
     diff
             |> List.concat
 
+and process_arrow_type_diff arrow_diff =
+  let open Diff in
+  let module S = Stddiff in
+  let process_arg_label_diff diff =
+    let arg_label_to_string arg_label =
+      let open Diff in
+      match arg_label with
+      | Labelled_arg name -> name ^ ":"
+      | Optional_arg name -> "?" ^ name ^ ":"
+    in
+    match diff with
+    | S.Same None -> []
+    | Same (Some arg_label) -> [ Icommon (arg_label_to_string arg_label) ]
+    | Changed (S.Added arg_label) ->
+        [
+          Iconflict
+            { iorig = None; inew = Some (arg_label_to_string arg_label) };
+        ]
+    | Changed (Removed arg_label) ->
+        [
+          Iconflict
+            { iorig = Some (arg_label_to_string arg_label); inew = None };
+        ]
+    | Changed (Modified diff) ->
+        let name_ihunk =
+          match diff.name with
+          | Same name -> [ Icommon (name ^ ":") ]
+          | Changed { reference; current } ->
+              [
+                Iconflict { iorig = Some reference; inew = Some current };
+                Icommon ":";
+              ]
+        in
+        let optional_arg_ihunk =
+          match diff.arg_optional with
+          | Same true -> [ Icommon "?" ]
+          | Same false -> []
+          | Changed Added_opt_arg ->
+              [ Iconflict { iorig = None; inew = Some "?" } ]
+          | Changed Removed_opt_arg ->
+              [ Iconflict { iorig = Some "?"; inew = None } ]
+        in
+        optional_arg_ihunk @ name_ihunk
+  in
+  let arg_label_ihunks = process_arg_label_diff arrow_diff.arg_label in
+  let arg_type_ihunks =
+    match arrow_diff.arg_type with
+    | Same type_expr -> [ Icommon (type_expr_to_string type_expr) ]
+    | Changed type_expr -> process_type_expr_diff type_expr
+  in
+  let return_type_ihunks =
+    match arrow_diff.return_type with
+    | Same type_expr -> [ Icommon (type_expr_to_string type_expr) ]
+    | Changed type_expr -> process_type_expr_diff type_expr
+  in
+  List.concat
+    [
+      [ Icommon "(" ];
+      arg_label_ihunks;
+      arg_type_ihunks;
+      [ Icommon " -> " ];
+      return_type_ihunks;
+      [ Icommon ")" ];
+    ]
+
 and process_type_expr_diff ?(paren = true) (diff : Diff.type_expr) :
     inline_hunk list =
   match diff with
@@ -490,6 +555,7 @@ and process_type_expr_diff ?(paren = true) (diff : Diff.type_expr) :
       let tuple_hunks = process_tuple_type_diff tuple_diff in
       if paren then (Icommon "(" :: tuple_hunks) @ [ Icommon ")" ]
       else tuple_hunks
+  | Arrow arrow_diff -> process_arrow_type_diff arrow_diff
 
 and cstr_args_to_line cstr_args =
   match cstr_args with

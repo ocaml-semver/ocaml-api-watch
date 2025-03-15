@@ -105,16 +105,16 @@ Compile the modified .mli file to a .cmi file
 Run api-diff and check the output
   $ api-diff orig_module.cmi modified_module.cmi
   diff module Modified_module:
-  -val a : string -> int
-  +val a : string -> float
-  -val f : int -> string
-  +val f : int -> (string, string) result
+  -val a : (string -> int)
+  +val a : (string -> float)
+  -val f : (int -> string)
+  +val f : (int -> (string, string) result)
   +module E: sig val x : int end
   
   diff module Modified_module.D:
-  -val b : int list -> int
-  +val b : float list -> float
-  -val g : int -> string
-  +val g : int -> (string, string) result
+  -val b : (int list -> int)
+  +val b : (float list -> float)
+  -val g : (int -> string)
+  +val g : (int -> (string, string) result)
   
   [1]

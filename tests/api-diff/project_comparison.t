@@ -97,8 +97,8 @@ Build the second version
 Run the api-diff tool on the two project versions
   $ api-diff --main-module mylib  project_v1/_build/default/lib/.mylib.objs/byte project_v2/_build/default/lib/.mylib.objs/byte
   diff module Mylib.Math:
-  -val add : int -> int -> int
-  +val add : int -> int -> int -> int
+  -val add : (int -> (int -> int))
+  +val add : (int -> (int -> int -> int))
   +val multiply : int -> int -> int
   +module New_module: sig val hello : unit -> string end
   
@@ -215,8 +215,8 @@ Build the second version
 Run the api-diff tool on the two project versions
   $ api-diff --unwrapped proj_v1/_build/default/lib/.mylib.objs/byte proj_v2/_build/default/lib/.mylib.objs/byte
   diff module Math:
-  -val add : int -> int -> int
-  +val add : int -> int -> int -> int
+  -val add : (int -> (int -> int))
+  +val add : (int -> (int -> int -> int))
   +val multiply : int -> int -> int
   +module New_module: sig val hello : unit -> string end
   
