@@ -198,19 +198,18 @@ and type_exprs ~typing_env ~ref_params ~cur_params ~reference ~current =
 and arrow ~typing_env ~ref_params ~cur_params ~reference ~current =
   let arg_type lbl typ =
     match lbl with
-    | Asttypes.Nolabel
-    | Labelled _ -> typ
+    | Asttypes.Nolabel | Labelled _ -> typ
     | Optional _ -> (
         match (Types.get_desc typ) with
         | Tconstr (_, [ te ], _) -> te
-        | _ -> assert false
-      )
+        | _ -> assert false)
   in
   let ref_arg_label, ref_arg_type, ref_return_type = reference in
   let cur_arg_label, cur_arg_type, cur_return_type = current in
   let arg_label = arg_label ~reference:ref_arg_label ~current:cur_arg_label in
   let arg_type =
-    type_expr ~typing_env ~ref_params ~cur_params (arg_type ref_arg_label ref_arg_type)
+    type_expr ~typing_env ~ref_params ~cur_params
+      (arg_type ref_arg_label ref_arg_type)
       (arg_type cur_arg_label cur_arg_type)
   in
   let return_type =
