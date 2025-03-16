@@ -9,7 +9,9 @@ let rec pp_module_modification fmt = function
            pp_item_diff)
         changes
 
-and pp_item_diff fmt = function
+and pp_item_diff fmt indexed_item =
+  let sig_item = indexed_item.sig_item in
+  match sig_item with
   | Value value_diff -> pp_value_diff fmt value_diff
   | Module module_diff -> pp_module_diff fmt module_diff
   | Type type_diff -> pp_type_diff fmt type_diff

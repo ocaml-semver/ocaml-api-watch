@@ -570,6 +570,19 @@ and process_module_diff module_path (module_diff : Diff.module_) acc =
     acc
 
 and signature_changes module_path items acc =
+  let open Diff in
+  let items =
+    List.sort
+      (fun item1 item2 ->
+        match (item1, item2) with
+          | { sig_item = _; ref_index = Some ref_index1; cur_index = Some _cur_index1 },
+            { sig_item = _; ref_index = Some ref_index2; cur_index = Some _cur_index2 }
+            -> Int.compare ref_index1 ref_index2
+          | _ -> assert false
+      )
+      items
+  |> List.map (fun indexed_item -> indexed_item.Diff.sig_item)
+  in
   List.fold_left
     (fun acc' change ->
       match (change : Diff.sig_item) with

@@ -3,12 +3,12 @@ open Types
 type t
 
 type _ item_type =
-  | Value : value_description item_type
-  | Module : module_declaration item_type
-  | Modtype : modtype_declaration item_type
-  | Type : (type_declaration * Ident.t) item_type
-  | Class : class_declaration item_type
-  | Classtype : class_type_declaration item_type
+  | Value : (int * value_description) item_type
+  | Module : (int * module_declaration) item_type
+  | Modtype : (int * modtype_declaration) item_type
+  | Type : (int * type_declaration * Ident.t) item_type
+  | Class : (int * class_declaration) item_type
+  | Classtype : (int * class_type_declaration) item_type
 
 val empty : t
 val add : name:string -> 'a item_type -> 'a -> t -> t

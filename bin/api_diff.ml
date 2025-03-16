@@ -80,6 +80,8 @@ let run (`Word_diff word_diff) (`Plain plain) (`Main_module main_module)
         (reference_map, current_map)
   in
   let diff_map =
+    let reference_map = Api_watch.String_map.map (fun item -> (0, item)) reference_map in
+    let current_map = Api_watch.String_map.map (fun item -> (0, item)) current_map in
     Api_watch.Diff.library ~reference:reference_map ~current:current_map
     |> Api_watch.String_map.bindings
     |> List.filter_map (fun (_, v) -> v)
