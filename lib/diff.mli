@@ -63,7 +63,7 @@ and modtype = {
   mtdiff : (Types.modtype_declaration, signature_modification) Stddiff.entry;
 }
 
-and signature_modification = Unsupported | Supported of sig_item list
+and signature_modification = Unsupported | Supported of indexed_sig_item list
 
 and sig_item =
   | Value of value
@@ -73,6 +73,12 @@ and sig_item =
   | Class of class_
   | Classtype of cltype
 
+and indexed_sig_item = {
+  ref_index : int option;
+  cur_index : int option;
+  sig_item : sig_item;
+}
+
 val interface :
   module_name:string ->
   reference:Types.signature ->
@@ -80,6 +86,6 @@ val interface :
   module_ option
 
 val library :
-  reference:Types.signature String_map.t ->
-  current:Types.signature String_map.t ->
+  reference:(int * Types.signature) String_map.t ->
+  current:(int * Types.signature) String_map.t ->
   module_ option String_map.t
