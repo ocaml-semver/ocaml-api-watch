@@ -447,11 +447,11 @@ and process_cstr_diff name cstr_diff =
           let record_hunks = process_record_type_diff record_diff in
           Inline_hunks (Icommon (Printf.sprintf "| %s of " name) :: record_hunks)
       | Tuple_cstr tuple_diff ->
-          let tuple_hunks = process_cstr_tuple_diff tuple_diff in
+          let tuple_hunks = process_tuple_type_diff tuple_diff in
           Inline_hunks (Icommon (Printf.sprintf "| %s of " name) :: tuple_hunks)
       )
 
-and process_cstr_tuple_diff diff =
+and process_tuple_type_diff diff =
   let module S = Stddiff in
   List.mapi
     (fun i te_diff ->
@@ -475,35 +475,6 @@ and process_cstr_tuple_diff diff =
     diff
   |> List.concat
 
-and process_tuple_type_diff ~paren tuple_diff =
-  let module S = Stddiff in
-  let tuple_hunks =
-    List.mapi
-      (fun i te_diff ->
-        let star = if i > 0 then " * " else "" in
-        match te_diff with
-        | S.Same same_te ->
-            [
-              Icommon (Printf.sprintf "%s%s" star (type_expr_to_string same_te));
-            ]
-        | Changed (Stddiff.Added te) ->
-            [
-              Iconflict
-                { iorig = None; inew = Some (star ^ type_expr_to_string te) };
-            ]
-        | Changed (Removed te) ->
-            [
-              Iconflict
-                { iorig = Some (star ^ type_expr_to_string te); inew = None };
-            ]
-        | Changed (Modified te) ->
-            let te_hunks = process_type_expr_diff ~paren:true te in
-            if i > 0 then Icommon " * " :: te_hunks else te_hunks)
-      tuple_diff
-    |> List.concat
-  in
-  if paren then (Icommon "(" :: tuple_hunks) @ [ Icommon ")" ] else tuple_hunks
-
 and process_type_expr_diff ?(paren = true) (diff : Diff.type_expr) :
     inline_hunk list =
   match diff with
@@ -515,7 +486,10 @@ and process_type_expr_diff ?(paren = true) (diff : Diff.type_expr) :
             inew = Some (type_expr_to_string current);
           };
       ]
-  | Tuple tuple_diff -> process_tuple_type_diff ~paren tuple_diff
+  | Tuple tuple_diff ->
+      let tuple_hunks = process_tuple_type_diff tuple_diff in
+      if paren then (Icommon "(" :: tuple_hunks) @ [ Icommon ")" ]
+      else tuple_hunks
 
 and cstr_args_to_line cstr_args =
   match cstr_args with
