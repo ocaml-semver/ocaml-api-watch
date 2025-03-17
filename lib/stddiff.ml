@@ -14,7 +14,7 @@ type 'a atomic_modification = { reference : 'a; current : 'a }
 type 'item atomic_entry = ('item, 'item atomic_modification) entry
 type ('same, 'change) maybe_changed = Same of 'same | Changed of 'change
 
-module List_ = struct
+module List = struct
   type ('a, 'diff) t = ('a, ('a, 'diff) entry) maybe_changed list
 
   let diff ~diff_one ~reference ~current =
@@ -34,8 +34,8 @@ module List_ = struct
     if all_same then Same reference else Changed list_diff
 end
 
-module Option_ = struct
-  type ('a, 'diff) t = ('a option, ('a, 'diff) entry) maybe_changed
+module Option = struct
+  type ('a, 'diff) t = ('a, 'diff) entry
 
   let diff ~diff_one ~reference ~current =
     match (reference, current) with
@@ -49,7 +49,7 @@ module Option_ = struct
         | Changed change -> Changed (Modified change))
 end
 
-module Map_ = struct
+module Map = struct
   type ('a, 'diff) t = {
     same_map : 'a String_map.t;
     changed_map : ('a, 'diff) entry String_map.t;

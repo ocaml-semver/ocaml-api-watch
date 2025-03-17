@@ -14,7 +14,7 @@ type 'a atomic_modification = { reference : 'a; current : 'a }
 type 'item atomic_entry = ('item, 'item atomic_modification) entry
 type ('same, 'change) maybe_changed = Same of 'same | Changed of 'change
 
-module List_ : sig
+module List : sig
   type ('a, 'diff) t = ('a, ('a, 'diff) entry) maybe_changed list
 
   val diff :
@@ -24,17 +24,17 @@ module List_ : sig
     ('a list, ('a, 'diff) t) maybe_changed
 end
 
-module Option_ : sig
-  type ('a, 'diff) t = ('a option, ('a, 'diff) entry) maybe_changed
+module Option : sig
+  type ('a, 'diff) t = ('a, 'diff) entry
 
   val diff :
     diff_one:('a -> 'a -> ('a, 'diff) maybe_changed) ->
     reference:'a option ->
     current:'a option ->
-    ('a, 'diff) t
+    ('a option, ('a, 'diff) t) maybe_changed
 end
 
-module Map_ : sig
+module Map : sig
   type ('a, 'diff) t = {
     same_map : 'a String_map.t;
     changed_map : ('a, 'diff) entry String_map.t;

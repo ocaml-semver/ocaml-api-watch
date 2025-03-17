@@ -1,56 +1,70 @@
-open Types
-open Stddiff
+type type_expr =
+  | Tuple of tuple
+  | Atomic of Types.type_expr Stddiff.atomic_modification
 
-type typ_exp = Tuple of tuple | Atomic of type_expr atomic_modification
-and tuple = (type_expr, typ_exp) List_.t
+and tuple = (Types.type_expr, type_expr) Stddiff.List.t
 
 type type_modification = {
-  type_kind : (type_decl_kind, type_kind) maybe_changed;
-  type_privacy : (Asttypes.private_flag, type_privacy) maybe_changed;
-  type_manifest : (type_expr, typ_exp) Option_.t;
-  type_params : (type_expr list, (type_expr, typ_exp) List_.t) maybe_changed;
+  type_kind : (Types.type_decl_kind, type_kind) Stddiff.maybe_changed;
+  type_privacy : (Asttypes.private_flag, type_privacy) Stddiff.maybe_changed;
+  type_manifest :
+    ( Types.type_expr option,
+      (Types.type_expr, type_expr) Stddiff.Option.t )
+    Stddiff.maybe_changed;
+  type_params :
+    ( Types.type_expr list,
+      (Types.type_expr, type_expr) Stddiff.List.t )
+    Stddiff.maybe_changed;
 }
 
 and type_kind =
-  | Record_tk of (label_declaration, label) Map_.t
-  | Variant_tk of (constructor_declaration, cstr_args) Map_.t
-  | Atomic_tk of type_decl_kind atomic_modification
+  | Record_tk of (Types.label_declaration, label) Stddiff.Map.t
+  | Variant_tk of (Types.constructor_declaration, cstr_args) Stddiff.Map.t
+  | Atomic_tk of Types.type_decl_kind Stddiff.atomic_modification
 
 and label = {
-  label_type : (type_expr, typ_exp) maybe_changed;
-  label_mutable : (Asttypes.mutable_flag, field_mutability) maybe_changed;
+  label_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
+  label_mutable :
+    (Asttypes.mutable_flag, field_mutability) Stddiff.maybe_changed;
 }
 
 and field_mutability = Added_m | Removed_m
 
 and cstr_args =
-  | Record_cstr of (label_declaration, label) Map_.t
+  | Record_cstr of (Types.label_declaration, label) Stddiff.Map.t
   | Tuple_cstr of tuple
-  | Atomic_cstr of constructor_arguments Stddiff.atomic_modification
+  | Atomic_cstr of Types.constructor_arguments Stddiff.atomic_modification
 
 and type_privacy = Added_p | Removed_p
 
 type type_ = {
   tname : string;
-  tdiff : (type_declaration, type_modification) entry;
+  tdiff : (Types.type_declaration, type_modification) Stddiff.entry;
 }
 
-type value = { vname : string; vdiff : (value_description, typ_exp) entry }
-type class_ = { cname : string; cdiff : class_declaration Stddiff.atomic_entry }
+type value = {
+  vname : string;
+  vdiff : (Types.value_description, type_expr) Stddiff.entry;
+}
+
+type class_ = {
+  cname : string;
+  cdiff : Types.class_declaration Stddiff.atomic_entry;
+}
 
 type cltype = {
   ctname : string;
-  ctdiff : class_type_declaration Stddiff.atomic_entry;
+  ctdiff : Types.class_type_declaration Stddiff.atomic_entry;
 }
 
 type module_ = {
   mname : string;
-  mdiff : (module_declaration, signature_modification) entry;
+  mdiff : (Types.module_declaration, signature_modification) Stddiff.entry;
 }
 
 and modtype = {
   mtname : string;
-  mtdiff : (modtype_declaration, signature_modification) entry;
+  mtdiff : (Types.modtype_declaration, signature_modification) Stddiff.entry;
 }
 
 and signature_modification = Unsupported | Supported of sig_item list
@@ -66,7 +80,7 @@ and sig_item =
 let extract_items items =
   List.fold_left
     (fun tbl item ->
-      match item with
+      match (item : Types.signature_item) with
       | Sig_module (id, _, mod_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
             tbl
@@ -96,12 +110,12 @@ let extract_items items =
 
 let extract_lbls lbls =
   List.fold_left
-    (fun map lbl -> String_map.add (Ident.name lbl.ld_id) lbl map)
+    (fun map lbl -> String_map.add (Ident.name lbl.Types.ld_id) lbl map)
     String_map.empty lbls
 
 let extract_cstrs cstrs =
   List.fold_left
-    (fun map cstr -> String_map.add (Ident.name cstr.cd_id) cstr map)
+    (fun map cstr -> String_map.add (Ident.name cstr.Types.cd_id) cstr map)
     String_map.empty cstrs
 
 let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
@@ -129,7 +143,7 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
           ~current:cur_exps
       in
       match type_exprs with
-      | Same _ -> Same reference
+      | Stddiff.Same _ -> Stddiff.Same reference
       | Changed change -> Changed (Tuple change))
   | _ ->
       let normed_ref, normed_cur =
@@ -149,7 +163,7 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
              })
 
 and type_exprs ~typing_env ~ref_params ~cur_params ~reference ~current =
-  List_.diff
+  Stddiff.List.diff
     ~diff_one:(fun ref cur ->
       type_expr ~typing_env ~ref_params ~cur_params ref cur)
     ~reference ~current
@@ -195,13 +209,14 @@ and type_declarations ~typing_env ~name ~reference ~current =
   | diff -> Some (Type { tname = name; tdiff = Modified diff })
 
 and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
+  let open Stddiff.Map in
   match (reference, current) with
   | Type_record (ref_label_lst, _), Type_record (cur_label_lst, _) ->
       let label_map =
         record_type ~typing_env ~ref_params ~cur_params ~ref_label_lst
           ~cur_label_lst
       in
-      if String_map.is_empty label_map.Map_.changed_map then Same reference
+      if String_map.is_empty label_map.changed_map then Same reference
       else Changed (Record_tk label_map)
   | Type_variant (ref_constructor_lst, _), Type_variant (cur_constructor_lst, _)
     ->
@@ -209,7 +224,7 @@ and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
         variant_type ~typing_env ~ref_params ~cur_params ~ref_constructor_lst
           ~cur_constructor_lst
       in
-      if String_map.is_empty cstr_map.Map_.changed_map then Same reference
+      if String_map.is_empty cstr_map.changed_map then Same reference
       else Changed (Variant_tk cstr_map)
   | Type_abstract _, Type_abstract _ -> Same reference
   | Type_open, Type_open -> Same reference
@@ -218,13 +233,15 @@ and type_kind ~typing_env ~ref_params ~cur_params ~reference ~current =
 
 and record_type ~typing_env ~ref_params ~cur_params ~ref_label_lst
     ~cur_label_lst =
+  let open Stddiff in
   let ref_lbls = extract_lbls ref_label_lst in
   let cur_lbls = extract_lbls cur_label_lst in
-  Map_.diff
+  Map.diff
     ~diff_one:(label ~typing_env ~ref_params ~cur_params)
     ~reference:ref_lbls ~current:cur_lbls
 
 and label ~typing_env ~ref_params ~cur_params reference current =
+  let open Stddiff in
   let label_type =
     type_expr ~typing_env ~ref_params ~cur_params reference.ld_type
       current.ld_type
@@ -249,9 +266,10 @@ and label_mutable ~reference ~current =
 
 and variant_type ~typing_env ~ref_params ~cur_params ~ref_constructor_lst
     ~cur_constructor_lst =
+  let open Stddiff in
   let ref_cstrs = extract_cstrs ref_constructor_lst in
   let cur_cstrs = extract_cstrs cur_constructor_lst in
-  Map_.diff
+  Map.diff
     ~diff_one:(cstr ~typing_env ~ref_params ~cur_params)
     ~reference:ref_cstrs ~current:cur_cstrs
 
@@ -278,7 +296,8 @@ and cstr ~typing_env ~ref_params ~cur_params reference current =
            { reference = reference.cd_args; current = current.cd_args })
 
 and type_params ~reference ~current =
-  List_.diff ~diff_one:(fun t1 _ -> Same t1) ~reference ~current
+  let open Stddiff in
+  List.diff ~diff_one:(fun t1 _ -> Same t1) ~reference ~current
 
 and type_privacy ~reference ~current =
   match (reference, current) with
@@ -288,11 +307,13 @@ and type_privacy ~reference ~current =
   | Asttypes.Private, Asttypes.Private -> Same Asttypes.Private
 
 and type_manifest ~typing_env ~ref_params ~cur_params ~reference ~current =
-  Option_.diff
+  let open Stddiff in
+  Option.diff
     ~diff_one:(type_expr ~typing_env ~ref_params ~cur_params)
     ~reference ~current
 
 let value_descripiton ~typing_env reference current =
+  let open Types in
   type_expr ~typing_env reference.val_type current.val_type
 
 let value_item ~typing_env ~name ~reference ~current =
@@ -308,8 +329,8 @@ let value_item ~typing_env ~name ~reference ~current =
       | Changed type_expr_diff ->
           Some (Value { vname = name; vdiff = Modified type_expr_diff }))
 
-let class_item ~typing_env ~name ~(reference : class_declaration option)
-    ~(current : class_declaration option) =
+let class_item ~typing_env ~name ~(reference : Types.class_declaration option)
+    ~(current : Types.class_declaration option) =
   match (reference, current) with
   | None, None -> None
   | None, Some curr_cls -> Some (Class { cname = name; cdiff = Added curr_cls })
@@ -329,8 +350,8 @@ let class_item ~typing_env ~name ~(reference : class_declaration option)
                }))
 
 let class_type_item ~typing_env ~name
-    ~(reference : class_type_declaration option)
-    ~(current : class_type_declaration option) =
+    ~(reference : Types.class_type_declaration option)
+    ~(current : Types.class_type_declaration option) =
   match (reference, current) with
   | None, None -> None
   | None, Some curr_class_type ->
@@ -369,8 +390,8 @@ let rec items ~reference ~current ~typing_env =
   in
   Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 
-and module_item ~typing_env ~name ~(reference : module_declaration option)
-    ~(current : module_declaration option) =
+and module_item ~typing_env ~name ~(reference : Types.module_declaration option)
+    ~(current : Types.module_declaration option) =
   match (reference, current) with
   | None, None -> None
   | None, Some curr_md -> Some (Module { mname = name; mdiff = Added curr_md })
@@ -378,8 +399,9 @@ and module_item ~typing_env ~name ~(reference : module_declaration option)
   | Some reference, Some current ->
       module_declaration ~typing_env ~name ~reference ~current
 
-and module_type_item ~typing_env ~name ~(reference : modtype_declaration option)
-    ~(current : modtype_declaration option) =
+and module_type_item ~typing_env ~name
+    ~(reference : Types.modtype_declaration option)
+    ~(current : Types.modtype_declaration option) =
   match (reference, current) with
   | None, None -> None
   | None, Some curr_mtd ->
@@ -437,6 +459,7 @@ let interface ~module_name ~reference ~current =
   Option.map (fun mdiff -> { mname = module_name; mdiff }) sig_out
 
 let library ~reference ~current =
+  let open Types in
   let mod_dec_of_sig sign =
     {
       md_type = Mty_signature sign;
