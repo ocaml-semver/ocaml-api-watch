@@ -1,17 +1,29 @@
+type type_expr =
+  | Tuple of tuple
+  | Atomic of Types.type_expr Stddiff.atomic_modification
+
+and tuple = (Types.type_expr, type_expr) Stddiff.List.t
+
 type type_modification = {
   type_kind : (Types.type_decl_kind, type_kind) Stddiff.maybe_changed;
   type_privacy : (Asttypes.private_flag, type_privacy) Stddiff.maybe_changed;
-  type_manifest : Types.type_expr Stddiff.atomic_option;
-  type_params : (Types.type_expr, type_param) Stddiff.list_;
+  type_manifest :
+    ( Types.type_expr option,
+      (Types.type_expr, type_expr) Stddiff.Option.t )
+    Stddiff.maybe_changed;
+  type_params :
+    ( Types.type_expr list,
+      (Types.type_expr, type_expr) Stddiff.List.t )
+    Stddiff.maybe_changed;
 }
 
 and type_kind =
-  | Record_tk of (Types.label_declaration, label) Stddiff.map
-  | Variant_tk of (Types.constructor_declaration, cstr_args) Stddiff.map
+  | Record_tk of (Types.label_declaration, label) Stddiff.Map.t
+  | Variant_tk of (Types.constructor_declaration, cstr_args) Stddiff.Map.t
   | Atomic_tk of Types.type_decl_kind Stddiff.atomic_modification
 
 and label = {
-  label_type : Types.type_expr Stddiff.maybe_changed_atomic;
+  label_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
   label_mutable :
     (Asttypes.mutable_flag, field_mutability) Stddiff.maybe_changed;
 }
@@ -19,16 +31,11 @@ and label = {
 and field_mutability = Added_m | Removed_m
 
 and cstr_args =
-  | Record_cstr of (Types.label_declaration, label) Stddiff.map
-  | Tuple_cstr of Types.type_expr Stddiff.maybe_changed_atomic_entry list
+  | Record_cstr of (Types.label_declaration, label) Stddiff.Map.t
+  | Tuple_cstr of tuple
   | Atomic_cstr of Types.constructor_arguments Stddiff.atomic_modification
 
 and type_privacy = Added_p | Removed_p
-and type_param = (Types.type_expr, type_param_diff) Stddiff.maybe_changed
-
-and type_param_diff =
-  | Added_tp of Types.type_expr
-  | Removed_tp of Types.type_expr
 
 type type_ = {
   tname : string;
@@ -37,10 +44,7 @@ type type_ = {
 
 type value = {
   vname : string;
-  vdiff :
-    ( Types.value_description,
-      Types.type_expr Stddiff.atomic_modification )
-    Stddiff.entry;
+  vdiff : (Types.value_description, type_expr) Stddiff.entry;
 }
 
 type class_ = {

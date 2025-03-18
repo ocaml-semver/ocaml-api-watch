@@ -11,33 +11,38 @@ type 'a atomic_modification = { reference : 'a; current : 'a }
     [reference] is the value before and [current] is the value after the change
     occured. Use this type when there is no better representation available. *)
 
-type ('item, 'diff) map = {
-  same_map : 'item String_map.t;
-  changed_map : ('item, 'diff) entry String_map.t;
-}
-
-type ('same, 'change) maybe_changed = Same of 'same | Changed of 'change
 type 'item atomic_entry = ('item, 'item atomic_modification) entry
+type ('same, 'change) maybe_changed = Same of 'same | Changed of 'change
 
-type 'same maybe_changed_atomic =
-  ('same, 'same atomic_modification) maybe_changed
+module List : sig
+  type ('a, 'diff) t = ('a, ('a, 'diff) entry) maybe_changed list
 
-type 'same maybe_changed_atomic_entry =
-  ('same, 'same atomic_entry) maybe_changed
+  val diff :
+    diff_one:('a -> 'a -> ('a, 'diff) maybe_changed) ->
+    reference:'a list ->
+    current:'a list ->
+    ('a list, ('a, 'diff) t) maybe_changed
+end
 
-type ('same, 'diff) option_ = ('same option, ('same, 'diff) entry) maybe_changed
-type 'same atomic_option = ('same, 'same atomic_modification) option_
-type ('same, 'diff) list_ = ('same list, 'diff list) maybe_changed
+module Option : sig
+  type ('a, 'diff) t = ('a, 'diff) entry
 
-val diff_list :
-  'a 'diff.
-  diff_one:('a option -> 'a option -> ('a, 'diff) maybe_changed) ->
-  ref_list:'a list ->
-  cur_list:'a list ->
-  ('a list, ('a, 'diff) maybe_changed list) maybe_changed
+  val diff :
+    diff_one:('a -> 'a -> ('a, 'diff) maybe_changed) ->
+    reference:'a option ->
+    current:'a option ->
+    ('a option, ('a, 'diff) t) maybe_changed
+end
 
-val diff_map :
-  diff_one:('a -> 'a -> 'b option) ->
-  ref_map:'a String_map.t ->
-  cur_map:'a String_map.t ->
-  ('a, 'b) map
+module Map : sig
+  type ('a, 'diff) t = {
+    same_map : 'a String_map.t;
+    changed_map : ('a, 'diff) entry String_map.t;
+  }
+
+  val diff :
+    diff_one:('a -> 'a -> ('a, 'diff) maybe_changed) ->
+    reference:'a String_map.t ->
+    current:'a String_map.t ->
+    ('a, 'diff) t
+end
