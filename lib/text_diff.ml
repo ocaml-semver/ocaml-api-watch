@@ -473,7 +473,7 @@ and process_tuple_type_diff diff =
           let te_hunks = process_type_expr_diff ~paren:true te in
           if i > 0 then Icommon " * " :: te_hunks else te_hunks)
     diff
-            |> List.concat
+  |> List.concat
 
 and process_arrow_type_diff arrow_diff =
   let open Diff in

@@ -6,8 +6,10 @@ type type_expr =
 and tuple = (Types.type_expr, type_expr) Stddiff.List.t
 
 and arrow = {
-  arg_label : (arg_label option, (arg_label, arg_label_diff) Stddiff.Option.t)
-      Stddiff.maybe_changed;
+  arg_label :
+    ( arg_label option,
+      (arg_label, arg_label_diff) Stddiff.Option.t )
+    Stddiff.maybe_changed;
   arg_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
   return_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
 }
@@ -200,7 +202,7 @@ and arrow ~typing_env ~ref_params ~cur_params ~reference ~current =
     match lbl with
     | Asttypes.Nolabel | Labelled _ -> typ
     | Optional _ -> (
-        match (Types.get_desc typ) with
+        match Types.get_desc typ with
         | Tconstr (_, [ te ], _) -> te
         | _ -> assert false)
   in

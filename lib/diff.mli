@@ -6,7 +6,10 @@ type type_expr =
 and tuple = (Types.type_expr, type_expr) Stddiff.List.t
 
 and arrow = {
-  arg_label : (arg_label option, (arg_label, arg_label_diff) Stddiff.Option.t) Stddiff.maybe_changed;
+  arg_label :
+    ( arg_label option,
+      (arg_label, arg_label_diff) Stddiff.Option.t )
+    Stddiff.maybe_changed;
   arg_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
   return_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
 }
@@ -29,7 +32,8 @@ type type_modification = {
     Stddiff.maybe_changed;
   type_params :
     ( Types.type_expr list,
-      (Types.type_expr, type_expr) Stddiff.List.t) Stddiff.maybe_changed
+      (Types.type_expr, type_expr) Stddiff.List.t )
+    Stddiff.maybe_changed;
 }
 
 and type_kind =
