@@ -1,28 +1,28 @@
 Here we generate a `.mli` file with a tuple:
 
-  $ cat > ref.mli << EOF
+  $ cat > ref_tuple.mli << EOF
   > type t = int * int * int
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc ref.mli
+  $ ocamlc ref_tuple.mli
 
 ### Changing a component in a tuple
 
-  $ cat > change.mli << EOF
+  $ cat > change_tuple.mli << EOF
   > type t = float * int * int
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc change.mli
+  $ ocamlc change_tuple.mli
 
 Run the api-watcher on the two cmi files, a diff should be reported between the first
 components of the two tuples
 
-  $ api-diff --plain ref.cmi change.cmi
-  diff module Change:
+  $ api-diff --plain ref_tuple.cmi change_tuple.cmi
+  diff module Change_tuple:
   -type t = [-int-] * int * int
   +type t = {+float+} * int * int
   
@@ -30,18 +30,18 @@ components of the two tuples
 
 ### Adding a component to a tuple
 
-  $ cat > add.mli << EOF
+  $ cat > add_tuple.mli << EOF
   > type t = int * int * int * string
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc add.mli
+  $ ocamlc add_tuple.mli
 
 Run the api-watcher on the two cmi files, the added component should be marked
 
-  $ api-diff --plain ref.cmi add.cmi
-  diff module Add:
+  $ api-diff --plain ref_tuple.cmi add_tuple.cmi
+  diff module Add_tuple:
   -type t = int * int * int
   +type t = int * int * int{+ * string+}
   
@@ -49,28 +49,28 @@ Run the api-watcher on the two cmi files, the added component should be marked
 
 Here we generate a `.mli` file a nested tuple:
 
-  $ cat > ref_nested.mli << EOF
+  $ cat > ref_nested_tuple.mli << EOF
   > type t = int * (int * int)
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc ref_nested.mli
+  $ ocamlc ref_nested_tuple.mli
 
 ### Changing a component in the nested tuple
 
-  $ cat > change_nested.mli << EOF
+  $ cat > change_nested_tuple.mli << EOF
   > type t = int * (float * int)
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc change_nested.mli
+  $ ocamlc change_nested_tuple.mli
 
 Run the api-watcher on the two cmi files, a diff should be reported in the first component of the nested tuple
 
-  $ api-diff --plain ref_nested.cmi change_nested.cmi
-  diff module Change_nested:
+  $ api-diff --plain ref_nested_tuple.cmi change_nested_tuple.cmi
+  diff module Change_nested_tuple:
   -type t = int * ([-int-] * int)
   +type t = int * ({+float+} * int)
   
@@ -78,28 +78,28 @@ Run the api-watcher on the two cmi files, a diff should be reported in the first
 
 Here we generate a `.mli` file with an arrow type:
 
-  $ cat > ref.mli << EOF
+  $ cat > ref_arrow.mli << EOF
   > type t = int -> int -> int
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc ref.mli
+  $ ocamlc ref_arrow.mli
 
 ### Changing a argument type in the arrow type
 
-  $ cat > change_arg_type.mli << EOF
+  $ cat > change_arg_type_in_arrow.mli << EOF
   > type t = float -> int -> int
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc change_arg_type.mli
+  $ ocamlc change_arg_type_in_arrow.mli
 
 Run the api-watcher on the two cmi files, a diff should be reported between the argument type of the two arrow types
  
-  $ api-diff --plain ref.cmi change_arg_type.cmi
-  diff module Change_arg_type:
+  $ api-diff --plain ref_arrow.cmi change_arg_type_in_arrow.cmi
+  diff module Change_arg_type_in_arrow:
   -type t = [-int-] -> int -> int
   +type t = {+float+} -> int -> int
   
@@ -117,7 +117,7 @@ We generate the .cmi file
 
 Run the api-watcher on the two cmi files, the optional argument name should be highlighted
 
-  $ api-diff --plain ref.cmi opt_arg_type.cmi
+  $ api-diff --plain ref_arrow.cmi opt_arg_type.cmi
   diff module Opt_arg_type:
   -type t = int -> int -> int
   +type t = {+?opt:+}int -> int -> int
