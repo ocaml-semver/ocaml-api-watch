@@ -198,7 +198,7 @@ and type_exprs ~typing_env ~ref_params ~cur_params ~reference ~current =
     ~reference ~current
 
 and arrow ~typing_env ~ref_params ~cur_params ~reference ~current =
-  let arg_type lbl typ =
+  let unwrap_optional_arg lbl typ =
     match lbl with
     | Asttypes.Nolabel | Labelled _ -> typ
     | Optional _ -> (
@@ -211,8 +211,8 @@ and arrow ~typing_env ~ref_params ~cur_params ~reference ~current =
   let arg_label = arg_label ~reference:ref_arg_label ~current:cur_arg_label in
   let arg_type =
     type_expr ~typing_env ~ref_params ~cur_params
-      (arg_type ref_arg_label ref_arg_type)
-      (arg_type cur_arg_label cur_arg_type)
+      (unwrap_optional_arg ref_arg_label ref_arg_type)
+      (unwrap_optional_arg cur_arg_label cur_arg_type)
   in
   let return_type =
     type_expr ~typing_env ~ref_params ~cur_params ref_return_type
