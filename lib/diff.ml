@@ -114,29 +114,32 @@ let extract_items items =
     (fun tbl item ->
       match (item : Types.signature_item) with
       | Sig_module (id, _, mod_decl, _, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
+          Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Module mod_decl
             tbl
       | Sig_modtype (id, mtd_decl, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Modtype mtd_decl
+          Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Modtype mtd_decl
             tbl
       | Sig_value (id, val_des, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl
+          Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Value val_des tbl
       | Sig_type (id, type_decl, _, Exported) ->
           if
-            Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl
-            || Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Classtype tbl
+            Sig_item_map.has ~key:(Ident.name id) Sig_item_map.Class tbl
+            || Sig_item_map.has ~key:(Ident.name id) Sig_item_map.Classtype tbl
           then tbl
           else
-            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
+            Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Type
               (type_decl, id) tbl
       | Sig_class (id, cls_decl, _, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
+          Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Class cls_decl tbl
       | Sig_class_type (id, class_type_decl, _, Exported) ->
-          if Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl then
+          if Sig_item_map.has ~key:(Ident.name id) Sig_item_map.Class tbl then
             tbl
           else
-            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Classtype
+            Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Classtype
               class_type_decl tbl
+      | Sig_typext (id, typext, _excep, Exported) ->
+        Sig_item_map.add ~key:(Ident.name id, (Path.name typext.ext_type_path))
+                                 Sig_item_map.Extcstr typext tbl
       | _ -> tbl)
     Sig_item_map.empty items
 

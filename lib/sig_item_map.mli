@@ -2,21 +2,22 @@ open Types
 
 type t
 
-type _ item_type =
-  | Value : value_description item_type
-  | Module : module_declaration item_type
-  | Modtype : modtype_declaration item_type
-  | Type : (type_declaration * Ident.t) item_type
-  | Class : class_declaration item_type
-  | Classtype : class_type_declaration item_type
+type (_, _) item_type =
+  | Value : (value_description, string) item_type
+  | Module : (module_declaration, string) item_type
+  | Modtype : (modtype_declaration, string) item_type
+  | Type : (type_declaration * Ident.t, string) item_type
+  | Class : (class_declaration, string) item_type
+  | Classtype : (class_type_declaration, string) item_type
+  | Extcstr : (extension_constructor, string * string) item_type
 
 val empty : t
-val add : name:string -> 'a item_type -> 'a -> t -> t
-val has : name:string -> 'a item_type -> t -> bool
+val add : key:'b -> ('a, 'b) item_type -> 'a -> t -> t
+val has : key:'b -> ('a, 'b) item_type -> t -> bool
 
-type ('a, 'diff) diff_item =
-  'a item_type -> string -> 'a option -> 'a option -> 'diff option
+type ('a, 'b, 'diff) diff_item =
+  ('a, 'b) item_type -> string -> 'a option -> 'a option -> 'diff option
 
-type 'diff poly_diff_item = { diff_item : 'a. ('a, 'diff) diff_item }
+type 'diff poly_diff_item = { diff_item : 'a 'b. ('a, 'b, 'diff) diff_item }
 
 val diff : diff_item:'diff poly_diff_item -> t -> t -> 'diff list
