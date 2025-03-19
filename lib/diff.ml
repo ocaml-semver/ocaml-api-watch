@@ -422,15 +422,14 @@ and module_type ~typing_env ~name ~ref_module_type ~current_module_type
         ~reference:ref_modtype ~current:curr_modtype
 
 and signatures ~reference ~current =
+  let initialized_env = Typing_env.initialized_env () in
   let modified_reference, modified_current, typing_env =
-    Typing_env.for_diff ~reference ~current
+    Typing_env.for_diff ~reference ~current ~env:initialized_env
   in
   match
     items ~reference:modified_reference ~current:modified_current ~typing_env
   with
   | [] -> (
-      Compmisc.init_path ();
-      let initialized_env = Compmisc.initial_env () in
       let coercion1 () =
         Includemod.signatures initialized_env ~mark:Mark_both reference current
       in

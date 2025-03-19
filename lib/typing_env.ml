@@ -45,19 +45,27 @@ let replace_matching_ids ~reference ~current =
                   Sig_type (new_id, td, r, v) :: lst )
             | None -> (subst, sig_typ_decl :: lst))
         | Sig_module (id, mp, md, r, v) as sig_mod_decl -> (
-            match Env.find_value_index id ref_env with
+            match Env.find_module_index id ref_env with
             | Some _ ->
                 let new_id = Ident.rename id in
                 ( Subst.add_module id (Path.Pident new_id) subst,
                   Sig_module (new_id, mp, md, r, v) :: lst )
             | None -> (subst, sig_mod_decl :: lst))
-        | Sig_modtype (id, mtd, v) as sig_modtyp_decl -> (
+        | Sig_modtype (id, mtd, v) -> (
             match Env.find_modtype_index id ref_env with
             | Some _ ->
                 let new_id = Ident.rename id in
                 ( Subst.add_modtype id (Mty_ident (Pident new_id)) subst,
                   Sig_modtype (new_id, mtd, v) :: lst )
-            | None -> (subst, sig_modtyp_decl :: lst))
+            | None ->
+              (** This is a special case for functor paramters, should be
+                  removed once we have fine-grained diffing of functors *)
+              let new_id = ref (Ident.rename id) in
+              while (Option.is_some (Env.find_modtype_index !new_id ref_env)) do
+                new_id := Ident.rename id
+              done;
+                ( Subst.add_modtype id (Mty_ident (Pident !new_id)) subst,
+                  Sig_modtype (!new_id, mtd, v) :: lst ))
         | Sig_value (id, vd, v) as sig_val -> (
             match Env.find_value_index id ref_env with
             | Some _ ->
@@ -117,12 +125,15 @@ let pair_items ~reference ~current =
       | _ -> subst)
     Subst.identity current
 
-let for_diff ~reference ~current =
+let initialized_env () =
   Compmisc.init_path ();
-  let initialized_env = Compmisc.initial_env () in
+  Compmisc.initial_env ()
+
+let for_diff ~reference ~current ~env =
   let current = replace_matching_ids ~reference ~current in
+  let reference = replace_matching_ids ~reference:current ~current:reference in
   let env =
-    Env.add_signature reference (Env.in_signature true initialized_env)
+    Env.add_signature reference (Env.in_signature true env)
   in
   let env = Env.add_signature current env in
   let subst = pair_items ~reference ~current in
@@ -159,6 +170,9 @@ let pp fmt t =
               (match mp with
               | Mp_present -> "Mp_present"
               | Mp_absent -> "Mp_absent");
+            (match md_type with
+             | Mty_functor (Named (Some pid, _pmt), _fmt) -> Ident.print Format.std_formatter pid
+             | _ -> ());
             Format.fprintf fmt "%a" Printtyp.modtype md_type)
     | Env_modtype (s, id, mtyp) ->
         pp_rec s;

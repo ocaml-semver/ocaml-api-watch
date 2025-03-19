@@ -5,3 +5,4 @@ module Library = Library
 module Normalize = Normalize
 module Stddiff = Stddiff
 module Ocaml_types = Ocaml_types
+module Typing_env = Typing_env

@@ -1,4 +1,5 @@
 open Api_watch.Diff
+open Api_watch.Typing_env
 
 let rec pp_module_modification fmt = function
   | Unsupported -> Format.fprintf fmt "Unsupported"
@@ -67,8 +68,7 @@ let parse_interface content =
   Parse.interface lexbuf
 
 let generate_signature intf =
-  Compmisc.init_path ();
-  let typing_env = Compmisc.initial_env () in
+  let typing_env = initialized_env () in
   let typed_tree = Typemod.type_interface typing_env intf in
   typed_tree.sig_type
 

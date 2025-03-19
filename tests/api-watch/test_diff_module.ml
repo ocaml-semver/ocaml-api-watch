@@ -89,8 +89,7 @@ let%expect_test "Modules with both supported and unsupported changes" =
     Some (Module Main: {Modified (Supported [ Value (x, Removed);
     Module M: {Modified (Unsupported)}])})|}]
 
-let%expect_test "Submodules with different functor types, we cannot detect \
-                 both supported and unsupported changes at the same time." =
+let%expect_test "Submodules with different functor types." =
   let reference =
     compile_interface
       {|
@@ -119,7 +118,8 @@ let%expect_test "Submodules with different functor types, we cannot detect \
   Format.printf "%a" pp_diff_option result;
   [%expect
     {|
-    Some (Module Main: {Modified (Supported [ Module_type X: Removed;
+    Some (Module Main: {Modified (Supported [ Module F: {Modified (Unsupported)};
+    Module_type X: Removed;
     Module_type Y: Added])})
     |}]
 
