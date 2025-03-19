@@ -58,12 +58,12 @@ let replace_matching_ids ~reference ~current =
                 ( Subst.add_modtype id (Mty_ident (Pident new_id)) subst,
                   Sig_modtype (new_id, mtd, v) :: lst )
             | None ->
-              (** This is a special case for functor paramters, should be
-                  removed once we have fine-grained diffing of functors *)
-              let new_id = ref (Ident.rename id) in
-              while (Option.is_some (Env.find_modtype_index !new_id ref_env)) do
-                new_id := Ident.rename id
-              done;
+                (* This is a special case for functor paramters, should be
+                    removed once we have fine-grained diffing of functors *)
+                let new_id = ref (Ident.rename id) in
+                while Option.is_some (Env.find_modtype_index !new_id ref_env) do
+                  new_id := Ident.rename id
+                done;
                 ( Subst.add_modtype id (Mty_ident (Pident !new_id)) subst,
                   Sig_modtype (!new_id, mtd, v) :: lst ))
         | Sig_value (id, vd, v) as sig_val -> (
@@ -132,9 +132,7 @@ let initialized_env () =
 let for_diff ~reference ~current ~env =
   let current = replace_matching_ids ~reference ~current in
   let reference = replace_matching_ids ~reference:current ~current:reference in
-  let env =
-    Env.add_signature reference (Env.in_signature true env)
-  in
+  let env = Env.add_signature reference (Env.in_signature true env) in
   let env = Env.add_signature current env in
   let subst = pair_items ~reference ~current in
   let modified_current = apply_subst subst current in
@@ -171,8 +169,9 @@ let pp fmt t =
               | Mp_present -> "Mp_present"
               | Mp_absent -> "Mp_absent");
             (match md_type with
-             | Mty_functor (Named (Some pid, _pmt), _fmt) -> Ident.print Format.std_formatter pid
-             | _ -> ());
+            | Mty_functor (Named (Some pid, _pmt), _fmt) ->
+                Ident.print Format.std_formatter pid
+            | _ -> ());
             Format.fprintf fmt "%a" Printtyp.modtype md_type)
     | Env_modtype (s, id, mtyp) ->
         pp_rec s;
