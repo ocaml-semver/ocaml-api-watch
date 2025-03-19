@@ -1,4 +1,4 @@
-module TypeDecl : sig
+module Type_decl : sig
   module Field : sig
     type mutable_change = Added | Removed
 
@@ -10,10 +10,10 @@ module TypeDecl : sig
 
   module Constructor : sig
     type args =
-      | Record of (Intermed.TypeDecl.Field.t, Field.t) Stddiff.map
+      | Record of (Intermed.Type_decl.Field.t, Field.t) Stddiff.map
       | Tuple of Types.type_expr Stddiff.maybe_changed_atomic_entry list
-      | Unshared of
-          Intermed.TypeDecl.Constructor.args Stddiff.atomic_modification
+      | Atomic of
+          Intermed.Type_decl.Constructor.args Stddiff.atomic_modification
 
     type t = { args : args }
   end
@@ -22,10 +22,10 @@ module TypeDecl : sig
     type private_change = Added | Removed
 
     type definition =
-      | Record of (Intermed.TypeDecl.Field.t, Field.t) Stddiff.map
-      | Variant of (Intermed.TypeDecl.Constructor.t, Constructor.t) Stddiff.map
-      | Unshared_definition of
-          Intermed.TypeDecl.Kind.definition Stddiff.atomic_modification
+      | Record of (Intermed.Type_decl.Field.t, Field.t) Stddiff.map
+      | Variant of (Intermed.Type_decl.Constructor.t, Constructor.t) Stddiff.map
+      | Atomic_definition of
+          Intermed.Type_decl.Kind.definition Stddiff.atomic_modification
 
     type t =
       | Alias of {
@@ -36,30 +36,30 @@ module TypeDecl : sig
           manifest : Types.type_expr Stddiff.atomic_option;
           private_ : (bool, private_change) Stddiff.maybe_changed;
           definition :
-            ( Intermed.TypeDecl.Kind.definition,
+            ( Intermed.Type_decl.Kind.definition,
               definition )
             Stddiff.maybe_changed;
         }
-      | Unshared of Intermed.TypeDecl.Kind.t Stddiff.atomic_modification
+      | Atomic of Intermed.Type_decl.Kind.t Stddiff.atomic_modification
   end
 
   module Param : sig
     type param_change =
-      | Added of Intermed.TypeDecl.param
-      | Removed of Intermed.TypeDecl.param
+      | Added of Intermed.Type_decl.param
+      | Removed of Intermed.Type_decl.param
 
-    type t = (Intermed.TypeDecl.param, param_change) Stddiff.maybe_changed
+    type t = (Intermed.Type_decl.param, param_change) Stddiff.maybe_changed
   end
 
   type t = {
-    params : (Intermed.TypeDecl.param, Param.t) Stddiff.list_;
-    kind : (Intermed.TypeDecl.Kind.t, Kind.t) Stddiff.maybe_changed;
+    params : (Intermed.Type_decl.param, Param.t) Stddiff.list_;
+    kind : (Intermed.Type_decl.Kind.t, Kind.t) Stddiff.maybe_changed;
   }
 end
 
 type type_ = {
   tname : string;
-  tdiff : (Intermed.TypeDecl.t, TypeDecl.t) Stddiff.entry;
+  tdiff : (Intermed.Type_decl.t, Type_decl.t) Stddiff.entry;
 }
 
 type value = {

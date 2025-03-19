@@ -84,6 +84,8 @@ let first_type_decl signature =
     (fun sig_item ->
       match sig_item with
       | Types.Sig_type (id, td, _, _) ->
-          Some (Ident.name id, Api_watch.Convert.type_declaration td)
+          Some
+            ( Ident.name id,
+              Api_watch.Intermed.Type_decl.from_type_declaration td )
       | _ -> None)
     signature

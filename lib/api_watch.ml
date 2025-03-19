@@ -4,5 +4,4 @@ module Text_diff = Text_diff
 module Library = Library
 module Normalize = Normalize
 module Stddiff = Stddiff
-module Convert = Convert
 module Intermed = Intermed

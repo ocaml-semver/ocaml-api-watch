@@ -18,7 +18,7 @@ val pp : Format.formatter -> t -> unit
 val from_diff : Diff.module_ -> t
 (** Converts from a low-level diff to a textual diff *)
 
-val td_to_lines : string -> Intermed.TypeDecl.t -> string list
+val td_to_lines : string -> Intermed.Type_decl.t -> string list
 
 module With_colors : sig
   val pp : Format.formatter -> t -> unit

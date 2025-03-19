@@ -1,6 +1,5 @@
 open Types
 open Stddiff
-open Intermed
 
 let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) ~reference
     ~current () =
@@ -9,14 +8,13 @@ let type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) ~reference
   in
   if
     Ctype.is_equal typing_env true
-      (List.map (fun param -> param.TypeDecl.type_expr) normed_ref
-      @ [ reference ])
-      (List.map (fun param -> param.TypeDecl.type_expr) normed_cur @ [ current ])
+      (normed_ref @ [ reference ])
+      (normed_cur @ [ current ])
   then None
   else Some { reference; current }
 
-module TypeDecl = struct
-  module TD = TypeDecl
+module Type_decl = struct
+  module TD = Intermed.Type_decl
   module K = TD.Kind
   module F = TD.Field
   module C = TD.Constructor
@@ -53,7 +51,7 @@ module TypeDecl = struct
     type args =
       | Record of (F.t, Field.t) map
       | Tuple of type_expr maybe_changed_atomic_entry list
-      | Unshared of C.args atomic_modification
+      | Atomic of C.args atomic_modification
 
     type t = { args : args }
 
@@ -102,7 +100,7 @@ module TypeDecl = struct
       | C.Tuple ref_tuple, C.Tuple cur_tuple ->
           tuple ~typing_env ~ref_params ~cur_params ~reference:ref_tuple
             ~current:cur_tuple
-      | _ -> Some (Unshared { reference; current })
+      | _ -> Some (Atomic { reference; current })
 
     let cstr ~typing_env ~ref_params ~cur_params reference current =
       let args =
@@ -118,7 +116,7 @@ module TypeDecl = struct
     type definition =
       | Record of (F.t, Field.t) map
       | Variant of (C.t, Constructor.t) map
-      | Unshared_definition of K.definition atomic_modification
+      | Atomic_definition of K.definition atomic_modification
 
     type t =
       | Alias of {
@@ -130,7 +128,7 @@ module TypeDecl = struct
           private_ : (bool, private_change) maybe_changed;
           definition : (K.definition, definition) maybe_changed;
         }
-      | Unshared of K.t atomic_modification
+      | Atomic of K.t atomic_modification
 
     let private_ ~reference ~current =
       match (reference, current) with
@@ -211,7 +209,7 @@ module TypeDecl = struct
             ~current:cur_cstrs
       | ref_definition, cur_definition ->
           Changed
-            (Unshared_definition
+            (Atomic_definition
                { reference = ref_definition; current = cur_definition })
 
     let concrete ~typing_env ~ref_params ~cur_params ~reference ~current =
@@ -241,7 +239,7 @@ module TypeDecl = struct
           concrete ~typing_env ~ref_params ~cur_params ~reference:ref_concrete
             ~current:cur_concrete
       | ref_kind, cur_kind ->
-          Changed (Unshared { reference = ref_kind; current = cur_kind })
+          Changed (Atomic { reference = ref_kind; current = cur_kind })
   end
 
   module Param = struct
@@ -265,7 +263,11 @@ module TypeDecl = struct
   }
 end
 
-type type_ = { tname : string; tdiff : (Intermed.TypeDecl.t, TypeDecl.t) entry }
+type type_ = {
+  tname : string;
+  tdiff : (Intermed.Type_decl.t, Type_decl.t) entry;
+}
+
 type value = { vname : string; vdiff : value_description atomic_entry }
 type class_ = { cname : string; cdiff : class_declaration atomic_entry }
 type cltype = { ctname : string; ctdiff : class_type_declaration atomic_entry }
@@ -309,7 +311,7 @@ let extract_items items =
           then tbl
           else
             Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
-              (Convert.type_declaration type_decl)
+              (Intermed.Type_decl.from_type_declaration type_decl)
               tbl
       | Sig_class (id, cls_decl, _, Exported) ->
           Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
@@ -336,8 +338,8 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
       Some (Module { mname = name; mdiff = Modified Unsupported })
 
 let type_decls ~typing_env ~name ~reference ~current =
-  let module TD = Intermed.TypeDecl in
-  let open TypeDecl in
+  let module TD = Intermed.Type_decl in
+  let open Type_decl in
   if
     Normalize.is_params ~reference:reference.TD.params
       ~current:current.TD.params
@@ -346,7 +348,7 @@ let type_decls ~typing_env ~name ~reference ~current =
   let ref_params = reference.TD.params in
   let cur_params = current.TD.params in
   let params =
-    TypeDecl.Param.params ~reference:reference.params ~current:current.params
+    Type_decl.Param.params ~reference:reference.params ~current:current.params
   in
   let kind =
     Kind.kind ~typing_env ~ref_params ~cur_params ~reference:reference.kind

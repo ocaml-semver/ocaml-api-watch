@@ -71,16 +71,10 @@ let indent_hunk amount hunk =
       Inline_hunks
         (match ihunks with
         | [] -> ihunks
-        | ihunk :: ihunks' ->
-            (match ihunk with
-            | Icommon s -> Icommon (indent amount s)
-            | Iconflict { iorig; inew } ->
-                Iconflict
-                  {
-                    iorig = Option.map (indent amount) iorig;
-                    inew = Option.map (indent amount) inew;
-                  })
-            :: ihunks')
+        | ihunk :: ihunks' -> (
+            match ihunk with
+            | Icommon s -> Icommon (indent amount s) :: ihunks'
+            | iconflict -> Icommon (indent amount "") :: iconflict :: ihunks'))
 
 let vd_to_lines name vd =
   let buf = Buffer.create 256 in
@@ -97,22 +91,19 @@ let type_expr_to_string typ_exp =
   String.map (function '\n' -> ' ' | c -> c) (Buffer.contents buf)
 
 let params_to_string params =
-  let module TD = Intermed.TypeDecl in
   match params with
   | [] -> ""
-  | param :: [] -> " " ^ type_expr_to_string param.TD.type_expr
+  | param :: [] -> " " ^ type_expr_to_string param
   | _ ->
       Printf.sprintf " (%s)"
         (String.concat ", "
-           (List.map
-              (fun param -> type_expr_to_string param.TD.type_expr)
-              params))
+           (List.map (fun param -> type_expr_to_string param) params))
 
 let private_to_string private_ = if private_ then " private" else ""
-let mutable_to_string mutable_ = if mutable_ then " mutable" else ""
+let mutable_to_string mutable_ = if mutable_ then "mutable" else ""
 
 let field_to_string field =
-  let open Intermed.TypeDecl.Field in
+  let open Intermed.Type_decl.Field in
   let mutable_string = mutable_to_string field.mutable_ in
   let type_expr_string = type_expr_to_string field.type_ in
   Printf.sprintf " %s%s : %s;" mutable_string field.name type_expr_string
@@ -133,28 +124,28 @@ and tuple_to_line tuple =
   List.map type_expr_to_string tuple |> String.concat " * "
 
 let cstr_args_to_string =
-  let module C = Intermed.TypeDecl.Constructor in
+  let module C = Intermed.Type_decl.Constructor in
   function
   | C.Tuple type_exprs -> tuple_to_line type_exprs
   | Record fields -> fields_to_line fields
 
 let cstr_to_string cstr =
-  let module C = Intermed.TypeDecl.Constructor in
+  let module C = Intermed.Type_decl.Constructor in
   match cstr.C.args with
   | C.Tuple [] | C.Record [] -> Printf.sprintf "| %s" cstr.C.name
   | _ -> Printf.sprintf "| %s of %s" cstr.C.name (cstr_args_to_string cstr.args)
 
 let cstrs_to_lines cstrs = List.map cstr_to_string cstrs
 
-let type_definition_to_lines definition =
-  let open Intermed.TypeDecl.Kind in
+let type_definition_to_lines ~diff definition =
+  let open Intermed.Type_decl.Kind in
   match definition with
-  | Open -> []
+  | Open -> if diff then [ ".." ] else []
   | Record fields -> [ fields_to_line fields ]
   | Variant cstrs -> cstrs_to_lines cstrs
 
 let type_header_to_line private_ manifest definition =
-  let module K = Intermed.TypeDecl.Kind in
+  let module K = Intermed.Type_decl.Kind in
   match (manifest, definition) with
   | None, K.Open -> Printf.sprintf " =%s .." (private_to_string private_)
   | Some type_expr, Open ->
@@ -168,7 +159,7 @@ let type_header_to_line private_ manifest definition =
         (private_to_string private_)
 
 let type_kind_to_lines kind =
-  let open Intermed.TypeDecl.Kind in
+  let open Intermed.Type_decl.Kind in
   match kind with
   | Abstract -> (None, [])
   | Alias { private_; type_expr } ->
@@ -177,10 +168,10 @@ let type_kind_to_lines kind =
       (Some (Printf.sprintf " =%s %s" private_string type_expr_string), [])
   | Concrete { manifest; private_; definition } ->
       ( Some (type_header_to_line private_ manifest definition),
-        type_definition_to_lines definition )
+        type_definition_to_lines ~diff:false definition )
 
 let td_to_lines name td =
-  let open Intermed.TypeDecl in
+  let open Intermed.Type_decl in
   let params_string = params_to_string td.params in
   let header_string, definition_string = type_kind_to_lines td.kind in
   Printf.sprintf "type%s %s%s" params_string name
@@ -227,8 +218,8 @@ let ctd_to_lines name cd =
   CCString.lines class_str
 
 and process_type_params_diff diff =
-  let module TD = Intermed.TypeDecl in
-  let module P = Diff.TypeDecl.Param in
+  let module TD = Intermed.Type_decl in
+  let module P = Diff.Type_decl.Param in
   let module S = Stddiff in
   let params_hunks =
     match diff with
@@ -236,8 +227,7 @@ and process_type_params_diff diff =
         List.mapi
           (fun i p ->
             let comma = if i > 0 then ", " else "" in
-            Icommon
-              (Printf.sprintf "%s%s" comma (type_expr_to_string p.TD.type_expr)))
+            Icommon (Printf.sprintf "%s%s" comma (type_expr_to_string p)))
           params
     | S.Changed changed_params ->
         List.mapi
@@ -245,21 +235,13 @@ and process_type_params_diff diff =
             let comma = if i > 0 then ", " else "" in
             match p with
             | Stddiff.Same p ->
-                Icommon
-                  (Printf.sprintf "%s%s" comma
-                     (type_expr_to_string p.TD.type_expr))
+                Icommon (Printf.sprintf "%s%s" comma (type_expr_to_string p))
             | Changed (P.Added p) ->
                 Iconflict
-                  {
-                    iorig = None;
-                    inew = Some (comma ^ type_expr_to_string p.TD.type_expr);
-                  }
+                  { iorig = None; inew = Some (comma ^ type_expr_to_string p) }
             | Changed (P.Removed p) ->
                 Iconflict
-                  {
-                    iorig = Some (comma ^ type_expr_to_string p.TD.type_expr);
-                    inew = None;
-                  })
+                  { iorig = Some (comma ^ type_expr_to_string p); inew = None })
           changed_params
   in
   let open_paren = Icommon " (" in
@@ -271,7 +253,7 @@ and process_type_params_diff diff =
 
 and process_privacy_diff diff =
   let module S = Stddiff in
-  let module K = Diff.TypeDecl.Kind in
+  let module K = Diff.Type_decl.Kind in
   match diff with
   | S.Same true -> [ Icommon " = private" ]
   | Same false -> [ Icommon " =" ]
@@ -283,13 +265,16 @@ and process_privacy_diff diff =
 and process_type_expr_diff diff =
   let module S = Stddiff in
   match diff with
-  | S.Same type_expr -> Icommon (" " ^ type_expr_to_string type_expr)
+  | S.Same type_expr -> [ Icommon (" " ^ type_expr_to_string type_expr) ]
   | S.Changed { S.reference; current } ->
-      Iconflict
-        {
-          iorig = Some (" " ^ type_expr_to_string reference);
-          inew = Some (" " ^ type_expr_to_string current);
-        }
+      [
+        Icommon " ";
+        Iconflict
+          {
+            iorig = Some (type_expr_to_string reference);
+            inew = Some (type_expr_to_string current);
+          };
+      ]
 
 let process_manifest_diff diff =
   let open Stddiff in
@@ -316,17 +301,18 @@ let process_manifest_diff diff =
 
 let process_mutable_diff diff =
   let module S = Stddiff in
-  let module F = Diff.TypeDecl.Field in
+  let module F = Diff.Type_decl.Field in
   match diff with
-  | S.Same mutable_ -> Icommon (mutable_to_string mutable_)
+  | S.Same false -> Icommon ""
+  | S.Same true -> Icommon " mutable"
   | Changed F.Added ->
-      Iconflict { iorig = None; inew = Some (mutable_to_string true) }
+      Iconflict { iorig = None; inew = Some (" " ^ mutable_to_string true) }
   | Changed Removed ->
-      Iconflict { iorig = Some (mutable_to_string true); inew = None }
+      Iconflict { iorig = Some (" " ^ mutable_to_string true); inew = None }
 
 let process_field_diff name diff =
   let module S = Stddiff in
-  let module F = Diff.TypeDecl.Field in
+  let module F = Diff.Type_decl.Field in
   match diff with
   | S.Added field ->
       [ Iconflict { iorig = None; inew = Some (field_to_string field) } ]
@@ -337,7 +323,8 @@ let process_field_diff name diff =
       let name_hunk = Icommon (Printf.sprintf " %s :" name) in
       let type_hunk = process_type_expr_diff field_change.type_ in
       let semicolon_hunk = Icommon ";" in
-      [ mutable_hunk; name_hunk; type_hunk; semicolon_hunk ]
+      List.concat
+        [ [ mutable_hunk ]; [ name_hunk ]; type_hunk; [ semicolon_hunk ] ]
 
 let process_fields_diff diff =
   let module S = Stddiff in
@@ -385,8 +372,8 @@ let process_tuple_type_diff tuple_diff =
   |> List.concat
 
 let process_cstr_of diff =
-  let module DC = Diff.TypeDecl.Constructor in
-  let module C = Intermed.TypeDecl.Constructor in
+  let module DC = Diff.Type_decl.Constructor in
+  let module C = Intermed.Type_decl.Constructor in
   let module S = Stddiff in
   match diff with
   | DC.Record { same_map; changed_map } ->
@@ -418,25 +405,25 @@ let process_cstr_of diff =
           lst
       then Iconflict { iorig = Some " of "; inew = None }
       else Icommon " of "
-  | Unshared
+  | Atomic
       { reference = C.Tuple [] | Record []; current = Tuple [] | Record [] } ->
       Icommon ""
-  | Unshared { reference = C.Tuple [] | Record []; current = _ } ->
+  | Atomic { reference = C.Tuple [] | Record []; current = _ } ->
       Iconflict { iorig = None; inew = Some " of " }
-  | Unshared { reference = _; current = C.Tuple [] | Record [] } ->
+  | Atomic { reference = _; current = C.Tuple [] | Record [] } ->
       Iconflict { iorig = Some " of "; inew = None }
   | _ -> Icommon " of "
 
 let process_cstr_diff name cstr_diff =
   let module S = Stddiff in
-  let module C = Diff.TypeDecl.Constructor in
+  let module C = Diff.Type_decl.Constructor in
   match cstr_diff with
   | S.Added cstr -> Line_conflict { orig = []; new_ = [ cstr_to_string cstr ] }
   | Removed cstr -> Line_conflict { orig = [ cstr_to_string cstr ]; new_ = [] }
   | Modified cstr_change -> (
       let of_ihunk = process_cstr_of cstr_change.C.args in
       match cstr_change.C.args with
-      | C.Unshared { reference; current } ->
+      | C.Atomic { reference; current } ->
           Inline_hunks
             [
               Icommon (Printf.sprintf "| %s" name);
@@ -475,42 +462,27 @@ let process_cstrs_diff variant_diff =
 
 let process_definition_diff diff =
   let module S = Stddiff in
-  let module K = Intermed.TypeDecl.Kind in
-  let module KD = Diff.TypeDecl.Kind in
+  let module K = Intermed.Type_decl.Kind in
+  let module KD = Diff.Type_decl.Kind in
   match diff with
-  | S.Same K.Open -> ([ Icommon " .." ], [])
-  | Same (Record fields) -> ([], [ Common [ fields_to_line fields ] ])
-  | Same (Variant cstrs) -> ([], [ Common (cstrs_to_lines cstrs) ])
+  | S.Same K.Open -> [ Inline_hunks [ Icommon " .." ] ]
+  | Same (Record fields) -> [ Common [ fields_to_line fields ] ]
+  | Same (Variant cstrs) -> [ Common (cstrs_to_lines cstrs) ]
   | Changed (KD.Record fields_change) ->
-      ([], [ Inline_hunks (process_fields_diff fields_change) ])
-  | Changed (Variant cstrs_change) -> ([], process_cstrs_diff cstrs_change)
-  | Changed (Unshared_definition { reference; current }) -> (
-      match (reference, current) with
-      | Open, _ ->
-          ( [ Iconflict { iorig = Some " .."; inew = None } ],
-            [
-              Line_conflict
-                { orig = []; new_ = type_definition_to_lines current };
-            ] )
-      | _, Open ->
-          ( [ Iconflict { iorig = None; inew = Some " .." } ],
-            [
-              Line_conflict
-                { orig = type_definition_to_lines reference; new_ = [] };
-            ] )
-      | _ ->
-          ( [],
-            [
-              Line_conflict
-                {
-                  orig = type_definition_to_lines reference;
-                  new_ = type_definition_to_lines current;
-                };
-            ] ))
+      [ Inline_hunks (process_fields_diff fields_change) ]
+  | Changed (Variant cstrs_change) -> process_cstrs_diff cstrs_change
+  | Changed (Atomic_definition { reference; current }) ->
+      [
+        Line_conflict
+          {
+            orig = type_definition_to_lines ~diff:true reference;
+            new_ = type_definition_to_lines ~diff:true current;
+          };
+      ]
 
 let process_type_kind_diff diff : inline_hunk list * hunk list =
   let module S = Stddiff in
-  let module K = Diff.TypeDecl.Kind in
+  let module K = Diff.Type_decl.Kind in
   let header_ihunks, definition_hunk =
     match diff with
     | S.Same kind ->
@@ -518,16 +490,13 @@ let process_type_kind_diff diff : inline_hunk list * hunk list =
         ( Option.fold ~none:[] ~some:(fun s -> [ Icommon s ]) header_string,
           [ Common definition_strings ] )
     | Changed (K.Alias { type_expr; private_ }) ->
-        ( process_privacy_diff private_ @ [ process_type_expr_diff type_expr ],
-          [] )
+        (process_privacy_diff private_ @ process_type_expr_diff type_expr, [])
     | Changed (Concrete { private_; manifest; definition }) ->
         let manifest_ihunk = process_manifest_diff manifest in
         let private_ihunk = process_privacy_diff private_ in
-        let header_ihunks, definition_hunk =
-          process_definition_diff definition
-        in
-        (manifest_ihunk @ private_ihunk @ header_ihunks, definition_hunk)
-    | Changed (Unshared { reference; current }) ->
+        let definition_hunk = process_definition_diff definition in
+        (manifest_ihunk @ private_ihunk, definition_hunk)
+    | Changed (Atomic { reference; current }) ->
         let orig_header, orig_definition = type_kind_to_lines reference in
         let new_header, new_definition = type_kind_to_lines current in
         ( [ Iconflict { iorig = orig_header; inew = new_header } ],
@@ -536,7 +505,7 @@ let process_type_kind_diff diff : inline_hunk list * hunk list =
   (header_ihunks, definition_hunk)
 
 let process_modified_type_diff name diff =
-  let module TD = Diff.TypeDecl in
+  let module TD = Diff.Type_decl in
   let type_ihunk = Icommon "type" in
   let params_ihunks = process_type_params_diff diff.TD.params in
   let name_ihunk = Icommon (" " ^ name) in
