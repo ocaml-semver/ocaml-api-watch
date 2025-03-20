@@ -475,8 +475,7 @@ and process_tuple_type_diff ~context diff =
       diff
     |> List.concat
   in
-  if context = `Tuple then (Icommon "(" :: tuple_hunks) @ [ Icommon ")" ]
-  else tuple_hunks
+  match context with `Tuple -> parenthesize tuple_hunks | _ -> tuple_hunks
 
 and process_arg_label_diff diff =
   let module S = Stddiff in
@@ -542,9 +541,11 @@ and process_arrow_type_diff ~context arrow_diff =
         return_type_ihunks;
       ]
   in
-  if context = `Tuple || context = `Larrow then
-    (Icommon "(" :: arrow_hunks) @ [ Icommon ")" ]
-  else arrow_hunks
+  match context with
+  | `Tuple | `Larrow -> parenthesize arrow_hunks
+  | _ -> arrow_hunks
+
+and parenthesize hunks = (Icommon "(" :: hunks) @ [ Icommon ")" ]
 
 and process_type_expr_diff ?(context = `None) (diff : Diff.type_expr) :
     inline_hunk list =
