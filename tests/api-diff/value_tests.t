@@ -66,7 +66,7 @@ Run api-diff and check the output
   $ api-diff ref.cmi modify_value.cmi
   diff module Modify_value:
   -val f : t -> string
-  +val f : t -> t
+  +val f : t -> int
   
   [1]
 

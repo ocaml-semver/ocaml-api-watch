@@ -64,14 +64,12 @@ We generate a .cmi file
 
   $ ocamlc modify_type.mli
 
-Run api-watcher on the two cmi files, there should be a difference,
-The alias types are not expanded now, they should be expanded on diffing
-the core type.
+Run api-watcher on the two cmi files, there should be a difference
 
   $ api-diff ref.cmi modify_type.cmi
   diff module Modify_type:
-  -val f : t -> string
-  +val f : t -> string
+  -val f : int -> string
+  +val f : float -> string
   -type t = int
   +type t = float
   
