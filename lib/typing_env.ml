@@ -142,6 +142,10 @@ let for_diff ~reference ~current =
   let env =
     Env.add_signature reference (Env.in_signature true (initialized_env ()))
   in
+  let env =
+    Env.add_signature reference
+      (Env.in_signature true env)
+  in
   let env = Env.add_signature current env in
   let subst = pair_items ~reference ~current in
   let modified_current = apply_subst subst current in
