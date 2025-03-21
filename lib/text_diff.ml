@@ -562,6 +562,23 @@ and process_type_expr_diff ?(context = `None) (diff : Diff.type_expr) :
       ]
   | Tuple tuple_diff -> process_tuple_type_diff ~context tuple_diff
   | Arrow arrow_diff -> process_arrow_type_diff ~context arrow_diff
+  | Constr constr_diff ->
+      let x =
+        match constr_diff.args with
+        | Same s -> List.map (fun x -> Icommon (type_expr_to_string x)) s
+        | Changed c -> process_tuple_type_diff ~context c
+      in
+      let y =
+        match constr_diff.path with
+        | Same s -> Icommon (Path.name s)
+        | Changed { reference; current } ->
+            Iconflict
+              {
+                iorig = Some (Path.name reference);
+                inew = Some (Path.name current);
+              }
+      in
+      x @ [ y ]
 
 and cstr_args_to_line cstr_args =
   match cstr_args with

@@ -1,6 +1,7 @@
 type type_expr =
   | Tuple of tuple
   | Arrow of arrow
+  | Constr of constr
   | Atomic of Types.type_expr Stddiff.atomic_modification
 
 and tuple = (Types.type_expr, type_expr) Stddiff.List.t
@@ -22,6 +23,14 @@ and arg_label_diff = {
 }
 
 and arg_optional = Added_opt_arg | Removed_opt_arg
+
+and constr = {
+  path : (Path.t, Path.t Stddiff.atomic_modification) Stddiff.maybe_changed;
+  args :
+    ( Types.type_expr list,
+      (Types.type_expr, type_expr) Stddiff.List.t )
+    Stddiff.maybe_changed;
+}
 
 type type_modification = {
   type_kind : (Types.type_decl_kind, type_kind) Stddiff.maybe_changed;
