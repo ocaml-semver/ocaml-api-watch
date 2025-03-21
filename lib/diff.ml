@@ -193,13 +193,13 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
           ~type_expr:current ~args:cur_args
       in
       match (ref_expr, cur_expr) with
-      | `Expanded e1, `Expanded e2 ->
-          type_expr ~typing_env ~ref_params ~cur_params e1 e2
-      | `Expanded e1, `Expr e2 ->
+      | `Expr e1, `Expr e2 ->
           type_expr ~typing_env ~ref_params ~cur_params e1 e2
       | `Expr e1, `Expanded e2 ->
           type_expr ~typing_env ~ref_params ~cur_params e1 e2
-      | `Expr _, `Expr _ -> (
+      | `Expanded e1, `Expr e2 ->
+          type_expr ~typing_env ~ref_params ~cur_params e1 e2
+      | `Expanded _, `Expanded _ -> (
           let constr =
             constr ~typing_env ~ref_params ~cur_params
               ~reference:(ref_path, ref_args) ~current:(cur_path, cur_args)
