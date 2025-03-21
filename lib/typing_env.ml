@@ -118,11 +118,10 @@ let pair_items ~reference ~current =
     Subst.identity current
 
 let for_diff ~reference ~current =
-  Compmisc.init_path ();
   let current = replace_matching_ids ~reference ~current in
   let env =
     Env.add_signature reference
-      (Env.in_signature true (Compmisc.initial_env ()))
+      (Env.in_signature true Env.empty)
   in
   let env = Env.add_signature current env in
   let subst = pair_items ~reference ~current in
