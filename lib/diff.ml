@@ -531,18 +531,19 @@ and module_type ~typing_env ~name ~ref_module_type ~current_module_type
         ~reference:ref_modtype ~current:curr_modtype
 
 and signatures ~reference ~current =
+  let initialized_env = Typing_env.initialized_env () in
   let modified_reference, modified_current, typing_env =
-    Typing_env.for_diff ~reference ~current
+    Typing_env.for_diff ~reference ~current ~env:initialized_env
   in
   match
     items ~reference:modified_reference ~current:modified_current ~typing_env
   with
   | [] -> (
       let coercion1 () =
-        Includemod.signatures Env.empty ~mark:Mark_both reference current
+        Includemod.signatures initialized_env ~mark:Mark_both reference current
       in
       let coercion2 () =
-        Includemod.signatures Env.empty ~mark:Mark_both current reference
+        Includemod.signatures initialized_env ~mark:Mark_both current reference
       in
       match (coercion1 (), coercion2 ()) with
       | Tcoerce_none, Tcoerce_none -> None
