@@ -166,8 +166,8 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
 let expand_alias_types ~typing_env ~type_expr =
   Ctype.full_expand ~may_forget_scope:false typing_env type_expr
 
-let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
-    current =
+let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = [])
+    reference current =
   match (Types.get_desc reference, Types.get_desc current) with
   | Ttuple ref_exps, Ttuple cur_exps -> (
       let type_exprs =
@@ -175,7 +175,10 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
           ~current:cur_exps
       in
       match type_exprs with
-      | Stddiff.Same _ -> Stddiff.Same reference
+      | Stddiff.Same _ -> (
+          match _same_type_expr with
+          | None -> Stddiff.Same reference
+          | Some expr -> Stddiff.Same expr)
       | Changed change -> Changed (Tuple change))
   | ( Tarrow (ref_arg_label, ref_arg_type, ref_return_type, _),
       Tarrow (cur_arg_label, cur_arg_type, cur_return_type, _) ) -> (
@@ -185,7 +188,10 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
           ~current:(cur_arg_label, cur_arg_type, cur_return_type)
       in
       match arrow with
-      | Stddiff.Same _ -> Stddiff.Same reference
+      | Stddiff.Same _ -> (
+          match same_type_expr with
+          | None -> Stddiff.Same reference
+          | Some expr -> Stddiff.Same expr)
       | Changed change -> Changed (Arrow change))
   | Tconstr (ref_path, ref_args, _), Tconstr (cur_path, cur_args, _) ->
       expand_and_diff_tconstr ~typing_env ~ref_params ~cur_params
