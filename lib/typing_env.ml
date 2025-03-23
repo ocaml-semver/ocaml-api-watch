@@ -119,10 +119,7 @@ let pair_items ~reference ~current =
 
 let for_diff ~reference ~current =
   let current = replace_matching_ids ~reference ~current in
-  let env =
-    Env.add_signature reference
-      (Env.in_signature true Env.empty)
-  in
+  let env = Env.add_signature reference (Env.in_signature true Env.empty) in
   let env = Env.add_signature current env in
   let subst = pair_items ~reference ~current in
   let modified_current = apply_subst subst current in
