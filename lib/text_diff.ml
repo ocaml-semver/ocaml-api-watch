@@ -191,6 +191,7 @@ and process_type_header_diff name type_privacy_diff type_manifest_diff
     type_params_diff type_kind_diff =
   let type_hunk = Icommon "type" in
   let type_params_hunks = process_type_params_diff type_params_diff in
+  let space = match type_params_hunks with [] -> Icommon "" | _ -> Icommon " " in
   let type_name_hunk = Icommon (" " ^ name) in
   let equal_hunks = process_equal_sign_diff type_manifest_diff type_kind_diff in
   let type_privacy_hunks = process_privacy_diff type_privacy_diff in
@@ -200,6 +201,7 @@ and process_type_header_diff name type_privacy_diff type_manifest_diff
       List.concat
         [
           [ type_hunk ];
+          [ space ];
           type_params_hunks;
           [ type_name_hunk ];
           [ List.hd equal_hunks ];
@@ -211,6 +213,7 @@ and process_type_header_diff name type_privacy_diff type_manifest_diff
       List.concat
         [
           [ type_hunk ];
+          [ space ];
           type_params_hunks;
           [ type_name_hunk ];
           equal_hunks;
@@ -251,8 +254,8 @@ and process_type_params_diff params_diff =
       in
       match params_hunks with
       | [] -> []
-      | _ :: [] -> Icommon " " :: params_hunks
-      | _ -> Icommon " " :: parenthesize params_hunks)
+      | _ :: [] -> params_hunks
+      | _ -> parenthesize params_hunks)
   | Changed changed_params ->
       let params_hunks =
         List.mapi
@@ -307,7 +310,7 @@ and process_type_params_diff params_diff =
               @ [ Iconflict { iorig = None; inew = Some ")" } ]
             else parenthesize params_hunks
       in
-      Icommon " " :: wrapped_params_hunks
+      wrapped_params_hunks
 
 and concrete = function
   | Stddiff.Same
@@ -590,7 +593,10 @@ and process_constr_type_diff constr_diff =
   let open Diff in
   let path_ihunks = process_path_diff constr_diff.path in
   let args_ihunks = process_type_params_diff constr_diff.args in
-  args_ihunks @ [ Icommon " " ] @ path_ihunks
+  args_ihunks @
+  (match args_ihunks with
+  | [] -> path_ihunks
+  | _ -> Icommon " " :: path_ihunks)
 
 and process_path_diff diff =
   let open Stddiff in

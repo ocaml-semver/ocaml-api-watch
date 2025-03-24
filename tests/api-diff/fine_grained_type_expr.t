@@ -241,9 +241,10 @@ We generate the .cmi file
 Run the api-watcher on the two cmi files, unchanged aliases should not be expanded
 
   $ api-diff --plain ref_type_constrs.cmi change_arg_type.cmi
+  diff module Change_arg_type:
   -type s = [-int-] u
   +type s = {+float+} u
-
+  
   [1]
 
 Changing a component in a tuple type
@@ -267,9 +268,10 @@ We generate the .cmi file
 Run the api-watcher on the two cmi files, aliases to unchanged arrow types should  not be expanded
 
   $ api-diff --plain ref_type_constrs.cmi change_tuple_comp.cmi
+  diff module Change_tuple_comp:
   -type r = q * [-int-]
   +type r = q * {+float+}
-
+  
   [1]
 
 Changing arguments in an alias to a nominal type
@@ -295,6 +297,6 @@ Run the api-watcher on the two cmi files, the alias to the nominal type should n
   $ api-diff --plain ref_type_constrs.cmi change_record_arg_type.cmi
   diff module Change_record_arg_type:
   -type c = ([-int-], [-float-]) record_alias
-  +type c = ({+float+}, {+int}) record_alias
+  +type c = ({+float+}, {+int+}) record_alias
   
   [1]

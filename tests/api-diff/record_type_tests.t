@@ -66,7 +66,7 @@ Run api-watcher on the two cmi files
   diff module Modify_field_type:
    type student =
   -  { first_name : string; last_name : string; id : int option; }
-  +  { first_name : string; last_name : string; id : int; }
+  +  { first_name : string; last_name : string; id :  int; }
   
   [1]
 
