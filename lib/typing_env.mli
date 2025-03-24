@@ -8,10 +8,7 @@ val initialized_env : unit -> t
 (** Returns a environment initialized with the standard library. *)
 
 val for_diff :
-  reference:signature ->
-  current:signature ->
-  env:Env.t ->
-  signature * signature * t
+  reference:signature -> current:signature -> signature * signature * t
 (** Returns two modified signatures with unique IDs that are suitable
     for placing in the same typing environment that we use for diffing.
 

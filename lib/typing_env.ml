@@ -58,8 +58,15 @@ let replace_matching_ids ~reference ~current =
                 ( Subst.add_modtype id (Mty_ident (Pident new_id)) subst,
                   Sig_modtype (new_id, mtd, v) :: lst )
             | None ->
-                (* This is a special case for functor paramters, should be
-                    removed once we have fine-grained diffing of functors *)
+                (* This is a special case for functor paramters.
+                   When two functors have different parameters,
+                   they might treated equally by Includemod.modtypes, thus
+                   one of parameters' id has to be rewritten. For example:
+                   module F (M : X) : A and module F (M : Y) : A
+                   X and Y could have the same stamp, thus they would be
+                   treated equally, so Y stamp has to be rewritten.
+                   Note: This should be removed once we have fine-grained
+                   diffing of functors *)
                 let new_id = ref (Ident.rename id) in
                 while Option.is_some (Env.find_modtype_index !new_id ref_env) do
                   new_id := Ident.rename id
@@ -125,14 +132,17 @@ let pair_items ~reference ~current =
       | _ -> subst)
     Subst.identity current
 
-let initialized_env () =
+let initialized_env =
   Compmisc.init_path ();
-  Compmisc.initial_env ()
+  let env = Compmisc.initial_env () in
+  fun () -> env
 
-let for_diff ~reference ~current ~env =
+let for_diff ~reference ~current =
   let current = replace_matching_ids ~reference ~current in
   let reference = replace_matching_ids ~reference:current ~current:reference in
-  let env = Env.add_signature reference (Env.in_signature true env) in
+  let env =
+    Env.add_signature reference (Env.in_signature true (initialized_env ()))
+  in
   let env = Env.add_signature current env in
   let subst = pair_items ~reference ~current in
   let modified_current = apply_subst subst current in
