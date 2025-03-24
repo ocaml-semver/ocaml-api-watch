@@ -212,11 +212,11 @@ let rec type_expr ~typing_env ?(same_path = None) ?(same_type_expr = None)
           type_expr ~same_type_expr ~same_path ~typing_env ~ref_params
             ~cur_params e1 e2
       | `Expr e1, `Expanded e2 ->
-        type_expr ~same_type_expr ~same_path ~typing_env ~ref_params
-          ~cur_params e1 e2
+          type_expr ~same_type_expr ~same_path ~typing_env ~ref_params
+            ~cur_params e1 e2
       | `Expanded e1, `Expr e2 ->
-        type_expr ~same_type_expr ~same_path ~typing_env ~ref_params
-          ~cur_params e1 e2
+          type_expr ~same_type_expr ~same_path ~typing_env ~ref_params
+            ~cur_params e1 e2
       | `Expanded _, `Expanded _ -> (
           let constr =
             constr ~typing_env ~ref_params ~cur_params
@@ -255,12 +255,12 @@ and constr ~typing_env ~ref_params ~cur_params ~reference ~current =
   let cur_path, cur_args = current in
   let path =
     (*Path.print Format.std_formatter ref_path;
-    Format.force_newline ();
-    Path.print Format.std_formatter cur_path;
-    Format.force_newline ();*)
+      Format.force_newline ();
+      Path.print Format.std_formatter cur_path;
+      Format.force_newline ();*)
     (*if Path.same ref_path cur_path then Stddiff.Same ref_path*)
-    if (String.equal (Path.name ref_path) (Path.name cur_path))
-    then Stddiff.Same ref_path
+    if String.equal (Path.name ref_path) (Path.name cur_path) then
+      Stddiff.Same ref_path
     else Changed { Stddiff.reference = ref_path; current = cur_path }
   in
   let args =
