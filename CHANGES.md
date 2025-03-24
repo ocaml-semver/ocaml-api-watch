@@ -14,6 +14,7 @@
   Can be used when the output doesn't support colors (#136, @azzsal)
 - Add fine-grained diff of tuple types (#139, @azzsal)
 - Add fine-grained diff of arrow types (#140, @azzsal)
+- Add fine-grained diff of type constructors (#148, @azzsal)
 
 ### Changed
 
