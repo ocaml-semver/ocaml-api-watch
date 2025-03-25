@@ -22,5 +22,12 @@ val for_diff :
     signature before diffing it with signature item in the [reference] signature.
 *)
 
+val subst_type_params :
+  typing_env:t ->
+  path:Path.t ->
+  type_expr:Types.type_expr ->
+  args:Types.type_expr list ->
+  [ `Expanded of Types.type_expr | `Expr of Types.type_expr ]
+
 val pp : Format.formatter -> Env.t -> unit
 (** Use for debugging *)
