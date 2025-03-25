@@ -4,6 +4,9 @@ open Types
 
 type t = Env.t
 
+val initialized_env : unit -> t
+(** Returns a environment initialized with the standard library. *)
+
 val for_diff :
   reference:signature -> current:signature -> signature * signature * t
 (** Returns two modified signatures with unique IDs that are suitable

@@ -34,7 +34,7 @@ let%expect_test "Modules with multiple value and submodule changes" =
     compile_interface
       {|
     type ('a, 'b) result = Ok of 'a | Error of 'b
-    val a : string -> int 
+    val a : string -> int
     val f : int -> string
     module M : sig
       val b : int list -> int
@@ -89,7 +89,7 @@ let%expect_test "Modules with both supported and unsupported changes" =
     Some (Module Main: {Modified (Supported [ Value (x, Removed);
     Module M: {Modified (Unsupported)}])})|}]
 
-let%expect_test "Submodules with different functor types" =
+let%expect_test "Submodules with different functor types." =
   let reference =
     compile_interface
       {|
