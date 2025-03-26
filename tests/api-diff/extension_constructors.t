@@ -29,7 +29,7 @@ Run the api-watcher on the two cmi files
   
   [1]
 
-### Changing a constructor paramter
+### Changing a constructor argument
 
   $ cat > cur_change_param_extcstr.mli << EOF
   > type o = ..
@@ -46,5 +46,53 @@ Run the api-watcher on the two cmi files
   diff module Cur_change_param_extcstr:
   -type o += A of [-int-]
   +type o += A of {+float+}
+  
+  [1]
+
+Here we generate a `.mli` file to test changes in exceptions 
+
+  $ cat > ref_exception.mli << EOF
+  > exception BadExp of int
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc ref_exception.mli
+
+### Changing a constructor argument 
+
+  $ cat > cur_change_param_exn.mli << EOF
+  > exception BadExp of float
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc cur_change_param_exn.mli
+
+Run the api-watcher on the two cmi files, both should be displayed in the exception syntax
+
+  $ api-diff --plain ref_exception.cmi cur_change_param_exn.cmi
+  diff module Cur_change_param_exn:
+  -exception BadExp of [-int-]
+  +exception BadExp of {+float+}
+  
+  [1]
+
+### Marking an exception private
+
+  $ cat > cur_private_exn.mli << EOF
+  > type exn += private BadExp of int
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc cur_private_exn.mli
+
+Run the api-watcher on the two cmi files, both should be displayed in the extension constructor syntax
+
+  $ api-diff --plain ref_exception.cmi cur_private_exn.cmi
+  diff module Cur_private_exn:
+  -type exn += BadExp of int
+  +type exn +={+ private+} BadExp of int
   
   [1]
