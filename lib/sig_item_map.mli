@@ -9,6 +9,7 @@ type _ item_type =
   | Type : (type_declaration * Ident.t) item_type
   | Class : class_declaration item_type
   | Classtype : class_type_declaration item_type
+  | Extcstr : string -> (extension_constructor * bool) item_type
 
 val empty : t
 val add : name:string -> 'a item_type -> 'a -> t -> t
