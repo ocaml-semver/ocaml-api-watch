@@ -89,6 +89,22 @@ type cltype = {
   ctdiff : Types.class_type_declaration Stddiff.atomic_entry;
 }
 
+type extcstr = {
+  ecname : string;
+  ectname : string;
+  ecexn : bool;
+  ecdiff : (Types.extension_constructor, extcstr_modification) Stddiff.entry;
+}
+
+and extcstr_modification = {
+  extcstr_params :
+    ( Types.type_expr list,
+      (Types.type_expr, type_expr) Stddiff.List.t )
+    Stddiff.maybe_changed;
+  extcstr_private : (Asttypes.private_flag, type_privacy) Stddiff.maybe_changed;
+  extcstr_args : (Types.constructor_arguments, cstr_args) Stddiff.maybe_changed;
+}
+
 type module_ = {
   mname : string;
   mdiff : (Types.module_declaration, signature_modification) Stddiff.entry;
@@ -108,38 +124,41 @@ and sig_item =
   | Modtype of modtype
   | Class of class_
   | Classtype of cltype
+  | Extcstr of extcstr
 
 let extract_items items =
   List.fold_left
     (fun tbl item ->
       match (item : Types.signature_item) with
       | Sig_module (id, _, mod_decl, _, Exported) ->
-          Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Module mod_decl
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
             tbl
       | Sig_modtype (id, mtd_decl, Exported) ->
-          Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Modtype mtd_decl
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Modtype mtd_decl
             tbl
       | Sig_value (id, val_des, Exported) ->
-          Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Value val_des tbl
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl
       | Sig_type (id, type_decl, _, Exported) ->
           if
-            Sig_item_map.has ~key:(Ident.name id) Sig_item_map.Class tbl
-            || Sig_item_map.has ~key:(Ident.name id) Sig_item_map.Classtype tbl
+            Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl
+            || Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Classtype tbl
           then tbl
           else
-            Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Type
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
               (type_decl, id) tbl
       | Sig_class (id, cls_decl, _, Exported) ->
-          Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Class cls_decl tbl
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
       | Sig_class_type (id, class_type_decl, _, Exported) ->
-          if Sig_item_map.has ~key:(Ident.name id) Sig_item_map.Class tbl then
+          if Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl then
             tbl
           else
-            Sig_item_map.add ~key:(Ident.name id) Sig_item_map.Classtype
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Classtype
               class_type_decl tbl
-      | Sig_typext (id, typext, _excep, Exported) ->
-        Sig_item_map.add ~key:(Ident.name id, (Path.name typext.ext_type_path))
-                                 Sig_item_map.Extcstr typext tbl
+      | Sig_typext (id, typext, status, Exported) ->
+          let exn = match status with Text_exception -> true | _ -> false in
+          Sig_item_map.add ~name:(Ident.name id)
+            (Sig_item_map.Extcstr (Path.name typext.ext_type_path))
+            (typext, exn) tbl
       | _ -> tbl)
     Sig_item_map.empty items
 
@@ -446,7 +465,16 @@ and variant_type ~typing_env ~ref_params ~cur_params ~ref_constructor_lst
     ~reference:ref_cstrs ~current:cur_cstrs
 
 and cstr ~typing_env ~ref_params ~cur_params reference current =
-  match (reference.cd_args, current.cd_args) with
+  let diff =
+    cstr_args ~typing_env ~ref_params ~cur_params ~reference:reference.cd_args
+      ~current:current.cd_args
+  in
+  match diff with
+  | Stddiff.Same _ -> Same reference
+  | Changed change -> Changed change
+
+and cstr_args ~typing_env ~ref_params ~cur_params ~reference ~current =
+  match (reference, current) with
   | Cstr_tuple ref_type_exprs, Cstr_tuple cur_type_exprs -> (
       let type_exprs =
         type_exprs ~typing_env ~ref_params ~cur_params ~reference:ref_type_exprs
@@ -462,10 +490,7 @@ and cstr ~typing_env ~ref_params ~cur_params reference current =
       in
       if String_map.is_empty label_map.changed_map then Same reference
       else Changed (Record_cstr label_map)
-  | _ ->
-      Changed
-        (Atomic_cstr
-           { reference = reference.cd_args; current = current.cd_args })
+  | _ -> Changed (Atomic_cstr { reference; current })
 
 and type_params ~reference ~current =
   let open Stddiff in
@@ -556,6 +581,61 @@ let class_type_item ~typing_env ~name
                      { reference = ref_class_type; current = curr_class_type };
                }))
 
+let extension_constructors ~typing_env ~type_name ~name ~reference ~current =
+  let ref_exn, ref_extcstr = reference in
+  let cur_exn, cur_extcstr = current in
+  let ecexn =
+    match (ref_exn, cur_exn) with
+    | true, true | false, false -> ref_exn
+    | _ -> false
+  in
+  let extcstr_params =
+    type_params ~reference:ref_extcstr.Types.ext_type_params
+      ~current:cur_extcstr.Types.ext_type_params
+  in
+  let extcstr_private =
+    type_privacy ~reference:ref_extcstr.ext_private
+      ~current:cur_extcstr.ext_private
+  in
+  let extcstr_args =
+    cstr_args ~typing_env ~ref_params:ref_extcstr.ext_type_params
+      ~cur_params:cur_extcstr.ext_type_params ~reference:ref_extcstr.ext_args
+      ~current:cur_extcstr.ext_args
+  in
+  match { extcstr_params; extcstr_private; extcstr_args } with
+  | { extcstr_params = Same _; extcstr_private = Same _; extcstr_args = Same _ }
+    ->
+      None
+  | diff ->
+      Some
+        (Extcstr
+           { ecname = name; ectname = type_name; ecexn; ecdiff = Modified diff })
+
+let extcstr_item ~typing_env ~type_name ~name ~reference ~current =
+  match (reference, current) with
+  | None, None -> None
+  | None, Some (curr_extcstr, curr_exn) ->
+      Some
+        (Extcstr
+           {
+             ecname = name;
+             ectname = type_name;
+             ecexn = curr_exn;
+             ecdiff = Added curr_extcstr;
+           })
+  | Some (ref_extcstr, ref_exn), None ->
+      Some
+        (Extcstr
+           {
+             ecname = name;
+             ectname = type_name;
+             ecexn = ref_exn;
+             ecdiff = Removed ref_extcstr;
+           })
+  | Some (ref_extcstr, ref_exn), Some (cur_extcstr, cur_exn) ->
+      extension_constructors ~typing_env ~type_name ~name
+        ~reference:(ref_exn, ref_extcstr) ~current:(cur_exn, cur_extcstr)
+
 let rec items ~reference ~current ~typing_env =
   let ref_items = extract_items reference in
   let curr_items = extract_items current in
@@ -568,6 +648,8 @@ let rec items ~reference ~current ~typing_env =
     | Type -> type_item ~typing_env ~name ~reference ~current
     | Class -> class_item ~typing_env ~name ~reference ~current
     | Classtype -> class_type_item ~typing_env ~name ~reference ~current
+    | Extcstr type_name ->
+        extcstr_item ~typing_env ~name ~type_name ~reference ~current
   in
   Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 

@@ -612,34 +612,36 @@ let%expect_test "Extensible variant type, extended" =
   in
   let result = Diff.interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_option result;
-  [%expect {|Some (Module Main: {Modified (Unsupported)})|}]
+  [%expect
+    {| Some (Module Main: {Modified (Supported [ Extension_constructor (C, Added)])}) |}]
 
 let%expect_test "Extensible variant type, reduced" =
   let reference =
     compile_interface
       {|
     type t = ..
-    type t += A | B of int 
+    type t += A | B of int
     val x : t
   |}
   in
   let current =
     compile_interface {|
     type t = ..
-    type t += A 
+    type t += A
     val x : t
   |}
   in
   let result = Diff.interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_option result;
-  [%expect {|Some (Module Main: {Modified (Unsupported)})|}]
+  [%expect
+    {| Some (Module Main: {Modified (Supported [ Extension_constructor (B, Removed)])}) |}]
 
 let%expect_test "Extensible variant type, modified" =
   let reference =
     compile_interface
       {|
     type t = ..
-    type t += A | B of int 
+    type t += A | B of int
     val x : t
   |}
   in
@@ -653,11 +655,12 @@ let%expect_test "Extensible variant type, modified" =
   in
   let result = Diff.interface ~module_name:"Main" ~reference ~current in
   Format.printf "%a" pp_diff_option result;
-  [%expect {|Some (Module Main: {Modified (Unsupported)})|}]
+  [%expect
+    {| Some (Module Main: {Modified (Supported [ Extension_constructor (B, Modified)])}) |}]
 
 let%expect_test "Changing from abstract to record type" =
   let reference = compile_interface {|
-    type t 
+    type t
     val x : t
   |} in
   let current =
