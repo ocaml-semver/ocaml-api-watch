@@ -17,6 +17,7 @@ and pp_item_diff fmt = function
   | Modtype module_type_diff -> pp_module_type_diff fmt module_type_diff
   | Class class_diff -> pp_class_diff fmt class_diff
   | Classtype class_type_diff -> pp_class_type_diff fmt class_type_diff
+  | Extcstr extcstr_diff -> pp_extension_cstr_diff fmt extcstr_diff
 
 and pp_value_diff fmt { vname; vdiff } =
   match vdiff with
@@ -57,6 +58,20 @@ and pp_class_type_diff fmt { ctname; ctdiff } =
   | Added _ -> Format.fprintf fmt "Class_type (%s, Added)" ctname
   | Removed _ -> Format.fprintf fmt "Class_type (%s, Removed)" ctname
   | Modified _ -> Format.fprintf fmt "Class_type (%s, Modified)" ctname
+
+and pp_extension_cstr_diff fmt { ecname; ecexn; ecdiff; ectname = _ } =
+  if ecexn then
+    match ecdiff with
+    | Added _ -> Format.fprintf fmt "Exception (%s, Added)" ecname
+    | Removed _ -> Format.fprintf fmt "Exception (%s, Removed)" ecname
+    | Modified _ -> Format.fprintf fmt "Exception (%s, Modified)" ecname
+  else
+    match ecdiff with
+    | Added _ -> Format.fprintf fmt "Extension_constructor (%s, Added)" ecname
+    | Removed _ ->
+        Format.fprintf fmt "Extension_constructor (%s, Removed)" ecname
+    | Modified _ ->
+        Format.fprintf fmt "Extension_constructor (%s, Modified)" ecname
 
 let pp_diff_option fmt = function
   | None -> Format.fprintf fmt "None"
