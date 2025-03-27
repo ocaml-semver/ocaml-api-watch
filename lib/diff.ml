@@ -171,10 +171,7 @@ let rec type_expr ~typing_env ?(same_path = None) ?(same_type_expr = None)
           ~current:cur_exps
       in
       match type_exprs with
-      | Stddiff.Same _ -> (
-          match same_type_expr with
-          | None -> Stddiff.Same reference
-          | Some expr -> Stddiff.Same expr)
+      | Stddiff.Same _ -> Stddiff.Same reference
       | Changed change -> Changed (Tuple change))
   | ( Tarrow (ref_arg_label, ref_arg_type, ref_return_type, _),
       Tarrow (cur_arg_label, cur_arg_type, cur_return_type, _) ) -> (
@@ -184,10 +181,7 @@ let rec type_expr ~typing_env ?(same_path = None) ?(same_type_expr = None)
           ~current:(cur_arg_label, cur_arg_type, cur_return_type)
       in
       match arrow with
-      | Stddiff.Same _ -> (
-          match same_type_expr with
-          | None -> Stddiff.Same reference
-          | Some expr -> Stddiff.Same expr)
+      | Stddiff.Same _ -> Stddiff.Same reference
       | Changed change -> Changed (Arrow change))
   | Tconstr (ref_path, ref_args, _), Tconstr (cur_path, cur_args, _) -> (
       let same_path, same_type_expr =
@@ -199,25 +193,32 @@ let rec type_expr ~typing_env ?(same_path = None) ?(same_type_expr = None)
         | Some path, Some expr -> (Some path, Some expr)
         | _ -> assert false
       in
-      let ref_expr =
-        Typing_env.subst_type_params ~typing_env ~path:ref_path
-          ~type_expr:reference ~args:ref_args
+      let expanded_ref =
+        Typing_env.expand_tconstr ~typing_env ~path:ref_path ~args:ref_args
       in
-      let cur_expr =
-        Typing_env.subst_type_params ~typing_env ~path:cur_path
-          ~type_expr:current ~args:cur_args
+      let expanded_cur =
+        Typing_env.expand_tconstr ~typing_env ~path:cur_path ~args:cur_args
       in
-      match (ref_expr, cur_expr) with
-      | `Expr e1, `Expr e2 ->
-          type_expr ~same_type_expr ~same_path ~typing_env ~ref_params
+      match (expanded_ref, expanded_cur) with
+      | Some e1, Some e2 -> (
+        let x = type_expr ~same_type_expr ~same_path ~typing_env ~ref_params
             ~cur_params e1 e2
-      | `Expr e1, `Expanded e2 ->
+        in
+        match x with
+        | Same _ -> (
+            match same_type_expr with
+            | None -> x
+            | Some e -> Stddiff.Same e
+          )
+        | Changed _ -> x
+      )
+      | Some e1, None ->
           type_expr ~same_type_expr ~same_path ~typing_env ~ref_params
-            ~cur_params e1 e2
-      | `Expanded e1, `Expr e2 ->
+            ~cur_params e1 current
+      | None, Some e2 ->
           type_expr ~same_type_expr ~same_path ~typing_env ~ref_params
-            ~cur_params e1 e2
-      | `Expanded _, `Expanded _ -> (
+            ~cur_params reference e2
+      | None, None -> (
           let constr =
             constr ~typing_env ~ref_params ~cur_params
               ~reference:(ref_path, ref_args) ~current:(cur_path, cur_args)
@@ -254,11 +255,6 @@ and constr ~typing_env ~ref_params ~cur_params ~reference ~current =
   let ref_path, ref_args = reference in
   let cur_path, cur_args = current in
   let path =
-    (*Path.print Format.std_formatter ref_path;
-      Format.force_newline ();
-      Path.print Format.std_formatter cur_path;
-      Format.force_newline ();*)
-    (*if Path.same ref_path cur_path then Stddiff.Same ref_path*)
     if String.equal (Path.name ref_path) (Path.name cur_path) then
       Stddiff.Same ref_path
     else Changed { Stddiff.reference = ref_path; current = cur_path }
