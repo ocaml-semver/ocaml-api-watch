@@ -22,12 +22,12 @@ let%expect_test "test_subst_type_params_on_alias_types" =
     Option.get (List.hd (List.tl type_decls)).Types.type_manifest
   in
   let subst_type_expr =
-    Typing_env.subst_type_params ~typing_env:env ~type_expr
+    Typing_env.expand_tconstr ~typing_env:env
       ~path:(get_path type_expr) ~args:(get_args type_expr)
   in
   match subst_type_expr with
-  | `Expanded _ -> assert false
-  | `Expr e ->
+  | None -> assert false
+  | Some e ->
       Printtyp.type_expr Format.std_formatter e;
       [%expect {| (string * int) list |}]
 
@@ -53,13 +53,13 @@ let%expect_test "test_subst_type_params_on_nominal_types" =
     Option.get (List.hd (List.tl type_decls)).Types.type_manifest
   in
   let subst_type_expr =
-    Typing_env.subst_type_params ~typing_env:env ~type_expr
+    Typing_env.expand_tconstr ~typing_env:env
       ~path:(get_path type_expr) ~args:(get_args type_expr)
   in
   match subst_type_expr with
-  | `Expr _ -> assert false
-  | `Expanded e ->
-      Printtyp.type_expr Format.std_formatter e;
+  | Some _ -> assert false
+  | None ->
+      Printtyp.type_expr Format.std_formatter type_expr;
       [%expect {| (string, int) t |}]
 
 let%expect_test "test_subst_type_params_on_type_not_in_the_env" =
@@ -67,7 +67,7 @@ let%expect_test "test_subst_type_params_on_type_not_in_the_env" =
     compile_interface
       {|
         type ('a, 'b) t = ('a * 'b) list
-        type u = (string, int) t 
+        type u = (string, int) t
       |}
   in
   let env, type_decls =
@@ -82,11 +82,11 @@ let%expect_test "test_subst_type_params_on_type_not_in_the_env" =
     Option.get (List.hd (List.tl type_decls)).Types.type_manifest
   in
   let subst_type_expr =
-    Typing_env.subst_type_params ~typing_env:env ~type_expr
+    Typing_env.expand_tconstr ~typing_env:env
       ~path:(get_path type_expr) ~args:(get_args type_expr)
   in
   match subst_type_expr with
-  | `Expanded e ->
-      Printtyp.type_expr Format.std_formatter e;
+  | None ->
+      Printtyp.type_expr Format.std_formatter type_expr;
       [%expect {| (string, int) t |}]
-  | `Expr _ -> assert false
+  | Some _ -> assert false

@@ -175,10 +175,7 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = [])
           ~current:cur_exps
       in
       match type_exprs with
-      | Stddiff.Same _ -> (
-          match _same_type_expr with
-          | None -> Stddiff.Same reference
-          | Some expr -> Stddiff.Same expr)
+      | Stddiff.Same _ -> Stddiff.Same reference
       | Changed change -> Changed (Tuple change))
   | ( Tarrow (ref_arg_label, ref_arg_type, ref_return_type, _),
       Tarrow (cur_arg_label, cur_arg_type, cur_return_type, _) ) -> (
@@ -188,10 +185,7 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = [])
           ~current:(cur_arg_label, cur_arg_type, cur_return_type)
       in
       match arrow with
-      | Stddiff.Same _ -> (
-          match same_type_expr with
-          | None -> Stddiff.Same reference
-          | Some expr -> Stddiff.Same expr)
+      | Stddiff.Same _ -> Stddiff.Same reference
       | Changed change -> Changed (Arrow change))
   | Tconstr (ref_path, ref_args, _), Tconstr (cur_path, cur_args, _) ->
       expand_and_diff_tconstr ~typing_env ~ref_params ~cur_params
