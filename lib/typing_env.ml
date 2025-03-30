@@ -157,8 +157,7 @@ let expand_tconstr ~typing_env ~args ~path =
     match type_decl.Types.type_manifest with
     | None -> None
     | Some type_expr ->
-        Some
-          (Ctype.apply typing_env type_decl.Types.type_params type_expr args)
+        Some (Ctype.apply typing_env type_decl.Types.type_params type_expr args)
   with Not_found -> None
 
 let pp fmt t =

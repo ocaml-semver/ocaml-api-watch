@@ -128,6 +128,15 @@ let ctd_to_lines name cd =
   let class_str = Buffer.contents buf in
   CCString.lines class_str
 
+let params_to_string params =
+  match params with
+  | [] -> ""
+  | param :: [] -> type_expr_to_string param
+  | _ ->
+      Printf.sprintf "(%s)"
+        (List.map (fun param -> type_expr_to_string param) params
+        |> String.concat ", ")
+
 let process_atomic_diff
     (diff : (_, _ Stddiff.atomic_modification) Stddiff.entry) name to_lines =
   match diff with
@@ -247,18 +256,12 @@ and process_type_params_diff params_diff =
   let module S = Stddiff in
   match params_diff with
   | Same params -> (
-      let params_hunks =
-        List.mapi
-          (fun i p ->
-            let comma = if i > 0 then ", " else "" in
-            Icommon (Printf.sprintf "%s%s" comma (type_expr_to_string p)))
-          params
-      in
-      match params_hunks with
-      | [] -> []
-      | _ :: [] -> params_hunks
-      | _ -> parenthesize params_hunks)
-  | Changed changed_params ->
+      match params with [] -> [] | _ -> [ Icommon (params_to_string params) ])
+  | Changed (Removed params) ->
+      [ Iconflict { iorig = Some (params_to_string params); inew = None } ]
+  | Changed (Added params) ->
+      [ Iconflict { iorig = None; inew = Some (params_to_string params) } ]
+  | Changed (Modified changed_params) -> (
       let params_hunks =
         List.mapi
           (fun i p ->
@@ -291,28 +294,9 @@ and process_type_params_diff params_diff =
           changed_params
         |> List.concat
       in
-      let wrapped_params_hunks =
-        match changed_params with
-        | [] -> []
-        | _ :: [] -> params_hunks
-        | _ ->
-            if
-              List.for_all
-                (function S.Changed (S.Removed _) -> true | _ -> false)
-                changed_params
-            then
-              (Iconflict { iorig = Some "("; inew = None } :: params_hunks)
-              @ [ Iconflict { iorig = Some ")"; inew = None } ]
-            else if
-              List.for_all
-                (function S.Changed (S.Added _) -> true | _ -> false)
-                changed_params
-            then
-              (Iconflict { iorig = None; inew = Some "(" } :: params_hunks)
-              @ [ Iconflict { iorig = None; inew = Some ")" } ]
-            else parenthesize params_hunks
-      in
-      wrapped_params_hunks
+      match changed_params with
+      | [ _ ] -> params_hunks
+      | _ -> parenthesize params_hunks)
 
 and concrete = function
   | Stddiff.Same

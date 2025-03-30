@@ -28,7 +28,9 @@ and constr = {
   path : (Path.t, Path.t Stddiff.atomic_modification) Stddiff.maybe_changed;
   args :
     ( Types.type_expr list,
-      (Types.type_expr, type_expr) Stddiff.List.t )
+      ( Types.type_expr list,
+        (Types.type_expr, type_expr) Stddiff.List.t )
+      Stddiff.entry )
     Stddiff.maybe_changed;
 }
 
@@ -41,7 +43,9 @@ type type_modification = {
     Stddiff.maybe_changed;
   type_params :
     ( Types.type_expr list,
-      (Types.type_expr, type_expr) Stddiff.List.t )
+      ( Types.type_expr list,
+        (Types.type_expr, type_expr) Stddiff.List.t )
+      Stddiff.entry )
     Stddiff.maybe_changed;
 }
 
