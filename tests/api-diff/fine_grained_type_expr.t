@@ -202,101 +202,121 @@ Run the api-watcher on the two cmi files, the arrows should not be parenthesized
   [1]
 
 
-Here we generate a `.mli` file with some type constructors:
+Here we generate a `.mli` file with a type constructor, to test changes
+in abstract type constrs:
 
-  $ cat > ref_type_constrs.mli << EOF
-  > type 'a t = 'a list
-  > type 'a u = 'a t
-  > type s = int u
-  > type p = int -> int
-  > type q = p
-  > type r = q * int
-  > type ('a, 'b) record = { a : 'a; b : 'b }
-  > type ('a, 'b) record_alias = ('a, 'b) record
-  > type c = (int, float) record_alias
+
+  $ cat > ref_abstract_type_constr.mli << EOF
+  > val x : int
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc ref_type_constrs.mli
+  $ ocamlc ref_abstract_type_constr.mli
 
-Changing the the argument type in a type constructor
-
-  $ cat > change_arg_type.mli << EOF
-  > type 'a t = 'a list
-  > type 'a u = 'a t
-  > type s = float u
-  > type p = int -> int
-  > type q = p
-  > type r = q * int
-  > type ('a, 'b) record = { a : 'a; b : 'b }
-  > type ('a, 'b) record_alias = ('a, 'b) record
-  > type c = (int, float) record_alias
+  $ cat > cur_abstract_type_constr.mli << EOF
+  > val x : float
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc change_arg_type.mli
+  $ ocamlc cur_abstract_type_constr.mli
 
-Run the api-watcher on the two cmi files, unchanged aliases should not be expanded
+Run the api-watcher on the two .cmi files
 
-  $ api-diff --plain ref_type_constrs.cmi change_arg_type.cmi
-  diff module Change_arg_type:
-  -type s = [-int-] list
-  +type s = {+float+} list
+  $ api-diff --plain ref_abstract_type_constr.cmi cur_abstract_type_constr.cmi
+  diff module Cur_abstract_type_constr:
+  -val x : [-int-]
+  +val x : {+float+}
   
   [1]
 
-Changing a component in a tuple type
+We generate a `.mli` file with a record type and a type constructor, to test changes in nominal type constrs:
 
-  $ cat > change_tuple_comp.mli << EOF
-  > type 'a t = 'a list
-  > type 'a u = 'a t
-  > type s = int u
-  > type p = int -> int
-  > type q = p
-  > type r = q * float
-  > type ('a, 'b) record = { a : 'a; b : 'b }
-  > type ('a, 'b) record_alias = ('a, 'b) record
-  > type c = (int, float) record_alias
+  $ cat > ref_nominal_type_constr.mli << EOF
+  > type t = { a : int; b : float }
+  > val x : t
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc change_tuple_comp.mli
+  $ ocamlc ref_nominal_type_constr.mli
 
-Run the api-watcher on the two cmi files, aliases to unchanged arrow types should  not be expanded
+  $ cat > cur_nominal_type_constr.mli << EOF
+  > type t = { a : float; b : float }
+  > val x : t
+  > EOF
 
-  $ api-diff --plain ref_type_constrs.cmi change_tuple_comp.cmi
-  diff module Change_tuple_comp:
-  -type r = int -> int * [-int-]
-  +type r = int -> int * {+float+}
+We generate the .cmi file
+
+  $ ocamlc cur_nominal_type_constr.mli
+
+Run the api-watcher on the two .cmi files, there should be a diff on the record
+type declaration only
+
+  $ api-diff --plain ref_nominal_type_constr.cmi cur_nominal_type_constr.cmi
+  diff module Cur_nominal_type_constr:
+   type t =
+  -  { b : float; a : [-int-]; }
+  +  { b : float; a : {+float+}; }
   
   [1]
 
-Changing arguments in an alias to a nominal type
+We generate a `.mli` with an alias to tuple type, to test changes in alias type
+constrs:
 
-  $ cat > change_record_arg_type.mli << EOF
-  > type 'a t = 'a list
-  > type 'a u = 'a t
-  > type s = int u
-  > type p = int -> int
-  > type q = p
-  > type r = q * int
-  > type ('a, 'b) record = { a : 'a; b : 'b }
-  > type ('a, 'b) record_alias = ('a, 'b) record
-  > type c = (float, int) record_alias
+  $ cat > ref_alias_tuple.mli << EOF
+  > type t = int * int
+  > val x : t
   > EOF
 
 We generate the .cmi file
 
-  $ ocamlc change_record_arg_type.mli
+  $ ocamlc ref_alias_tuple.mli
 
-Run the api-watcher on the two cmi files, the alias to the nominal type should not expand
+  $ cat > cur_alias_tuple.mli << EOF
+  > type t = int * float
+  > val x : t
+  > EOF
 
-  $ api-diff --plain ref_type_constrs.cmi change_record_arg_type.cmi
-  diff module Change_record_arg_type:
-  -type c = ([-int-], [-float-]) record
-  +type c = ({+float+}, {+int+}) record
+We generate the .cmi file
+
+  $ ocamlc cur_alias_tuple.mli
+
+Run the api-watcher on the two cmi files, the alias to t should expand
+
+  $ api-diff --plain ref_alias_tuple.cmi cur_alias_tuple.cmi
+  diff module Cur_alias_tuple:
+  -val x : int * [-int-]
+  +val x : int * {+float+}
+  -type t = int * [-int-]
+  +type t = int * {+float+}
+  
+  [1]
+
+We generate a `.mli` with a type constructor that has arguments
+
+  $ cat > ref_type_constr_with_args.mli << EOF
+  > val x : (int, string) result
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc ref_type_constr_with_args.mli
+
+  $ cat > cur_type_constr_with_args.mli << EOF
+  > val x : (float, string) result
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc cur_type_constr_with_args.mli
+
+Run the api-watcher on the two cmi files
+
+  $ api-diff --plain ref_type_constr_with_args.cmi cur_type_constr_with_args.cmi
+  diff module Cur_type_constr_with_args:
+  -val x : ([-int-], string) Stdlib.result
+  +val x : ({+float+}, string) Stdlib.result
   
   [1]
