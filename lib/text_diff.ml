@@ -1,5 +1,10 @@
 type inline_conflict = { iorig : string option; inew : string option }
-type inline_hunk = Icommon of string | Iconflict of inline_conflict
+
+type inline_hunk =
+    Icommon of string
+  | Icontext of {text: string; src : [`Orig | `New]}
+  | Iconflict of inline_conflict
+
 type line_conflict = { orig : string list; new_ : string list }
 
 type hunk =
@@ -20,11 +25,15 @@ let pp_inline_hunks ~src ~pp_inline_conflict ppf ihunks =
   List.iter
     (fun ihunk ->
       match (src, ihunk) with
-      | _, Icommon s -> Fmt.string ppf s
+      | `Orig, Icontext { text; src = `Orig }
+      | `New, Icontext { text; src = `New }
+      | _, Icommon text -> Fmt.string ppf text
       | `Orig, Iconflict { iorig; _ } ->
           Fmt.option ~none:Fmt.nop pp_inline_conflict ppf iorig
       | `New, Iconflict { inew; _ } ->
-          Fmt.option ~none:Fmt.nop pp_inline_conflict ppf inew)
+        Fmt.option ~none:Fmt.nop pp_inline_conflict ppf inew
+      | _, Icontext _ -> ()
+    )
     ihunks;
   Fmt.pf ppf "\n"
 
@@ -178,19 +187,8 @@ and indent_hunk amount hunk =
           new_ = List.map (indent amount) new_;
         }
   | Inline_hunks ihunks ->
-      Inline_hunks
-        (match ihunks with
-        | [] -> ihunks
-        | ihunk :: ihunks' ->
-            (match ihunk with
-            | Icommon s -> Icommon (indent amount s)
-            | Iconflict { iorig; inew } ->
-                Iconflict
-                  {
-                    iorig = Option.map (indent amount) iorig;
-                    inew = Option.map (indent amount) inew;
-                  })
-            :: ihunks')
+    let indent = Icommon (indent amount "") in
+    Inline_hunks (indent::ihunks)
 
 and indent amount str =
   let indentation = String.make amount ' ' in
@@ -249,8 +247,15 @@ and process_privacy_diff privacy_diff =
   match privacy_diff with
   | Same Private -> [ Icommon " private" ]
   | Same Public -> []
-  | Changed Added_p -> [ Iconflict { iorig = None; inew = Some " private" } ]
-  | Changed Removed_p -> [ Iconflict { iorig = Some " private"; inew = None } ]
+  | Changed Added_p ->
+    [
+      Icontext { text = " "; src = `New };
+      Iconflict { iorig = None; inew = Some "private" }
+    ]
+  | Changed Removed_p ->
+    [
+      Icontext { text = " "; src = `Orig };
+      Iconflict { iorig = Some "private"; inew = None } ]
 
 and process_type_params_diff params_diff =
   let module S = Stddiff in
@@ -794,7 +799,8 @@ module Word = struct
 
   let pp_inline_hunk ~mode ppf inline_hunk =
     match inline_hunk with
-    | Icommon s -> Fmt.string ppf s
+    | Icontext { text; _ }
+    | Icommon text -> Fmt.string ppf text
     | Iconflict { iorig; inew } ->
         pp_inline_conflict ~src:`Orig ~mode ppf iorig;
         pp_inline_conflict ~src:`New ~mode ppf inew
