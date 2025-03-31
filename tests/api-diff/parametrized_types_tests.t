@@ -58,7 +58,7 @@ Run the api-watcher on the two cmi files
   $ api-diff ref.cmi remove_type_var.cmi
   diff module Remove_type_var:
   -type ('a, 'b) t =
-  +type ('a) t =
+  +type 'a t =
   -  { a : 'a; b : 'b; }
   +  { a : 'a; b : int; }
   
@@ -131,10 +131,10 @@ Run the api-watcher on the two cmi files
   $ api-diff ref2.cmi add_remove.cmi
   diff module Add_remove:
   -type ('t1, 't2) s =
-  +type ('t1) s =
+  +type 't1 s =
   -  { a : 't1; b : 't2; }
   +  { a : 't1; b : int; }
-  -type ('t1) t =
+  -type 't1 t =
   +type ('t1, 't2) t =
   -  | A of 't1
   +  | A of 't1 * 't2
