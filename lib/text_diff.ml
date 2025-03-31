@@ -376,7 +376,8 @@ and process_manifest_diff manifest_diff =
   | Same None -> []
   | Same (Some te) -> [ Icommon (" " ^ type_expr_to_string te) ]
   | Changed (Added te) ->
-      [ Iconflict { iorig = None; inew = Some (" " ^ type_expr_to_string te) } ]
+    [ Icontext { text = " "; src = `New };
+      Iconflict { iorig = None; inew = Some (type_expr_to_string te) } ]
   | Changed (Removed te) ->
       [ Iconflict { iorig = Some (" " ^ type_expr_to_string te); inew = None } ]
   | Changed (Modified te_diff) -> Icommon " " :: process_type_expr_diff te_diff
@@ -432,8 +433,11 @@ and process_mutablity_diff mutablity_diff =
   match mutablity_diff with
   | Same Mutable -> [ Icommon " mutable" ]
   | Same Immutable -> []
-  | Changed Added_m -> [ Iconflict { iorig = None; inew = Some " mutable" } ]
-  | Changed Removed_m -> [ Iconflict { iorig = Some " mutable"; inew = None } ]
+  | Changed Added_m ->
+    [ Icontext { text = " "; src = `New };
+      Iconflict { iorig = None; inew = Some "mutable" } ]
+  | Changed Removed_m -> [ Icontext { text = " "; src = `Orig };
+      Iconflict { iorig = Some "mutable"; inew = None } ]
 
 and type_kind_to_lines type_kind =
   match type_kind with
