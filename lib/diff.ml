@@ -337,7 +337,7 @@ and arg_label ~reference ~current =
               })
     ~reference:(convert reference) ~current:(convert current)
 
-let rec type_item ~typing_env ~name ~reference ~current =
+and type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
   | None, None -> None
   | Some (reference, _), None ->

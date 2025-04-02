@@ -1,7 +1,10 @@
 open Types
 
 let get_type_param_name param =
-  match get_desc param with Tvar (Some name) -> name | _ -> assert false
+  match get_desc param with
+  | Tvar (Some name) -> name
+  | Tvar None -> ""
+  | _ -> assert false
 
 let gen_unique_type_var_name =
   let counter = ref 1 in
