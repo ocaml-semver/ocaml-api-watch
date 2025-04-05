@@ -148,14 +148,20 @@ let for_diff ~reference ~current =
   let modified_current = apply_subst subst current in
   (reference, modified_current, env)
 
-let expand_tconstr ~typing_env ~args ~path =
-  try
-    let type_decl = Env.find_type path typing_env in
-    match type_decl.Types.type_manifest with
-    | None -> None
-    | Some type_expr ->
-        Some (Ctype.apply typing_env type_decl.Types.type_params type_expr args)
-  with Not_found -> None
+let rec fully_expand_type_expr ~typing_env ~type_expr =
+  match Types.get_desc type_expr with
+  | Tconstr (path, args, _) -> (
+      try
+        let type_decl = Env.find_type path typing_env in
+        match type_decl.Types.type_manifest with
+        | None -> type_expr
+        | Some manifest ->
+            let inst_type_expr =
+              Ctype.apply typing_env type_decl.Types.type_params manifest args
+            in
+            fully_expand_type_expr ~typing_env ~type_expr:inst_type_expr
+      with Not_found -> type_expr)
+  | _ -> type_expr
 
 let pp fmt t =
   let summary = Env.summary t in

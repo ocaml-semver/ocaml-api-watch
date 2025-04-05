@@ -320,3 +320,32 @@ Run the api-watcher on the two cmi files
   +val x : ({+float+}, string) Stdlib.result
   
   [1]
+
+We generate a `.mli` with a type constrcutor that expands to a tuple
+
+  $ cat > ref_type_constr_to_tuple.mli << EOF
+  > type ('a, 'b) t = 'a * 'b
+  > val x : (int, float) t
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc ref_type_constr_to_tuple.mli
+
+  $ cat > cur_type_constr_to_tuple.mli << EOF
+  > type ('a, 'b) t = 'a * 'b
+  > val x : (float, int) t
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc cur_type_constr_to_tuple.mli
+
+Run the api-watcher on the two cmi files, for now type exprs should expand to their original definition if they were different
+
+  $ api-diff --plain ref_type_constr_to_tuple.cmi cur_type_constr_to_tuple.cmi
+  diff module Cur_type_constr_to_tuple:
+  -val x : [-int-] * [-float-]
+  +val x : {+float+} * {+int+}
+  
+  [1]

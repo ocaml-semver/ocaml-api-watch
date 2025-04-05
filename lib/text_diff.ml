@@ -579,8 +579,9 @@ and process_constr_type_diff constr_diff =
   let open Diff in
   let path_ihunks = process_path_diff constr_diff.path in
   let args_ihunks = process_type_params_diff constr_diff.args in
-  args_ihunks
-  @ match args_ihunks with [] -> path_ihunks | _ -> Icommon " " :: path_ihunks
+  match args_ihunks with
+  | [] -> path_ihunks
+  | _ -> args_ihunks @ (Icommon " " :: path_ihunks)
 
 and process_path_diff diff =
   let open Stddiff in
