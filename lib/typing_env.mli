@@ -19,17 +19,13 @@ val for_diff :
     so that these items appearing in the [current] signature are treated
     equally across the two signatures by the compiler.
     We then run the subst aganist the signature items in the [current]
-    signature before diffing it with signature item in the [reference] signature.
+    signature before diffing them with signature items in the [reference] signature.
 *)
 
 val fully_expand_type_expr :
   typing_env:t -> type_expr:Types.type_expr -> Types.type_expr
-(** Expand the given [Tconstr] once, looking up the environment for an existing
-    alias and applying the type parameters as needed.
-
-    Returns [None] if the given [Tconstr] cannot be expanded further, i.e. if
-    it points to reocrd, variant or abstract type or if is not present in
-    the typing environment
+(** Expand the given [type_expr], looking up the environment for an existing
+    alias and applying the type parameters as needed at each step.
 *)
 
 val pp : Format.formatter -> Env.t -> unit
