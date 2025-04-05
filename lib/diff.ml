@@ -166,9 +166,15 @@ let module_type_fallback ~loc ~typing_env ~name ~reference ~current =
 let expand_alias_types ~typing_env ~type_expr =
   Ctype.full_expand ~may_forget_scope:false typing_env type_expr
 
-let rec type_expr ~typing_env ?(expand = true) ?(ref_params = [])
+let rec type_expr ~typing_env ?(ref_params = [])
     ?(cur_params = []) reference current =
-  match (Types.get_desc reference, Types.get_desc current) with
+  let expanded_ref = Typing_env.fully_expand_type_expr ~typing_env
+      ~type_expr:reference
+  in
+  let expanded_cur = Typing_env.fully_expand_type_expr ~typing_env
+      ~type_expr:current
+  in
+  match (Types.get_desc expanded_ref, Types.get_desc expanded_cur) with
   | Ttuple ref_exps, Ttuple cur_exps -> (
       let type_exprs =
         type_exprs ~typing_env ~ref_params ~cur_params ~reference:ref_exps
@@ -188,21 +194,6 @@ let rec type_expr ~typing_env ?(expand = true) ?(ref_params = [])
       | Stddiff.Same _ -> Stddiff.Same reference
       | Changed change -> Changed (Arrow change))
   | Tconstr (ref_path, ref_args, _), Tconstr (cur_path, cur_args, _) -> (
-      if expand then
-        let expanded_ref =
-          Typing_env.fully_expand_type_expr ~typing_env ~type_expr:reference
-        in
-        let expanded_cur =
-          Typing_env.fully_expand_type_expr ~typing_env ~type_expr:current
-        in
-        let diff =
-          type_expr ~typing_env ~expand:false ~ref_params ~cur_params
-            expanded_ref expanded_cur
-        in
-        match diff with
-        | Same _ -> Same current
-        | Changed change -> Changed change
-      else
         let constr =
           constr ~typing_env ~ref_params ~cur_params
             ~reference:(ref_path, ref_args) ~current:(cur_path, cur_args)
