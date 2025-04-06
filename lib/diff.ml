@@ -239,28 +239,22 @@ and expand_and_diff_tconstr ~typing_env ~ref_params ~cur_params ~reference
       | Same _ -> Same cur_expr
       | Changed change -> Changed change)
 
-and find_closest_non_matching_exprs ~typing_env
-    ~reference ~current =
+
+and find_closest_non_matching_exprs ~typing_env ~reference ~current =
   let rec aux acc ref curr =
     match (ref, curr) with
-    | ref_hd :: ref_tl, cur_hd :: cur_tl ->
-      if def_match ~typing_env 
-          ~reference:ref_hd ~current:cur_hd then
-          aux (ref_hd, cur_hd) ref_tl cur_tl
-        else (ref_hd, cur_hd)
+    | (ref_expr, ref_td) :: ref_tl, (cur_expr, cur_td) :: cur_tl ->
+        if def_match ~typing_env ~reference:ref_td ~current:cur_td then
+          aux (ref_expr, cur_expr) ref_tl cur_tl
+        else (ref_expr, cur_expr)
     | _, _ -> acc
   in
   let ref_hd = List.hd reference in
   let cur_hd = List.hd current in
-  let (ref_type_expr, _ref_type_decl), (cur_type_expr, _cur_type_decl) =
-    aux (ref_hd, cur_hd) reference current
-  in
-  (ref_type_expr, cur_type_expr)
+  aux (fst ref_hd, fst cur_hd) reference current
 
-and def_match ~typing_env ~reference ~current : bool =
-  let _ref_type_expr, ref_type_decl = reference in
-  let _cur_type_expr, cur_type_decl = current in
-  match (ref_type_decl, cur_type_decl) with
+and def_match ~typing_env ~reference ~current =
+  match (reference, current) with
   | None, None -> false
   | Some ref_td, Some cur_td
     when Option.is_none

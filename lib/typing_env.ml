@@ -171,6 +171,27 @@ let fully_expand_tconstr ~typing_env ~path ~args =
   in
   aux None path args
 
+and expansion_lst ~typing_env ~type_expr =
+  let rec aux acc type_expr =
+    match Types.get_desc type_expr with
+    | Tconstr (path, args, _) -> (
+        let type_decl =
+          try Some (Env.find_type path typing_env) with Not_found -> None
+        in
+        match type_decl with
+        | None -> acc
+        | Some td -> (
+            match td.Types.type_manifest with
+            | None -> acc
+            | Some manifest ->
+                let inst_type_expr =
+                  Ctype.apply typing_env td.Types.type_params manifest args
+                in
+                aux ((inst_type_expr, Some td) :: acc) inst_type_expr))
+    | _ -> acc
+  in
+  aux [ (type_expr, None) ] type_expr
+
 let pp fmt t =
   let summary = Env.summary t in
   Format.fprintf fmt "@[<hv 2>[@;";
