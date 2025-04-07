@@ -30,6 +30,8 @@ let empty : t =
     ext_cstr_map = String_map.empty;
   }
 
+let ext_cstr_full_name ~type_name ~name = Printf.sprintf "%s-%s" type_name name
+
 let add (type a) ~name (item_type : a item_type) (item : a) maps : t =
   match item_type with
   | Value -> { maps with values_map = String_map.add name item maps.values_map }
@@ -44,12 +46,12 @@ let add (type a) ~name (item_type : a item_type) (item : a) maps : t =
         maps with
         class_type_map = String_map.add name item maps.class_type_map;
       }
-  | Extcstr type_name ->
+  | Extcstr extcstr_name ->
       {
         maps with
         ext_cstr_map =
           String_map.add
-            (Printf.sprintf "%s-%s" type_name name)
+            (ext_cstr_full_name ~type_name:name ~name:extcstr_name)
             item maps.ext_cstr_map;
       }
 
@@ -61,8 +63,9 @@ let has (type a) ~name (item_type : a item_type) maps : bool =
   | Type -> String_map.mem name maps.types_map
   | Class -> String_map.mem name maps.class_map
   | Classtype -> String_map.mem name maps.class_type_map
-  | Extcstr type_name ->
-      String_map.mem (Printf.sprintf "%s-%s" type_name name) maps.ext_cstr_map
+  | Extcstr extcstr_name ->
+    String_map.mem (ext_cstr_full_name ~type_name:name
+                      ~name:extcstr_name) maps.ext_cstr_map
 
 type ('a, 'diff) diff_item =
   'a item_type -> string -> 'a option -> 'a option -> 'diff option
@@ -112,7 +115,7 @@ let diff ~diff_item:{ diff_item } ref_maps curr_maps : 'diff list =
         let names = String.split_on_char '-' full_name in
         let type_name = List.hd names in
         let cstr_name = List.hd (List.tl names) in
-        diff_item (Extcstr type_name) cstr_name ref_opt curr_opt)
+        diff_item (Extcstr cstr_name) type_name ref_opt curr_opt)
       ref_maps.ext_cstr_map curr_maps.ext_cstr_map
     |> String_map.bindings |> List.map snd
   in

@@ -156,8 +156,8 @@ let extract_items items =
               class_type_decl tbl
       | Sig_typext (id, typext, status, Exported) ->
           let exn = match status with Text_exception -> true | _ -> false in
-          Sig_item_map.add ~name:(Ident.name id)
-            (Sig_item_map.Extcstr (Path.name typext.ext_type_path))
+          Sig_item_map.add ~name:(Path.name typext.ext_type_path)
+            (Sig_item_map.Extcstr (Ident.name id))
             (typext, exn) tbl
       | _ -> tbl)
     Sig_item_map.empty items
@@ -603,8 +603,11 @@ let extension_constructors ~typing_env ~type_name ~name ~reference ~current =
       ~current:cur_extcstr.ext_args
   in
   match { extcstr_params; extcstr_private; extcstr_args } with
-  | { extcstr_params = Same _; extcstr_private = Same _; extcstr_args = Same _ }
-    ->
+  | {
+   extcstr_params = Same _ | Changed _;
+   extcstr_private = Same _;
+   extcstr_args = Same _;
+  } ->
       None
   | diff ->
       Some
@@ -648,8 +651,9 @@ let rec items ~reference ~current ~typing_env =
     | Type -> type_item ~typing_env ~name ~reference ~current
     | Class -> class_item ~typing_env ~name ~reference ~current
     | Classtype -> class_type_item ~typing_env ~name ~reference ~current
-    | Extcstr type_name ->
-        extcstr_item ~typing_env ~name ~type_name ~reference ~current
+    | Extcstr extcstr_name ->
+      extcstr_item ~typing_env ~name:extcstr_name ~type_name:name
+        ~reference ~current
   in
   Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 

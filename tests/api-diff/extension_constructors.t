@@ -96,3 +96,35 @@ Run the api-watcher on the two cmi files, both should be displayed in the extens
   +type exn +={+ private+} BadExp of int
   
   [1]
+
+Here we generate a `.mli` with a parameterized extensible variant type:
+
+  $ cat > ref_param_ext_var.mli << EOF
+  > type ('a, 'b) po = ..
+  > type ('a, 'b) po += A of 'a
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc ref_param_ext_var.mli
+
+### Removing a type paramter from a parameterized extensible variant type
+
+  $ cat > cur_param_ext_var.mli << EOF
+  > type 'a po = ..
+  > type 'a po += A of 'a
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc cur_param_ext_var.mli
+
+Run the api-watcher, there should be no diff on the constructors
+
+  $ api-diff --plain ref_param_ext_var.cmi cur_param_ext_var.cmi
+  diff module Cur_param_ext_var:
+  -type ('a[-, 'b-]) po =
+  +type ('a) po =
+     ..
+  
+  [1]
