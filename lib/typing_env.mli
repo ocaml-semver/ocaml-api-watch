@@ -35,14 +35,14 @@ val expand_tconstr :
     the typing environment
 *)
 
-val fully_expand_type_expr :
+val fully_expand_tconstr :
   typing_env:t ->
-  type_expr:Types.type_expr ->
   path:Path.t ->
   args:Types.type_expr list ->
-  Types.type_expr
-(** Expand the given [type_expr], looking up the environment for an existing
-    alias and applying the type parameters as needed at each step.
+  Types.type_expr option
+(** Recursively expand the given path and args, looking up the environment for
+    an existing
+        alias and applying the type parameters as needed at each step, until expanded to anything but a [Tconstr ...].
 *)
 
 val pp : Format.formatter -> Env.t -> unit

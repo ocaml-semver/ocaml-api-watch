@@ -349,3 +349,36 @@ Run the api-watcher on the two cmi files, for now type exprs should expand to th
   +val x : {+float+} * {+int+}
   
   [1]
+
+We generate a `.mli` with a long alias chain
+
+  $ cat > ref_long_alias_chain.mli << EOF
+  > type ('a, 'b) t = 'a * 'b * int
+  > type ('a, 'b) u = ('a, 'b) t * float
+  > type ('a, 'b) s = ('a, 'b) u
+  > type 'a r = ('a, 'a) s
+  > val x : int r
+
+We generate the .cmi file
+
+  $ ocamlc ref_long_alias_chain.mli
+
+  $ cat > cur_long_alias_chain.mli << EOF
+  > type ('a, 'b) t = 'a * 'b * int
+  > type ('a, 'b) u = ('a, 'b) t * float
+  > type ('a, 'b) s = ('a, 'b) u
+  > type 'a r = ('a, 'a) s
+  > val x : float r
+
+We generate the .cmi file
+
+  $ ocamlc cur_long_alias_chain.mli
+
+Run the api-watcher on the two cmi files
+
+  $ api-diff --plain ref_long_alias_chain.cmi cur_long_alias_chain.cmi
+  diff module Cur_long_alias_chain:
+  -val x : ([-int-] * [-int-] * int) * float
+  +val x : ({+float+} * {+float+} * int) * float
+  
+  [1]
