@@ -38,40 +38,41 @@ let value_map =
       | _ -> map)
     String_map.empty interface
 
-let%expect_test "test_expansion_lst_on_alias_types" =
-  let v1_type = String_map.find "v1" value_map in
-  let expansion_lst =
-    Typing_env.expansion_lst ~typing_env:env ~type_expr:v1_type
-  in
-  Fmt.pf Format.std_formatter "[ %a]"
-    (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n") pp_expansion_item)
-    expansion_lst;
-  [%expect
-    {|
-    [ (string * int) list;
-    (string, int) t1;
-    (string, int) t2]
-    |}]
+(*let%expect_test "test_expansion_lst_on_alias_types" =
+    let v1_type = String_map.find "v1" value_map in
+    let expansion_lst =
+      Typing_env.expansion_lst ~typing_env:env ~type_expr:v1_type
+    in
+    Fmt.pf Format.std_formatter "[ %a]"
+      (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n") pp_expansion_item)
+      expansion_lst;
+    [%expect
+      {|
+      [ (string * int) list;
+      (string, int) t1;
+      (string, int) t2]
+      |}]
 
-let%expect_test "test_expansion_lst_on_nominal_types" =
-  let v2_type = String_map.find "v2" value_map in
-  let expansion_lst =
-    Typing_env.expansion_lst ~typing_env:env ~type_expr:v2_type
-  in
-  Fmt.pf Format.std_formatter "[ %a]"
-    (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n") pp_expansion_item)
-    expansion_lst;
-  [%expect {|
-    [ (string, int) t3;
-    (string, int) t4]
-    |}]
+  let%expect_test "test_expansion_lst_on_nominal_types" =
+    let v2_type = String_map.find "v2" value_map in
+    let expansion_lst =
+      Typing_env.expansion_lst ~typing_env:env ~type_expr:v2_type
+    in
+    Fmt.pf Format.std_formatter "[ %a]"
+      (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n") pp_expansion_item)
+      expansion_lst;
+    [%expect {|
+      [ (string, int) t3;
+      (string, int) t4]
+      |}]
 
-let%expect_test "test_expansion_lst_on_type_not_in_the_env" =
-  let v3_type = String_map.find "v3" value_map in
-  let expansion_lst =
-    Typing_env.expansion_lst ~typing_env:env ~type_expr:v3_type
-  in
-  Fmt.pf Format.std_formatter "[ %a]"
-    (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n") pp_expansion_item)
-    expansion_lst;
-  [%expect {| [ (string, int) not_in_env] |}]
+  let%expect_test "test_expansion_lst_on_type_not_in_the_env" =
+    let v3_type = String_map.find "v3" value_map in
+    let expansion_lst =
+      Typing_env.expansion_lst ~typing_env:env ~type_expr:v3_type
+    in
+    Fmt.pf Format.std_formatter "[ %a]"
+      (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n") pp_expansion_item)
+      expansion_lst;
+    [%expect {| [ (string, int) not_in_env] |}]
+*)

@@ -158,28 +158,21 @@ let expand_tconstr ~typing_env ~path ~args =
       match td.Types.type_manifest with
       | None -> None
       | Some type_expr ->
-          Some (Ctype.apply typing_env td.Types.type_params type_expr args))
+          let expanded_expr =
+            Ctype.apply typing_env td.Types.type_params type_expr args
+          in
+          Some (expanded_expr, td))
 
-and expansion_lst ~typing_env ~type_expr =
-  let rec aux acc type_expr =
-    match Types.get_desc type_expr with
-    | Tconstr (path, args, _) -> (
-        let type_decl =
-          try Some (Env.find_type path typing_env) with Not_found -> None
-        in
-        match type_decl with
-        | None -> acc
-        | Some td -> (
-            match td.Types.type_manifest with
-            | None -> acc
-            | Some manifest ->
-                let inst_type_expr =
-                  Ctype.apply typing_env td.Types.type_params manifest args
-                in
-                aux ((inst_type_expr, Some td) :: acc) inst_type_expr))
-    | _ -> acc
+let expansion_lst ~typing_env ~type_expr ~path ~args =
+  let rec aux acc path args =
+    match expand_tconstr ~typing_env ~path ~args with
+    | None -> acc
+    | Some (expr, td) -> (
+        match Types.get_desc expr with
+        | Tconstr (path, args, _) -> aux ((expr, Some td) :: acc) path args
+        | _ -> (expr, Some td) :: acc)
   in
-  aux [ (type_expr, None) ] type_expr
+  aux [ (type_expr, None) ] path args
 
 let pp fmt t =
   let summary = Env.summary t in
