@@ -160,17 +160,6 @@ let expand_tconstr ~typing_env ~path ~args =
       | Some type_expr ->
           Some (Ctype.apply typing_env td.Types.type_params type_expr args))
 
-let fully_expand_tconstr ~typing_env ~path ~args =
-  let rec aux last path args =
-    match expand_tconstr ~typing_env ~path ~args with
-    | None -> last
-    | Some expr -> (
-        match Types.get_desc expr with
-        | Tconstr (path, args, _) -> aux (Some expr) path args
-        | _ -> Some expr)
-  in
-  aux None path args
-
 and expansion_lst ~typing_env ~type_expr =
   let rec aux acc type_expr =
     match Types.get_desc type_expr with
