@@ -99,7 +99,9 @@ type extcstr = {
 and extcstr_modification = {
   extcstr_params :
     ( Types.type_expr list,
-      (Types.type_expr, type_expr) Stddiff.List.t )
+      ( Types.type_expr list,
+        (Types.type_expr, type_expr) Stddiff.List.t )
+      Stddiff.entry )
     Stddiff.maybe_changed;
   extcstr_private : (Asttypes.private_flag, type_privacy) Stddiff.maybe_changed;
   extcstr_args : (Types.constructor_arguments, cstr_args) Stddiff.maybe_changed;
