@@ -36,6 +36,8 @@
 - Fixed initialization of the typing enviorment (#134, @azzsal)
 - Fix a bug the was causing the tool to stack overflow when dealing with
   some instances of parametrized types (#134, @azzsal)
+- Fix a bug where the loader couldn't find module types defined in the same
+    compilation unit. (#151, @NathanReb, @azzsal)
 
 ### Removed
 
