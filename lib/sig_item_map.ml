@@ -64,8 +64,9 @@ let has (type a) ~name (item_type : a item_type) maps : bool =
   | Class -> String_map.mem name maps.class_map
   | Classtype -> String_map.mem name maps.class_type_map
   | Extcstr extcstr_name ->
-    String_map.mem (ext_cstr_full_name ~type_name:name
-                      ~name:extcstr_name) maps.ext_cstr_map
+      String_map.mem
+        (ext_cstr_full_name ~type_name:name ~name:extcstr_name)
+        maps.ext_cstr_map
 
 type ('a, 'diff) diff_item =
   'a item_type -> string -> 'a option -> 'a option -> 'diff option

@@ -156,7 +156,8 @@ let extract_items items =
               class_type_decl tbl
       | Sig_typext (id, typext, status, Exported) ->
           let exn = match status with Text_exception -> true | _ -> false in
-          Sig_item_map.add ~name:(Path.name typext.ext_type_path)
+          Sig_item_map.add
+            ~name:(Path.name typext.ext_type_path)
             (Sig_item_map.Extcstr (Ident.name id))
             (typext, exn) tbl
       | _ -> tbl)
@@ -652,8 +653,8 @@ let rec items ~reference ~current ~typing_env =
     | Class -> class_item ~typing_env ~name ~reference ~current
     | Classtype -> class_type_item ~typing_env ~name ~reference ~current
     | Extcstr extcstr_name ->
-      extcstr_item ~typing_env ~name:extcstr_name ~type_name:name
-        ~reference ~current
+        extcstr_item ~typing_env ~name:extcstr_name ~type_name:name ~reference
+          ~current
   in
   Sig_item_map.diff ~diff_item:{ diff_item } ref_items curr_items
 
