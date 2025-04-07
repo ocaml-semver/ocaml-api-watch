@@ -128,6 +128,15 @@ let ctd_to_lines name cd =
   let class_str = Buffer.contents buf in
   CCString.lines class_str
 
+let params_to_string params =
+  match params with
+  | [] -> ""
+  | param :: [] -> type_expr_to_string param
+  | _ ->
+      Printf.sprintf "(%s)"
+        (List.map (fun param -> type_expr_to_string param) params
+        |> String.concat ", ")
+
 let process_atomic_diff
     (diff : (_, _ Stddiff.atomic_modification) Stddiff.entry) name to_lines =
   match diff with
@@ -191,6 +200,9 @@ and process_type_header_diff name type_privacy_diff type_manifest_diff
     type_params_diff type_kind_diff =
   let type_hunk = Icommon "type" in
   let type_params_hunks = process_type_params_diff type_params_diff in
+  let space =
+    match type_params_hunks with [] -> Icommon "" | _ -> Icommon " "
+  in
   let type_name_hunk = Icommon (" " ^ name) in
   let equal_hunks = process_equal_sign_diff type_manifest_diff type_kind_diff in
   let type_privacy_hunks = process_privacy_diff type_privacy_diff in
@@ -200,6 +212,7 @@ and process_type_header_diff name type_privacy_diff type_manifest_diff
       List.concat
         [
           [ type_hunk ];
+          [ space ];
           type_params_hunks;
           [ type_name_hunk ];
           [ List.hd equal_hunks ];
@@ -211,6 +224,7 @@ and process_type_header_diff name type_privacy_diff type_manifest_diff
       List.concat
         [
           [ type_hunk ];
+          [ space ];
           type_params_hunks;
           [ type_name_hunk ];
           equal_hunks;
@@ -240,37 +254,49 @@ and process_privacy_diff privacy_diff =
 
 and process_type_params_diff params_diff =
   let module S = Stddiff in
-  let params_hunks =
-    match params_diff with
-    | Same params ->
-        List.mapi
-          (fun i p ->
-            let comma = if i > 0 then ", " else "" in
-            Icommon (Printf.sprintf "%s%s" comma (type_expr_to_string p)))
-          params
-    | Changed changed_params ->
+  match params_diff with
+  | Same params -> (
+      match params with [] -> [] | _ -> [ Icommon (params_to_string params) ])
+  | Changed (Removed params) ->
+      [ Iconflict { iorig = Some (params_to_string params); inew = None } ]
+  | Changed (Added params) ->
+      [ Iconflict { iorig = None; inew = Some (params_to_string params) } ]
+  | Changed (Modified changed_params) -> (
+      let params_hunks =
         List.mapi
           (fun i p ->
             let comma = if i > 0 then ", " else "" in
             match p with
             | S.Same same_param ->
-                Icommon
-                  (Printf.sprintf "%s%s" comma (type_expr_to_string same_param))
+                [
+                  Icommon
+                    (Printf.sprintf "%s%s" comma
+                       (type_expr_to_string same_param));
+                ]
             | Changed (S.Added p) ->
-                Iconflict
-                  { iorig = None; inew = Some (comma ^ type_expr_to_string p) }
+                [
+                  Iconflict
+                    {
+                      iorig = None;
+                      inew = Some (comma ^ type_expr_to_string p);
+                    };
+                ]
             | Changed (Removed p) ->
-                Iconflict
-                  { iorig = Some (comma ^ type_expr_to_string p); inew = None }
-            | Changed (Modified _) -> assert false)
+                [
+                  Iconflict
+                    {
+                      iorig = Some (comma ^ type_expr_to_string p);
+                      inew = None;
+                    };
+                ]
+            | Changed (Modified te) ->
+                Icommon comma :: process_type_expr_diff te)
           changed_params
-  in
-  let open_paren = Icommon " (" in
-  let close_paren = Icommon ")" in
-  match params_hunks with
-  | [] -> []
-  | _ :: [] -> Icommon " " :: params_hunks
-  | _ -> (open_paren :: params_hunks) @ [ close_paren ]
+        |> List.concat
+      in
+      match changed_params with
+      | [ _ ] -> params_hunks
+      | _ -> parenthesize params_hunks)
 
 and concrete = function
   | Stddiff.Same
@@ -549,6 +575,27 @@ and process_arrow_type_diff ~context arrow_diff =
 
 and parenthesize hunks = (Icommon "(" :: hunks) @ [ Icommon ")" ]
 
+and process_constr_type_diff constr_diff =
+  let open Diff in
+  let path_ihunks = process_path_diff constr_diff.path in
+  let args_ihunks = process_type_params_diff constr_diff.args in
+  match args_ihunks with
+  | [] -> path_ihunks
+  | _ -> args_ihunks @ (Icommon " " :: path_ihunks)
+
+and process_path_diff diff =
+  let open Stddiff in
+  match diff with
+  | Same path -> [ Icommon (Path.name path) ]
+  | Changed { reference; current } ->
+      [
+        Iconflict
+          {
+            iorig = Some (Path.name reference);
+            inew = Some (Path.name current);
+          };
+      ]
+
 and process_type_expr_diff ?(context = `None) (diff : Diff.type_expr) :
     inline_hunk list =
   match diff with
@@ -562,6 +609,7 @@ and process_type_expr_diff ?(context = `None) (diff : Diff.type_expr) :
       ]
   | Tuple tuple_diff -> process_tuple_type_diff ~context tuple_diff
   | Arrow arrow_diff -> process_arrow_type_diff ~context arrow_diff
+  | Constr constr_diff -> process_constr_type_diff constr_diff
 
 and cstr_args_to_line cstr_args =
   match cstr_args with

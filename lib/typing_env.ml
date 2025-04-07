@@ -139,14 +139,37 @@ let initialized_env =
 
 let for_diff ~reference ~current =
   let current = replace_matching_ids ~reference ~current in
-  let reference = replace_matching_ids ~reference:current ~current:reference in
   let env =
     Env.add_signature reference (Env.in_signature true (initialized_env ()))
   in
+  let env = Env.add_signature reference (Env.in_signature true env) in
   let env = Env.add_signature current env in
   let subst = pair_items ~reference ~current in
   let modified_current = apply_subst subst current in
   (reference, modified_current, env)
+
+let expand_tconstr ~typing_env ~path ~args =
+  let type_decl =
+    try Some (Env.find_type path typing_env) with Not_found -> None
+  in
+  match type_decl with
+  | None -> None
+  | Some td -> (
+      match td.Types.type_manifest with
+      | None -> None
+      | Some type_expr ->
+          Some (Ctype.apply typing_env td.Types.type_params type_expr args))
+
+let fully_expand_tconstr ~typing_env ~path ~args =
+  let rec aux last path args =
+    match expand_tconstr ~typing_env ~path ~args with
+    | None -> last
+    | Some expr -> (
+        match Types.get_desc expr with
+        | Tconstr (path, args, _) -> aux (Some expr) path args
+        | _ -> Some expr)
+  in
+  aux None path args
 
 let pp fmt t =
   let summary = Env.summary t in
