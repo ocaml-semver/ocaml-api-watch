@@ -168,13 +168,7 @@ let expand_alias_types ~typing_env ~type_expr =
 
 let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
     current =
-  let expanded_ref =
-    Typing_env.fully_expand_type_expr ~typing_env ~type_expr:reference
-  in
-  let expanded_cur =
-    Typing_env.fully_expand_type_expr ~typing_env ~type_expr:current
-  in
-  match (Types.get_desc expanded_ref, Types.get_desc expanded_cur) with
+  match (Types.get_desc reference, Types.get_desc current) with
   | Ttuple ref_exps, Ttuple cur_exps -> (
       let type_exprs =
         type_exprs ~typing_env ~ref_params ~cur_params ~reference:ref_exps
@@ -194,13 +188,31 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
       | Stddiff.Same _ -> Stddiff.Same reference
       | Changed change -> Changed (Arrow change))
   | Tconstr (ref_path, ref_args, _), Tconstr (cur_path, cur_args, _) -> (
-      let constr =
-        constr ~typing_env ~ref_params ~cur_params
-          ~reference:(ref_path, ref_args) ~current:(cur_path, cur_args)
+      let expanded_ref =
+        Typing_env.fully_expand_type_expr ~typing_env ~type_expr:reference
+          ~path:ref_path ~args:ref_args
       in
-      match constr with
-      | Stddiff.Same _ -> Stddiff.Same current
-      | Changed change -> Changed (Constr change))
+      let expanded_cur =
+        Typing_env.fully_expand_type_expr ~typing_env ~type_expr:current
+          ~path:cur_path ~args:cur_args
+      in
+      match (Types.get_desc expanded_ref, Types.get_desc expanded_cur) with
+      | Tconstr (ref_path, ref_args, _), Tconstr (cur_path, cur_args, _) -> (
+          let constr =
+            constr ~typing_env ~ref_params ~cur_params
+              ~reference:(ref_path, ref_args) ~current:(cur_path, cur_args)
+          in
+          match constr with
+          | Stddiff.Same _ -> Stddiff.Same current
+          | Changed change -> Changed change)
+      | _, _ -> (
+          let diff =
+            type_expr ~typing_env ~ref_params ~cur_params expanded_ref
+              expanded_cur
+          in
+          match diff with
+          | Same _ -> Same current
+          | Changed change -> Changed change))
   | _ ->
       let normed_ref, normed_cur =
         Normalize.type_params_arity ~reference:ref_params ~current:cur_params
@@ -240,8 +252,8 @@ and constr ~typing_env ~ref_params ~cur_params ~reference ~current =
         | Changed change -> Changed (Modified change))
   in
   match (path, args) with
-  | Same _, Same _ -> Same reference
-  | _ -> Changed { path; args }
+  | Same _, Same _ -> Same current
+  | _ -> Changed (Constr { path; args })
 
 and type_exprs ~typing_env ~ref_params ~cur_params ~reference ~current =
   Stddiff.List.diff

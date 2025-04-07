@@ -22,8 +22,25 @@ val for_diff :
     signature before diffing them with signature items in the [reference] signature.
 *)
 
+val expand_tconstr :
+  typing_env:t ->
+  path:Path.t ->
+  args:Types.type_expr list ->
+  Types.type_expr option
+(** Expand the given [Tconstr] once, looking up the environment for an existing
+    alias and applying the type parameters as needed.
+
+    Returns [None] if the given [Tconstr] cannot be expanded further, i.e. if
+    it points to reocrd, variant or abstract type or if is not present in
+    the typing environment
+*)
+
 val fully_expand_type_expr :
-  typing_env:t -> type_expr:Types.type_expr -> Types.type_expr
+  typing_env:t ->
+  type_expr:Types.type_expr ->
+  path:Path.t ->
+  args:Types.type_expr list ->
+  Types.type_expr
 (** Expand the given [type_expr], looking up the environment for an existing
     alias and applying the type parameters as needed at each step.
 *)

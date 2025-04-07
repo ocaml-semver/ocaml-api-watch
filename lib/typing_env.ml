@@ -148,23 +148,27 @@ let for_diff ~reference ~current =
   let modified_current = apply_subst subst current in
   (reference, modified_current, env)
 
-let rec fully_expand_type_expr ~typing_env ~type_expr =
-  match Types.get_desc type_expr with
-  | Tconstr (path, args, _) -> (
-      let type_decl =
-        try Some (Env.find_type path typing_env) with Not_found -> None
-      in
-      match type_decl with
-      | None -> type_expr
-      | Some td -> (
-          match td.Types.type_manifest with
-          | None -> type_expr
-          | Some manifest ->
-              let inst_type_expr =
-                Ctype.apply typing_env td.Types.type_params manifest args
-              in
-              fully_expand_type_expr ~typing_env ~type_expr:inst_type_expr))
-  | _ -> type_expr
+let expand_tconstr ~typing_env ~path ~args =
+  let type_decl =
+    try Some (Env.find_type path typing_env) with Not_found -> None
+  in
+  match type_decl with
+  | None -> None
+  | Some td -> (
+      match td.Types.type_manifest with
+      | None -> None
+      | Some type_expr ->
+          Some (Ctype.apply typing_env td.Types.type_params type_expr args))
+
+let rec fully_expand_type_expr ~typing_env ~type_expr ~path ~args =
+  let exp_res = expand_tconstr ~typing_env ~path ~args in
+  match exp_res with
+  | None -> type_expr
+  | Some expr -> (
+      match Types.get_desc expr with
+      | Tconstr (path, args, _) ->
+          fully_expand_type_expr ~typing_env ~type_expr:expr ~path ~args
+      | _ -> expr)
 
 let pp fmt t =
   let summary = Env.summary t in

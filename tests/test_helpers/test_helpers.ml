@@ -85,3 +85,11 @@ let first_type_declaration (signature : Types.signature) :
       | Types.Sig_type (id, td, _, _) -> Some (id, td)
       | _ -> None)
     signature
+
+let get_tconstr type_expr =
+  match Types.get_desc type_expr with
+  | Tconstr (path, args, _) -> (path, args)
+  | _ ->
+      invalid_arg
+        "get_tconstr should be called with a type expr that is a\n\
+        \           type constructor"

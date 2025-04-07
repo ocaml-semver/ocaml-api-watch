@@ -9,7 +9,8 @@ let interface =
     val v1 : (string, int) t2
 
     type ('a, 'b) t3 = { f1 : 'a; f2 : 'b }
-    val v2 : (string, int) t3
+    type ('a, 'b) t4 = ('a, 'b) t3
+    val v2 : (string, int) t4
 
     type ('a, 'b) not_in_env = 'a * 'b
     val v3 : (string, int) not_in_env
@@ -36,24 +37,30 @@ let value_map =
 
 let%expect_test "test_fully_expand_type_expr_on_alias_types" =
   let v1_type = String_map.find "v1" value_map in
+  let path, args = get_tconstr v1_type in
   let expanded_type_expr =
-    Typing_env.fully_expand_type_expr ~typing_env:env ~type_expr:v1_type
+    Typing_env.fully_expand_type_expr ~typing_env:env ~type_expr:v1_type ~path
+      ~args
   in
   Printtyp.type_expr Format.std_formatter expanded_type_expr;
   [%expect {| (string * int) list |}]
 
 let%expect_test "test_fully_expand_type_expr_on_nominal_types" =
   let v2_type = String_map.find "v2" value_map in
+  let path, args = get_tconstr v2_type in
   let expanded_type_expr =
-    Typing_env.fully_expand_type_expr ~typing_env:env ~type_expr:v2_type
+    Typing_env.fully_expand_type_expr ~typing_env:env ~type_expr:v2_type ~path
+      ~args
   in
   Printtyp.type_expr Format.std_formatter expanded_type_expr;
   [%expect {| (string, int) t3 |}]
 
 let%expect_test "test_fully_expand_type_expr_on_type_not_in_the_env" =
   let v3_type = String_map.find "v3" value_map in
+  let path, args = get_tconstr v3_type in
   let expanded_type_expr =
-    Typing_env.fully_expand_type_expr ~typing_env:env ~type_expr:v3_type
+    Typing_env.fully_expand_type_expr ~typing_env:env ~type_expr:v3_type ~path
+      ~args
   in
   Printtyp.type_expr Format.std_formatter expanded_type_expr;
   [%expect {| (string, int) not_in_env |}]
