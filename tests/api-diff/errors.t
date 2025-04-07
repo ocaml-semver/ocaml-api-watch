@@ -20,17 +20,17 @@ that it is ignored
   $ touch test2.cmi
   $ api-diff --main-module main test.cmi test2.cmi
   api-diff: --main-module is ignored when diffing single .cmi files
-  api-diff: Cmi_format.Error(_)
+  api-diff: Error parsing test.cmi: Cmi_format.Error(_)
   [123]
 
   $ touch test2.cmi
   $ api-diff --unwrapped test.cmi test2.cmi
   api-diff: --unwrapped is ignored when diffing single .cmi files
-  api-diff: Cmi_format.Error(_)
+  api-diff: Error parsing test.cmi: Cmi_format.Error(_)
   [123]
 
   $ touch test2.cmi
   $ api-diff --main-module main --unwrapped test.cmi test2.cmi
   api-diff: --main-module and --unwrapped are ignored when diffing single .cmi files
-  api-diff: Cmi_format.Error(_)
+  api-diff: Error parsing test.cmi: Cmi_format.Error(_)
   [123]
