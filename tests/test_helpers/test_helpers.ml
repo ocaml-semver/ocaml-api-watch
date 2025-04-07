@@ -85,3 +85,9 @@ let first_type_declaration (signature : Types.signature) :
       | Types.Sig_type (id, td, _, _) -> Some (id, td)
       | _ -> None)
     signature
+
+let get_tconstr type_expr =
+  match Types.get_desc type_expr with
+  | Types.Tconstr (path, args, _) -> (path, args)
+  | _ ->
+      invalid_arg "get_tconstr cannot be passed with a desc other than Tconstr"

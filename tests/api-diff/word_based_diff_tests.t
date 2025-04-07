@@ -44,7 +44,7 @@ Run api-watcher on the two cmi file with plain and word-level diffing flags enab
   diff module Cur:
    type [-'a-] p = [-'a-]{+int+} * [-'a-]{+int+}
    type t[- =-][- int-]
-   type ('a[-, 'b-][-, 'c-]) u =
+   type ('a, [-'b-], [-'c-]) u =
      {[- mutable-] a : 'a; b : [-'b-]{+int+};[- c : 'c;-] }
    type v =
      | A of [-int * int-]{+{ a : int; b : int; }+}

@@ -195,10 +195,10 @@ Run the api-watcher on the two cmi files
   $ api-diff shapes2.cmi add_component.cmi
   diff module Add_component:
    type shape =
-  -  | Circle of point * int
-  +  | Circle of point * int * int
-  -  | Rectangle of point * point
-  +  | Rectangle of point * point * int
+  -  | Circle of float * float * int
+  +  | Circle of float * float * int * int
+  -  | Rectangle of float * float * float * float
+  +  | Rectangle of float * float * float * float * int
   
   [1]
 
@@ -221,8 +221,8 @@ Run the api-watcher on the two cmi files
   diff module Remove_component:
    type shape =
      | Rectangle of point * point
-  -  | Circle of point * int
-  +  | Circle of point
+  -  | Circle of float * float * int
+  +  | Circle of float * float
   
   [1]
 
@@ -245,7 +245,7 @@ Run the api-watcher on the two cmi files
   diff module Modify_component:
    type shape =
      | Rectangle of point * point
-  -  | Circle of point * int
-  +  | Circle of point * float
+  -  | Circle of float * float * int
+  +  | Circle of float * float * float
   
   [1]
