@@ -67,14 +67,11 @@ let%expect_test "Modules with multiple value and submodule changes" =
     Value (g, Modified)])};
     Module N: Added])})|}]
 
-let%expect_test "Modules with both supported and unsupported changes" =
-  let reference =
-    compile_interface {|
+let%expect_test "Modules with both supported changes" =
+  let reference = compile_interface {|
   val x: int
-  module M: sig 
-  
-  end|}
-  in
+  module M: sig
+  end|} in
   let current =
     compile_interface {|
   module M: sig
@@ -87,7 +84,8 @@ let%expect_test "Modules with both supported and unsupported changes" =
   [%expect
     {|
     Some (Module Main: {Modified (Supported [ Value (x, Removed);
-    Module M: {Modified (Unsupported)}])})|}]
+    Module M: {Modified (Supported [ Extension_constructor (Some_exn, Added)])}])})
+    |}]
 
 let%expect_test "Submodules with different functor types." =
   let reference =

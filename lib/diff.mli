@@ -89,6 +89,24 @@ type cltype = {
   ctdiff : Types.class_type_declaration Stddiff.atomic_entry;
 }
 
+type extcstr = {
+  ecname : string;
+  ectname : string;
+  ecexn : bool;
+  ecdiff : (Types.extension_constructor, extcstr_modification) Stddiff.entry;
+}
+
+and extcstr_modification = {
+  extcstr_params :
+    ( Types.type_expr list,
+      ( Types.type_expr list,
+        (Types.type_expr, type_expr) Stddiff.List.t )
+      Stddiff.entry )
+    Stddiff.maybe_changed;
+  extcstr_private : (Asttypes.private_flag, type_privacy) Stddiff.maybe_changed;
+  extcstr_args : (Types.constructor_arguments, cstr_args) Stddiff.maybe_changed;
+}
+
 type module_ = {
   mname : string;
   mdiff : (Types.module_declaration, signature_modification) Stddiff.entry;
@@ -108,6 +126,7 @@ and sig_item =
   | Modtype of modtype
   | Class of class_
   | Classtype of cltype
+  | Extcstr of extcstr
 
 val interface :
   module_name:string ->

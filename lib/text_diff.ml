@@ -112,6 +112,16 @@ let mtd_to_lines name mtd =
       let abstract_module_type_str = "module type " ^ name in
       CCString.lines abstract_module_type_str
 
+let extcstr_to_lines name ~exn ec =
+  let buf = Buffer.create 256 in
+  let formatter = Format.formatter_of_buffer buf in
+  if exn then (
+    Format.pp_print_string formatter "exception ";
+    Printtyp.extension_only_constructor (Ident.create_local name) formatter ec)
+  else Printtyp.extension_constructor (Ident.create_local name) formatter ec;
+  Format.pp_print_flush formatter ();
+  CCString.lines (Buffer.contents buf)
+
 let cd_to_lines name cd =
   let buf = Buffer.create 256 in
   let formatter = Format.formatter_of_buffer buf in
@@ -454,25 +464,25 @@ and process_cstr_diff name cstr_diff =
   match cstr_diff with
   | Added cstr -> Line_conflict { orig = []; new_ = cstr_to_lines cstr }
   | Removed cstr -> Line_conflict { orig = cstr_to_lines cstr; new_ = [] }
-  | Modified diff -> (
-      match diff with
-      | Atomic_cstr { reference; current } ->
-          Inline_hunks
-            [
-              Icommon (Printf.sprintf "| %s of " name);
-              Iconflict
-                {
-                  iorig = Some (cstr_args_to_line reference);
-                  inew = Some (cstr_args_to_line current);
-                };
-            ]
-      | Record_cstr record_diff ->
-          let record_hunks = process_record_type_diff record_diff in
-          Inline_hunks (Icommon (Printf.sprintf "| %s of " name) :: record_hunks)
-      | Tuple_cstr tuple_diff ->
-          let tuple_hunks = process_tuple_type_diff ~context:`None tuple_diff in
-          Inline_hunks (Icommon (Printf.sprintf "| %s of " name) :: tuple_hunks)
-      )
+  | Modified diff ->
+      Inline_hunks
+        (Icommon (Printf.sprintf "| %s of " name)
+        :: process_cstr_args_diff (Stddiff.Changed diff))
+
+and process_cstr_args_diff diff =
+  match diff with
+  | Stddiff.Same cstr_args -> [ Icommon (cstr_args_to_line cstr_args) ]
+  | Changed (Atomic_cstr { reference; current }) ->
+      [
+        Iconflict
+          {
+            iorig = Some (cstr_args_to_line reference);
+            inew = Some (cstr_args_to_line current);
+          };
+      ]
+  | Changed (Record_cstr record_diff) -> process_record_type_diff record_diff
+  | Changed (Tuple_cstr tuple_diff) ->
+      process_tuple_type_diff ~context:`None tuple_diff
 
 and process_tuple_type_diff ~context diff =
   let module S = Stddiff in
@@ -646,6 +656,42 @@ let process_class_diff (class_diff : Diff.class_) =
 let process_class_type_diff (class_type_diff : Diff.cltype) =
   process_atomic_diff class_type_diff.ctdiff class_type_diff.ctname ctd_to_lines
 
+let process_modified_exception name args =
+  let head = Icommon (Format.sprintf "exception %s of " name) in
+  let args = process_cstr_args_diff args in
+  [ Inline_hunks (head :: args) ]
+
+let process_modified_extcstr_diff ~type_name ~exn name
+    { Diff.extcstr_params; extcstr_private; extcstr_args } =
+  if exn then process_modified_exception name extcstr_args
+  else
+    let type_hunk = Icommon "type" in
+    let params_hunks = process_type_params_diff extcstr_params in
+    let type_name_hunk = Icommon (Format.sprintf " %s +=" type_name) in
+    let private_hunks = process_privacy_diff extcstr_private in
+    let name_hunk = Icommon (Format.sprintf " %s of " name) in
+    let args_hunks = process_cstr_args_diff extcstr_args in
+    [
+      Inline_hunks
+        (List.concat
+           [
+             [ type_hunk ];
+             params_hunks;
+             [ type_name_hunk ];
+             private_hunks;
+             [ name_hunk ];
+             args_hunks;
+           ]);
+    ]
+
+let process_extcstr_diff (extcstr_diff : Diff.extcstr) =
+  process_entry
+    ~entry_to_string:(extcstr_to_lines ~exn:extcstr_diff.ecexn)
+    ~process_modification:
+      (process_modified_extcstr_diff ~type_name:extcstr_diff.ectname
+         ~exn:extcstr_diff.ecexn)
+    ~name:extcstr_diff.ecname extcstr_diff.ecdiff
+
 let rec process_sig_diff :
     type a.
     _ -> (string -> a -> string list) -> (a, _) Stddiff.entry * _ -> _ -> _ =
@@ -722,7 +768,13 @@ and signature_changes module_path items acc =
             | Modified _ -> module_path ^ "." ^ sub_module_type_diff.mtname
             | Added _ | Removed _ -> module_path
           in
-          process_module_type_diff sub_module_path sub_module_type_diff acc')
+          process_module_type_diff sub_module_path sub_module_type_diff acc'
+      | Extcstr extcstr_diff ->
+          let diff = process_extcstr_diff extcstr_diff in
+          String_map.update module_path
+            (function
+              | None -> Some diff | Some existing -> Some (existing @ diff))
+            acc')
     acc items
 
 and from_diff (diff : Diff.module_) : t =

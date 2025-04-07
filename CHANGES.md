@@ -15,6 +15,8 @@
 - Add fine-grained diff of tuple types (#139, @azzsal)
 - Add fine-grained diff of arrow types (#140, @azzsal)
 - Add fine-grained diff of type constructors (#148, @azzsal)
+- Add detection of addition, removal and modifications of extensible variant
+  constructors (#146, @azzsal)
 
 ### Changed
 
