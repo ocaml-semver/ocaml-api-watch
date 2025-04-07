@@ -2,8 +2,7 @@ open Api_watch
 open Test_helpers
 
 let pp_expansion_item fmt (type_expr, _type_decl_opt) =
-   Fmt.pf fmt "%a"
-     Printtyp.type_expr type_expr
+  Fmt.pf fmt "%a" Printtyp.type_expr type_expr
 
 let interface =
   compile_interface
@@ -44,35 +43,35 @@ let%expect_test "test_expansion_lst_on_alias_types" =
   let expansion_lst =
     Typing_env.expansion_lst ~typing_env:env ~type_expr:v1_type
   in
-  (Fmt.pf Format.std_formatter "[ %a]"
-    (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n")
-    pp_expansion_item) expansion_lst);
-  [%expect {|
+  Fmt.pf Format.std_formatter "[ %a]"
+    (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n") pp_expansion_item)
+    expansion_lst;
+  [%expect
+    {|
     [ (string * int) list;
     (string, int) t1;
     (string, int) t2]
-    |} ]
+    |}]
 
 let%expect_test "test_expansion_lst_on_nominal_types" =
   let v2_type = String_map.find "v2" value_map in
   let expansion_lst =
     Typing_env.expansion_lst ~typing_env:env ~type_expr:v2_type
   in
-  (Fmt.pf Format.std_formatter "[ %a]"
-    (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n")
-    pp_expansion_item) expansion_lst);
+  Fmt.pf Format.std_formatter "[ %a]"
+    (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n") pp_expansion_item)
+    expansion_lst;
   [%expect {|
     [ (string, int) t3;
     (string, int) t4]
-    |} ]
+    |}]
 
 let%expect_test "test_expansion_lst_on_type_not_in_the_env" =
   let v3_type = String_map.find "v3" value_map in
   let expansion_lst =
     Typing_env.expansion_lst ~typing_env:env ~type_expr:v3_type
   in
-  (Fmt.pf Format.std_formatter "[ %a]"
-    (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n")
-    pp_expansion_item) expansion_lst);
-  [%expect {| [ (string, int) not_in_env] |} ]
-
+  Fmt.pf Format.std_formatter "[ %a]"
+    (Fmt.list ~sep:(fun fmt () -> Fmt.pf fmt ";\n") pp_expansion_item)
+    expansion_lst;
+  [%expect {| [ (string, int) not_in_env] |}]
