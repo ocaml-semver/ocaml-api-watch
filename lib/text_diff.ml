@@ -245,7 +245,7 @@ and process_type_header_diff name type_privacy_diff type_manifest_diff
 and process_privacy_diff privacy_diff =
   let open Asttypes in
   match privacy_diff with
-  | Same Private -> [ Icommon " private" ]
+  | Same Private -> [ Icommon " "; Icommon "private" ]
   | Same Public -> []
   | Changed Added_p ->
       [
@@ -374,13 +374,23 @@ and process_equal_sign_diff type_manifest_diff type_kind_diff =
 and process_manifest_diff manifest_diff =
   match manifest_diff with
   | Same None -> []
-  | Same (Some te) -> [ Icommon (" " ^ type_expr_to_string te) ]
+  | Same (Some te) ->
+    [ 
+      Icommon " "; 
+      Icommon (type_expr_to_string te)
+    ]
   | Changed (Added te) ->
-    [ Icontext { text = " "; src = `New };
-      Iconflict { iorig = None; inew = Some (type_expr_to_string te) } ]
+      [
+        Icontext { text = " "; src = `New };
+        Iconflict { iorig = None; inew = Some (type_expr_to_string te) };
+      ]
   | Changed (Removed te) ->
-      [ Iconflict { iorig = Some (" " ^ type_expr_to_string te); inew = None } ]
-  | Changed (Modified te_diff) -> Icommon " " :: process_type_expr_diff te_diff
+    [ 
+      Icontext { text = " "; src = `Orig };
+      Iconflict { iorig = Some (type_expr_to_string te); inew = None }
+    ]
+  | Changed (Modified te_diff) ->
+    List.cons (Icommon " ") (process_type_expr_diff te_diff)
 
 and process_type_kind_diff kind_diff =
   match kind_diff with
@@ -397,8 +407,8 @@ and process_record_type_diff record_diff =
   let open Stddiff.Map in
   let { same_map = same_lbls; changed_map = changed_lbls } = record_diff in
   let common_hunks =
-    List.map
-      (fun lbl -> Icommon (" " ^ lbl_to_line lbl))
+    List.concat_map
+      (fun lbl -> [ Icommon " "; Icommon (lbl_to_line lbl) ])
       (String_map.bindings same_lbls |> List.map snd)
   in
   let different_hunks =
@@ -411,33 +421,49 @@ and process_record_type_diff record_diff =
 and process_label_diff name label_diff =
   match label_diff with
   | Added lbl ->
-      [ Iconflict { iorig = None; inew = Some (" " ^ lbl_to_line lbl) } ]
+    [
+      Icontext { text = " "; src = `New };
+      Iconflict { iorig = None; inew = Some (lbl_to_line lbl) }
+    ]
   | Removed lbl ->
-      [ Iconflict { iorig = Some (" " ^ lbl_to_line lbl); inew = None } ]
+    [
+      Icontext { text = " "; src = `Orig };
+      Iconflict { iorig = Some (lbl_to_line lbl); inew = None }
+    ]
   | Modified diff ->
       let mutable_hunks = process_mutablity_diff diff.label_mutable in
-      let name_hunk = Icommon (" " ^ name ^ " :") in
+      let name_hunk = Icommon name in
       let type_hunks = process_label_type_diff diff.label_type in
       let semicolon_hunk = Icommon ";" in
       List.concat
-        [ mutable_hunks; [ name_hunk ]; type_hunks; [ semicolon_hunk ] ]
+        [ 
+          mutable_hunks;
+          [ Icommon " "; name_hunk; Icommon " : " ];
+          type_hunks;
+          [ semicolon_hunk ]
+        ]
 
 and process_label_type_diff label_type_diff =
   match label_type_diff with
-  | Stddiff.Same te -> [ Icommon (" " ^ type_expr_to_string te) ]
-  | Stddiff.Changed te_diff -> Icommon " " :: process_type_expr_diff te_diff
+  | Stddiff.Same te -> [ Icommon (type_expr_to_string te) ]
+  | Stddiff.Changed te_diff -> process_type_expr_diff te_diff
 
 and process_mutablity_diff mutablity_diff =
   let open Stddiff in
   let open Asttypes in
   match mutablity_diff with
-  | Same Mutable -> [ Icommon " mutable" ]
+  | Same Mutable -> [ Icommon " "; Icommon "mutable" ]
   | Same Immutable -> []
   | Changed Added_m ->
-    [ Icontext { text = " "; src = `New };
-      Iconflict { iorig = None; inew = Some "mutable" } ]
-  | Changed Removed_m -> [ Icontext { text = " "; src = `Orig };
-      Iconflict { iorig = Some "mutable"; inew = None } ]
+      [
+        Icontext { text = " "; src = `New };
+        Iconflict { iorig = None; inew = Some "mutable" };
+      ]
+  | Changed Removed_m ->
+      [
+        Icontext { text = " "; src = `Orig };
+        Iconflict { iorig = Some "mutable"; inew = None };
+      ]
 
 and type_kind_to_lines type_kind =
   match type_kind with
