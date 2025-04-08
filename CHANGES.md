@@ -44,6 +44,7 @@
   some instances of parametrized types (#134, @azzsal)
 - Fix a bug where the loader couldn't find module types defined in the same
     compilation unit. (#151, @NathanReb, @azzsal)
+- Fix expansion of type constructors (#153, @azzsal)
 
 ### Removed
 

@@ -341,12 +341,12 @@ We generate the .cmi file
 
   $ ocamlc cur_type_constr_to_tuple.mli
 
-Run the api-watcher on the two cmi files, for now type exprs should expand to their original definition if they were different
+Run the api-watcher on the two cmi files
 
   $ api-diff --plain ref_type_constr_to_tuple.cmi cur_type_constr_to_tuple.cmi
   diff module Cur_type_constr_to_tuple:
-  -val x : [-int-] * [-float-]
-  +val x : {+float+} * {+int+}
+  -val x : ([-int-], [-float-]) t
+  +val x : ({+float+}, {+int+}) t
   
   [1]
 
@@ -378,7 +378,38 @@ Run the api-watcher on the two cmi files
 
   $ api-diff --plain ref_long_alias_chain.cmi cur_long_alias_chain.cmi
   diff module Cur_long_alias_chain:
-  -val x : ([-int-] * [-int-] * int) * float
-  +val x : ({+float+} * {+float+} * int) * float
+  -val x : [-int-] r
+  +val x : {+float+} r
+  
+  [1]
+
+We generate a `.mli` with a type constructor
+
+  $ cat > ref_type_constr.mli << EOF
+  > type u = int
+  > val x : u * char
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc ref_type_constr.mli
+
+  $ cat > cur_type_constr.mli << EOF
+  > type t = int
+  > val x : t * string
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc cur_type_constr.mli
+
+Run the api-watcher on the two cmi files, t should be reported as same on val x
+
+  $ api-diff --plain ref_type_constr.cmi cur_type_constr.cmi
+  diff module Cur_type_constr:
+  -val x : t * [-char-]
+  +val x : t * {+string+}
+  +type t = int
+  -type u = int
   
   [1]

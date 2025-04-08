@@ -41,7 +41,7 @@ let%expect_test "test_expand_tconstr_on_alias_types" =
   in
   match expanded_type_expr with
   | None -> assert false
-  | Some e ->
+  | Some (e, _) ->
       Printtyp.type_expr Format.std_formatter e;
       [%expect {| (string * int) list |}]
 
