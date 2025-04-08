@@ -382,3 +382,34 @@ Run the api-watcher on the two cmi files
   +val x : {+float+} r
   
   [1]
+
+We generate a `.mli` with a type constructor
+
+  $ cat > ref_type_constr.mli << EOF
+  > type u = int
+  > val x : u * char
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc ref_type_constr.mli
+
+  $ cat > cur_type_constr.mli << EOF
+  > type t = int
+  > val x : t * string
+  > EOF
+
+We generate the .cmi file
+
+  $ ocamlc cur_type_constr.mli
+
+Run the api-watcher on the two cmi files, t should be reported as same on val x
+
+  $ api-diff --plain ref_type_constr.cmi cur_type_constr.cmi
+  diff module Cur_type_constr:
+  -val x : t * [-char-]
+  +val x : t * {+string+}
+  +type t = int
+  -type u = int
+  
+  [1]
