@@ -345,8 +345,8 @@ Run the api-watcher on the two cmi files
 
   $ api-diff --plain ref_type_constr_to_tuple.cmi cur_type_constr_to_tuple.cmi
   diff module Cur_type_constr_to_tuple:
-  -val x : [-int-] * [-float-]
-  +val x : {+float+} * {+int+}
+  -val x : ([-int-], [-float-]) t
+  +val x : ({+float+}, {+int+}) t
   
   [1]
 
@@ -378,7 +378,7 @@ Run the api-watcher on the two cmi files
 
   $ api-diff --plain ref_long_alias_chain.cmi cur_long_alias_chain.cmi
   diff module Cur_long_alias_chain:
-  -val x : ([-int-] * [-int-] * int) * float
-  +val x : ({+float+} * {+float+} * int) * float
+  -val x : [-int-] r
+  +val x : {+float+} r
   
   [1]
