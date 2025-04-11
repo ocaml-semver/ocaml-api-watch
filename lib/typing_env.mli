@@ -22,6 +22,9 @@ val for_diff :
     signature before diffing them with signature items in the [reference] signature.
 *)
 
+val set_type_equalities :
+  reference:signature -> current:signature -> signature * signature
+
 val expand_tconstr :
   typing_env:t ->
   path:Path.t ->

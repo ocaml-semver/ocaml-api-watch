@@ -31,7 +31,7 @@ let apply_subst subst signature =
    that have conflicting IDs with items in the reference signature. It then
    replaces the old IDs with the new generated ones using substitutions.
 *)
-let replace_matching_ids ~reference ~current =
+let _replace_matching_ids ~reference ~current =
   let ref_env = Env.add_signature reference Env.empty in
   let subst, modified_current =
     List.fold_right
@@ -109,7 +109,7 @@ let extract_subst_items signature =
       | _ -> acc)
     Subst_item_map.empty signature
 
-let pair_items ~reference ~current =
+let _pair_items ~reference ~current =
   let subst_items = extract_subst_items reference in
   List.fold_left
     (fun subst item ->
@@ -118,10 +118,10 @@ let pair_items ~reference ~current =
           match Subst_item_map.find_opt (Type, Ident.name id) subst_items with
           | None -> subst
           | Some ref_id -> Subst.add_type id (Path.Pident ref_id) subst)
-      | Sig_module (id, _, _, _, _) -> (
+      (*| Sig_module (id, _, _, _, _) -> (
           match Subst_item_map.find_opt (Module, Ident.name id) subst_items with
           | None -> subst
-          | Some ref_id -> Subst.add_module id (Path.Pident ref_id) subst)
+          | Some ref_id -> Subst.add_module id (Path.Pident ref_id) subst)*)
       | Sig_modtype (id, _, _) -> (
           match
             Subst_item_map.find_opt (Modtype, Ident.name id) subst_items
@@ -138,15 +138,19 @@ let initialized_env =
   fun () -> env
 
 let for_diff ~reference ~current =
-  let current = replace_matching_ids ~reference ~current in
+  let current = _replace_matching_ids ~reference ~current in
   let env =
     Env.add_signature reference (Env.in_signature true (initialized_env ()))
   in
-  let env = Env.add_signature reference (Env.in_signature true env) in
   let env = Env.add_signature current env in
-  let subst = pair_items ~reference ~current in
-  let modified_current = apply_subst subst current in
-  (reference, modified_current, env)
+  (*let subst = _pair_items ~reference ~current in
+    let modified_current = apply_subst subst current in*)
+  (reference, current, env)
+
+let set_type_equalities ~reference ~current =
+  let subst = _pair_items ~reference ~current in
+  let _modified_current = apply_subst subst current in
+  (reference, _modified_current)
 
 let expand_tconstr ~typing_env ~path ~args =
   let type_decl =

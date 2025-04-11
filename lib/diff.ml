@@ -130,40 +130,40 @@ and sig_item =
 
 let extract_items items =
   List.fold_left
-    (fun tbl item ->
+    (fun (tbl, m) item ->
       match (item : Types.signature_item) with
       | Sig_module (id, _, mod_decl, _, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
-            tbl
+          (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
+            tbl, (if (String.equal (Ident.name id) "M") then Some id else m))
       | Sig_modtype (id, mtd_decl, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Modtype mtd_decl
-            tbl
+          (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Modtype mtd_decl
+            tbl, m)
       | Sig_value (id, val_des, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl
+          (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl, m)
       | Sig_type (id, type_decl, _, Exported) ->
           if
             Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl
             || Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Classtype tbl
-          then tbl
+          then (tbl, m)
           else
-            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
-              (type_decl, id) tbl
+            (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
+              (type_decl, id) tbl, m)
       | Sig_class (id, cls_decl, _, Exported) ->
-          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
+          (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl, m)
       | Sig_class_type (id, class_type_decl, _, Exported) ->
           if Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl then
-            tbl
+            (tbl, m)
           else
-            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Classtype
-              class_type_decl tbl
+            (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Classtype
+              class_type_decl tbl, m)
       | Sig_typext (id, typext, status, Exported) ->
           let exn = match status with Text_exception -> true | _ -> false in
-          Sig_item_map.add
+          (Sig_item_map.add
             ~name:(Path.name typext.ext_type_path)
             (Sig_item_map.Extcstr (Ident.name id))
-            (typext, exn) tbl
-      | _ -> tbl)
-    Sig_item_map.empty items
+            (typext, exn) tbl, m)
+      | _ -> (tbl, m))
+    (Sig_item_map.empty, None) items
 
 let extract_lbls lbls =
   List.fold_left
@@ -269,7 +269,12 @@ and constr ~typing_env ~ref_params ~cur_params ~reference ~current =
   let ref_path, ref_args = reference in
   let cur_path, cur_args = current in
   let path =
-    if String.equal (Path.name ref_path) (Path.name cur_path) then Same ref_path
+    (*Path.print Format.std_formatter ref_path;*)
+    (*Format.force_newline ();
+    Path.print Format.std_formatter ref_path;
+    Format.force_newline ();*)
+    (*if (String.equal (Path.name ref_path) (Path.name cur_path)) then Same ref_path*)
+    if Path.same ref_path cur_path then Same ref_path
     else Changed { reference = ref_path; current = cur_path }
   in
   let args =
@@ -643,8 +648,22 @@ let extcstr_item ~typing_env ~type_name ~name ~reference ~current =
         ~reference:(ref_exn, ref_extcstr) ~current:(cur_exn, cur_extcstr)
 
 let rec items ~reference ~current ~typing_env =
-  let ref_items = extract_items reference in
-  let curr_items = extract_items current in
+  let ref_items, _ = extract_items reference in
+  let curr_items, _ = extract_items current in
+  (*let _ =
+    match m with
+  | None -> None
+  | Some m ->
+    Ident.print Format.std_formatter m;
+    Some (
+      let t = Env.find_type (Path.Pdot ((Path.Pident m), "t")) typing_env
+      in
+      Format.force_newline ();
+      Printtyp.type_declaration m Format.std_formatter t;
+      Format.force_newline ();
+      t
+    )
+    in*)
   let diff_item : type a. (a, 'diff) Sig_item_map.diff_item =
    fun item_type name reference current ->
     match item_type with
@@ -698,17 +717,20 @@ and module_type ~typing_env ~name ~ref_module_type ~current_module_type
     ~reference_location =
   match (ref_module_type, current_module_type) with
   | Mty_signature ref_submod, Mty_signature curr_submod ->
-      signatures ~reference:ref_submod ~current:curr_submod
+      signatures ~typing_env ~reference:ref_submod ~current:curr_submod
       |> Option.map (fun mdiff -> Module { mname = name; mdiff })
   | ref_modtype, curr_modtype ->
       module_type_fallback ~loc:reference_location ~typing_env ~name
         ~reference:ref_modtype ~current:curr_modtype
 
-and signatures ~reference ~current =
+and signatures ~typing_env ~reference ~current =
   let initialized_env = Typing_env.initialized_env () in
-  let modified_reference, modified_current, typing_env =
-    Typing_env.for_diff ~reference ~current
+  let modified_reference, modified_current =
+    Typing_env.set_type_equalities ~reference ~current
   in
+  (*let modified_reference, modified_current, typing_env =
+      Typing_env.for_diff ~reference ~current
+    in*)
   match
     items ~reference:modified_reference ~current:modified_current ~typing_env
   with
@@ -726,7 +748,14 @@ and signatures ~reference ~current =
   | item_changes -> Some (Modified (Supported item_changes))
 
 let interface ~module_name ~reference ~current =
-  let sig_out = signatures ~reference ~current in
+  let modified_reference, modified_current, typing_env =
+    Typing_env.for_diff ~reference ~current
+  in
+  (*Typing_env.pp Format.std_formatter typing_env;*)
+  let sig_out =
+    signatures ~typing_env ~reference:modified_reference
+      ~current:modified_current
+  in
   Option.map (fun mdiff -> { mname = module_name; mdiff }) sig_out
 
 let library ~reference ~current =
