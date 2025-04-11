@@ -102,10 +102,6 @@ let extract_subst_items signature =
       match item with
       | Sig_type (id, { type_manifest = None; _ }, _, _) ->
           Subst_item_map.add (Type, Ident.name id) id acc
-      | Sig_module (id, _, _, _, _) ->
-          Subst_item_map.add (Module, Ident.name id) id acc
-      | Sig_modtype (id, _, _) ->
-          Subst_item_map.add (Modtype, Ident.name id) id acc
       | _ -> acc)
     Subst_item_map.empty signature
 

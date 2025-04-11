@@ -29,9 +29,16 @@ Consider the following two versions:
 Here, a diff should be reported on both N.x and x:
 
   $ api-diff --plain test.cmi test2.cmi
+  diff module Test2:
+  -val x : [-int-]
+  +val x : {+float+}
+  
   diff module Test2.M:
   -type t = [-int-]
   +type t = {+float+}
+  
+  diff module Test2.N:
+  +<unsupported change>
   
   [1]
 
@@ -73,6 +80,10 @@ Similarly, this should work across compilation units:
   $ ocamlc -I v2 v2/main.mli
 
   $ api-diff --plain --main-module main v1 v2
+  diff module Main:
+  -val x : [-int-]
+  +val x : {+float+}
+  
   diff module Main.M:
   -type t = [-int-]
   +type t = {+float+}
