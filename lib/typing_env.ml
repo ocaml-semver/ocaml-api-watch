@@ -137,12 +137,54 @@ let initialized_env =
   let env = Compmisc.initial_env () in
   fun () -> env
 
-let for_diff ~reference ~current =
+let id1 =
+  let new_id = Ident.create_local "Library" in
+  fun () -> new_id
+
+let id2 =
+  let new_id = Ident.create_local "Library" in
+  fun () -> new_id
+
+let mod_dec_of_sig _name sign =
+  let md =
+    {
+      md_type = Mty_signature sign;
+      md_attributes = [];
+      md_loc = Location.none;
+      md_uid = Uid.internal_not_actually_unique;
+    }
+  in
+  [ Types.Sig_module ((id2) (), Types.Mp_present, md, Types.Trec_not,
+                      Types.Exported) ]
+
+let mod_dec_of_sig2 _name sign =
+  let md =
+    {
+      md_type = Mty_signature sign;
+      md_attributes = [];
+      md_loc = Location.none;
+      md_uid = Uid.internal_not_actually_unique;
+    }
+  in
+  [ Types.Sig_module ((id1) (), Types.Mp_present, md, Types.Trec_not,
+                      Types.Exported) ]
+
+
+let for_diff ~module_name ~reference ~current =
   let current = _replace_matching_ids ~reference ~current in
   let env =
-    Env.add_signature reference (Env.in_signature true (initialized_env ()))
+    Env.add_signature (mod_dec_of_sig module_name reference)
+      (Env.in_signature true (initialized_env ()))
   in
-  let env = Env.add_signature current env in
+  let env = Env.add_signature (mod_dec_of_sig2 module_name current) env in
+  (*let env =
+    match Env.open_signature Asttypes.Fresh
+            (Pident(Ident.create_persistent "Library")) env
+    with
+  | Ok e -> e
+  | Error `Not_found -> assert false
+  | Error `Functor -> assert false*)
+        (* a compilation unit cannot refer to a functor *)
   (*let subst = _pair_items ~reference ~current in
     let modified_current = apply_subst subst current in*)
   (reference, current, env)
@@ -164,8 +206,10 @@ let expand_tconstr ~typing_env ~path ~args =
       | Some type_expr ->
           Some (Ctype.apply typing_env td.Types.type_params type_expr args))
 
-let fully_expand_tconstr ~typing_env ~path ~args =
-  let rec aux last path args =
+let fully_expand_tconstr =
+  let cnt = ref 1 in
+  fun ~typing_env ~path ~args ->
+    let rec aux last path args =
     match expand_tconstr ~typing_env ~path ~args with
     | None -> last
     | Some expr -> (
@@ -173,7 +217,20 @@ let fully_expand_tconstr ~typing_env ~path ~args =
         | Tconstr (path, args, _) -> aux (Some expr) path args
         | _ -> Some expr)
   in
-  aux None path args
+  let path =
+    match path with
+    | Path.Pdot (Pdot (Pident _, j), k) ->
+      Path.Pdot (Pdot ((Pident ((
+          if !cnt = 2 then id1 else
+            (cnt := !cnt + 1; id2)) ())), j), k)
+    | x -> x
+  in
+  (*Path.print Format.std_formatter path;*)
+  let res = aux None path args in
+  (*(match res with
+  | None -> Format.print_string "None"
+  | Some e -> Printtyp.type_expr Format.std_formatter e);*)
+  res
 
 let pp fmt t =
   let summary = Env.summary t in
