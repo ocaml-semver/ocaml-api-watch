@@ -130,40 +130,40 @@ and sig_item =
 
 let extract_items items =
   List.fold_left
-    (fun (tbl, m) item ->
+    (fun tbl item ->
       match (item : Types.signature_item) with
       | Sig_module (id, _, mod_decl, _, Exported) ->
-          (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
-            tbl, (if (String.equal (Ident.name id) "M") then Some id else m))
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Module mod_decl
+            tbl
       | Sig_modtype (id, mtd_decl, Exported) ->
-          (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Modtype mtd_decl
-            tbl, m)
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Modtype mtd_decl
+            tbl
       | Sig_value (id, val_des, Exported) ->
-          (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl, m)
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Value val_des tbl
       | Sig_type (id, type_decl, _, Exported) ->
           if
             Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl
             || Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Classtype tbl
-          then (tbl, m)
+          then tbl
           else
-            (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
-              (type_decl, id) tbl, m)
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Type
+              (type_decl, id) tbl
       | Sig_class (id, cls_decl, _, Exported) ->
-          (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl, m)
+          Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Class cls_decl tbl
       | Sig_class_type (id, class_type_decl, _, Exported) ->
           if Sig_item_map.has ~name:(Ident.name id) Sig_item_map.Class tbl then
-            (tbl, m)
+            tbl
           else
-            (Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Classtype
-              class_type_decl tbl, m)
+            Sig_item_map.add ~name:(Ident.name id) Sig_item_map.Classtype
+              class_type_decl tbl
       | Sig_typext (id, typext, status, Exported) ->
           let exn = match status with Text_exception -> true | _ -> false in
-          (Sig_item_map.add
+          Sig_item_map.add
             ~name:(Path.name typext.ext_type_path)
             (Sig_item_map.Extcstr (Ident.name id))
-            (typext, exn) tbl, m)
-      | _ -> (tbl, m))
-    (Sig_item_map.empty, None) items
+            (typext, exn) tbl
+      | _ -> tbl)
+    Sig_item_map.empty items
 
 let extract_lbls lbls =
   List.fold_left
@@ -271,8 +271,8 @@ and constr ~typing_env ~ref_params ~cur_params ~reference ~current =
   let path =
     (*Path.print Format.std_formatter ref_path;*)
     (*Format.force_newline ();
-    Path.print Format.std_formatter ref_path;
-    Format.force_newline ();*)
+      Path.print Format.std_formatter ref_path;
+      Format.force_newline ();*)
     (*if (String.equal (Path.name ref_path) (Path.name cur_path)) then Same ref_path*)
     if Path.same ref_path cur_path then Same ref_path
     else Changed { reference = ref_path; current = cur_path }
@@ -648,22 +648,8 @@ let extcstr_item ~typing_env ~type_name ~name ~reference ~current =
         ~reference:(ref_exn, ref_extcstr) ~current:(cur_exn, cur_extcstr)
 
 let rec items ~reference ~current ~typing_env =
-  let ref_items, _ = extract_items reference in
-  let curr_items, _ = extract_items current in
-  (*let _ =
-    match m with
-  | None -> None
-  | Some m ->
-    Ident.print Format.std_formatter m;
-    Some (
-      let t = Env.find_type (Path.Pdot ((Path.Pident m), "t")) typing_env
-      in
-      Format.force_newline ();
-      Printtyp.type_declaration m Format.std_formatter t;
-      Format.force_newline ();
-      t
-    )
-    in*)
+  let ref_items = extract_items reference in
+  let curr_items = extract_items current in
   let diff_item : type a. (a, 'diff) Sig_item_map.diff_item =
    fun item_type name reference current ->
     match item_type with
@@ -725,14 +711,11 @@ and module_type ~typing_env ~name ~ref_module_type ~current_module_type
 
 and signatures ~typing_env ~reference ~current =
   let initialized_env = Typing_env.initialized_env () in
-  let modified_reference, modified_current =
+  (*let modified_reference, modified_current =
     Typing_env.set_type_equalities ~reference ~current
-  in
-  (*let modified_reference, modified_current, typing_env =
-      Typing_env.for_diff ~reference ~current
-    in*)
+  in*)
   match
-    items ~reference:modified_reference ~current:modified_current ~typing_env
+    items ~reference ~current ~typing_env
   with
   | [] -> (
       let coercion1 () =
@@ -751,7 +734,7 @@ let interface ~module_name ~reference ~current =
   let modified_reference, modified_current, typing_env =
     Typing_env.for_diff ~module_name ~reference ~current
   in
-  Typing_env.pp Format.std_formatter typing_env;
+  (*Typing_env.pp Format.std_formatter typing_env;*)
   let sig_out =
     signatures ~typing_env ~reference:modified_reference
       ~current:modified_current

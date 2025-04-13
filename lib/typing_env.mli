@@ -8,8 +8,10 @@ val initialized_env : unit -> t
 (** Returns a environment initialized with the standard library. *)
 
 val for_diff :
-  module_name:string -> reference:signature ->
-  current:signature -> signature * signature * t
+  module_name:string ->
+  reference:signature ->
+  current:signature ->
+  signature * signature * t
 (** Returns two modified signatures with unique IDs that are suitable
     for placing in the same typing environment that we use for diffing.
 
@@ -23,8 +25,8 @@ val for_diff :
     signature before diffing them with signature items in the [reference] signature.
 *)
 
-val set_type_equalities :
-  reference:signature -> current:signature -> signature * signature
+(*val set_type_equalities :
+  reference:signature -> current:signature -> signature * signature*)
 
 val expand_tconstr :
   typing_env:t ->
