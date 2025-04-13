@@ -96,6 +96,49 @@ let _replace_matching_ids ~reference ~current =
   in
   apply_subst subst modified_current
 
+let full_path id path =
+  (*let rec aux path =
+    match path with
+    | Path.Pdot (p, s) -> (Path.Pdot (aux p, s))
+    | Path.Pident i -> Path.Pdot (Path.Pident id, Ident.name i)
+    | x -> x
+  in
+  let res = aux path in
+  Path.print Format.std_formatter res;
+  Format.force_newline ();
+  res*)
+  Path.Pdot (path, Ident.name id)
+
+let rec _fully_qualifiy_names ~module_path ~subst signature =
+  List.fold_right
+    (fun item (subst, lst) ->
+       match item with
+       | Sig_type (id, td, r, v) ->
+         (Subst.add_type id (Path.Pdot (module_path, (Ident.name id))) subst,
+          (*let x = Subst.type_declaration subst td in
+          Printtyp.type_declaration id Format.std_formatter x;*)
+           (Sig_type (id, Subst.type_declaration subst td, r, v)) :: lst )
+      | Sig_value (id, vd, v) ->
+          (subst, Sig_value (id, Subst.value_description subst vd, v) :: lst)
+       | Sig_module (id, mp, md, rc, v) -> (
+           let md_type =
+             match md.md_type with
+             | Mty_signature sign ->
+               (*let sign_ = (apply_subst subst sign) in*)
+               let _, sig_ =
+                 _fully_qualifiy_names
+                   ~module_path:(full_path id module_path)
+                     ~subst sign
+               in
+               Mty_signature sig_
+             | x -> x
+           in
+           (subst,
+            Sig_module (id, mp, { md with md_type = md_type }, rc, v) :: lst)
+       )
+       | _ -> (subst, lst))
+    (List.rev signature) (subst, [])
+
 let extract_subst_items signature =
   List.fold_left
     (fun acc item ->
@@ -145,7 +188,7 @@ let id2 =
   let new_id = Ident.create_local "Library" in
   fun () -> new_id
 
-let mod_dec_of_sig _name sign =
+let _mod_dec_of_sig _name sign =
   let md =
     {
       md_type = Mty_signature sign;
@@ -157,7 +200,7 @@ let mod_dec_of_sig _name sign =
   [ Types.Sig_module ((id2) (), Types.Mp_present, md, Types.Trec_not,
                       Types.Exported) ]
 
-let mod_dec_of_sig2 _name sign =
+let _mod_dec_of_sig2 _name sign =
   let md =
     {
       md_type = Mty_signature sign;
@@ -169,14 +212,38 @@ let mod_dec_of_sig2 _name sign =
   [ Types.Sig_module ((id1) (), Types.Mp_present, md, Types.Trec_not,
                       Types.Exported) ]
 
+let _traverse_sig sig_ =
+  List.fold_right
+    (fun item lst ->
+       match item with
+       | Sig_module (id, mp, md, rc, v) -> (
+           let md_type =
+             match md.md_type with
+             | Mty_signature sign ->
+               (*let sign_ = (apply_subst subst sign) in*)
+               let _, sig_ =
+                 _fully_qualifiy_names
+                   ~module_path:(Pident id)
+                     ~subst:Subst.identity sign
+               in
+               Mty_signature sig_
+             | x -> x
+           in
+           (
+            Sig_module (id, mp, { md with md_type = md_type }, rc, v) :: lst)
+       )
+       | Sig_modtype _ as modtype -> modtype :: lst
+       | x -> x :: lst) sig_ []
 
-let for_diff ~module_name ~reference ~current =
-  let current = _replace_matching_ids ~reference ~current in
+let for_diff ~module_name:_ ~reference ~current =
+  let reference = _traverse_sig reference in
+  (*let current = _replace_matching_ids ~reference ~current in*)
+  let current = _traverse_sig current in
   let env =
-    Env.add_signature (mod_dec_of_sig module_name reference)
+    Env.add_signature ((*mod_dec_of_sig module_name*) reference)
       (Env.in_signature true (initialized_env ()))
   in
-  let env = Env.add_signature (mod_dec_of_sig2 module_name current) env in
+  let env = Env.add_signature ((*(mod_dec_of_sig2 module_name*) current) env in
   (*let env =
     match Env.open_signature Asttypes.Fresh
             (Pident(Ident.create_persistent "Library")) env

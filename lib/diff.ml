@@ -751,7 +751,7 @@ let interface ~module_name ~reference ~current =
   let modified_reference, modified_current, typing_env =
     Typing_env.for_diff ~module_name ~reference ~current
   in
-  (*Typing_env.pp Format.std_formatter typing_env;*)
+  Typing_env.pp Format.std_formatter typing_env;
   let sig_out =
     signatures ~typing_env ~reference:modified_reference
       ~current:modified_current
