@@ -5,17 +5,28 @@ type type_expr =
   | Atomic of Types.type_expr Stddiff.atomic_modification
 
 and tuple = (Types.type_expr, type_expr) Stddiff.List.t
+and arg_label = Labelled_arg of string | Optional_arg of string
 
-and arrow = {
+and farrow = {
+  arg_list : (arg_label option * Types.type_expr) list;
+  return : Types.type_expr;
+}
+
+and arg = {
   arg_label :
     ( arg_label option,
       (arg_label, arg_label_diff) Stddiff.Option.t )
     Stddiff.maybe_changed;
   arg_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
-  return_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
 }
 
-and arg_label = Labelled_arg of string | Optional_arg of string
+and arrow = {
+  arg_types :
+    ( (arg_label option * Types.type_expr) list,
+      (arg_label option * Types.type_expr, arg) Stddiff.List.t )
+    Stddiff.maybe_changed;
+  return_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
+}
 
 and arg_label_diff = {
   name : (string, string Stddiff.atomic_modification) Stddiff.maybe_changed;

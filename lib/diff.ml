@@ -5,17 +5,28 @@ type type_expr =
   | Atomic of Types.type_expr Stddiff.atomic_modification
 
 and tuple = (Types.type_expr, type_expr) Stddiff.List.t
+and arg_label = Labelled_arg of string | Optional_arg of string
 
-and arrow = {
+and farrow = {
+  arg_list : (arg_label option * Types.type_expr) list;
+  return : Types.type_expr;
+}
+
+and arg = {
   arg_label :
     ( arg_label option,
       (arg_label, arg_label_diff) Stddiff.Option.t )
     Stddiff.maybe_changed;
   arg_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
-  return_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
 }
 
-and arg_label = Labelled_arg of string | Optional_arg of string
+and arrow = {
+  arg_types :
+    ( (arg_label option * Types.type_expr) list,
+      (arg_label option * Types.type_expr, arg) Stddiff.List.t )
+    Stddiff.maybe_changed;
+  return_type : (Types.type_expr, type_expr) Stddiff.maybe_changed;
+}
 
 and arg_label_diff = {
   name : (string, string Stddiff.atomic_modification) Stddiff.maybe_changed;
@@ -202,12 +213,13 @@ let rec type_expr ~typing_env ?(ref_params = []) ?(cur_params = []) reference
       match type_exprs with
       | Stddiff.Same _ -> Stddiff.Same reference
       | Changed change -> Changed (Tuple change))
-  | ( Tarrow (ref_arg_label, ref_arg_type, ref_return_type, _),
-      Tarrow (cur_arg_label, cur_arg_type, cur_return_type, _) ) -> (
+  | ( Tarrow _,
+      Tarrow _) -> (
+      let flattened_ref = flatten_arrow_type reference in
+      let flattened_cur = flatten_arrow_type current in
       let arrow =
-        arrow ~typing_env ~ref_params ~cur_params
-          ~reference:(ref_arg_label, ref_arg_type, ref_return_type)
-          ~current:(cur_arg_label, cur_arg_type, cur_return_type)
+        arrow ~typing_env ~ref_params ~cur_params ~reference:flattened_ref
+          ~current:flattened_cur
       in
       match arrow with
       | Stddiff.Same _ -> Stddiff.Same reference
@@ -295,38 +307,53 @@ and type_exprs ~typing_env ~ref_params ~cur_params ~reference ~current =
       type_expr ~typing_env ~ref_params ~cur_params ref cur)
     ~reference ~current
 
-and arrow ~typing_env ~ref_params ~cur_params ~reference ~current =
-  let unwrap_optional_arg lbl typ =
-    match lbl with
-    | Asttypes.Nolabel | Labelled _ -> typ
-    | Optional _ -> (
-        match Types.get_desc typ with
-        | Tconstr (_, [ te ], _) -> te
-        | _ -> assert false)
+and unwrap_optional_arg lbl typ =
+  match lbl with
+  | None | Some (Labelled_arg _) -> typ
+  | Some (Optional_arg _) -> (
+      match Types.get_desc typ with
+      | Tconstr (_, [ te ], _) -> te
+      | _ -> assert false)
+
+and flatten_arrow_type type_expr =
+  let rec aux type_expr arg_lst =
+    match Types.get_desc type_expr with
+    | Types.Tarrow (label, arg_type, return_type, _) ->
+        let label' = convert_arg_label label in
+        aux return_type
+          ((label', unwrap_optional_arg label' arg_type) :: arg_lst)
+    | _ -> { arg_list = List.rev arg_lst; return = type_expr }
   in
-  let ref_arg_label, ref_arg_type, ref_return_type = reference in
-  let cur_arg_label, cur_arg_type, cur_return_type = current in
-  let arg_label = arg_label ~reference:ref_arg_label ~current:cur_arg_label in
-  let arg_type =
-    type_expr ~typing_env ~ref_params ~cur_params
-      (unwrap_optional_arg ref_arg_label ref_arg_type)
-      (unwrap_optional_arg cur_arg_label cur_arg_type)
+  aux type_expr []
+
+and arrow ~typing_env ~ref_params ~cur_params ~reference ~current =
+  let arg_types =
+    Stddiff.List.diff
+      ~diff_one:(fun (ref_lbl, ref_arg) (cur_lbl, cur_arg) ->
+        let arg_label = arg_label ~reference:ref_lbl ~current:cur_lbl in
+        let arg_type =
+          type_expr ~typing_env ~ref_params ~cur_params ref_arg cur_arg
+        in
+        match (arg_label, arg_type) with
+        | Stddiff.Same _, Same _ -> Same (ref_lbl, ref_arg)
+        | _ -> Changed { arg_label; arg_type })
+      ~reference:reference.arg_list ~current:current.arg_list
   in
   let return_type =
-    type_expr ~typing_env ~ref_params ~cur_params ref_return_type
-      cur_return_type
+    type_expr ~typing_env ~ref_params ~cur_params reference.return
+      current.return
   in
-  match (arg_label, arg_type, return_type) with
-  | Stddiff.Same _, Same _, Same _ -> Same reference
-  | _ -> Changed { arg_label; arg_type; return_type }
+  match (arg_types, return_type) with
+  | Stddiff.Same _, Same _ -> Same reference
+  | _ -> Changed { arg_types; return_type }
+
+and convert_arg_label = function
+  | Asttypes.Nolabel -> None
+  | Labelled name -> Some (Labelled_arg name)
+  | Optional name -> Some (Optional_arg name)
 
 and arg_label ~reference ~current =
   let open Stddiff in
-  let convert = function
-    | Asttypes.Nolabel -> None
-    | Labelled name -> Some (Labelled_arg name)
-    | Optional name -> Some (Optional_arg name)
-  in
   Option.diff
     ~diff_one:(fun ref cur ->
       match (ref, cur) with
@@ -360,7 +387,7 @@ and arg_label ~reference ~current =
                 name = Changed { reference = ref_name; current = cur_name };
                 arg_optional = Same true;
               })
-    ~reference:(convert reference) ~current:(convert current)
+    ~reference ~current
 
 let rec type_item ~typing_env ~name ~reference ~current =
   match (reference, current) with
