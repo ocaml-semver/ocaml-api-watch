@@ -269,7 +269,12 @@ and constr ~typing_env ~ref_params ~cur_params ~reference ~current =
   let ref_path, ref_args = reference in
   let cur_path, cur_args = current in
   let path =
-    if String.equal (Path.name ref_path) (Path.name cur_path) then Same ref_path
+    (*Path.print Format.std_formatter ref_path;*)
+    (*Format.force_newline ();
+      Path.print Format.std_formatter ref_path;
+      Format.force_newline ();*)
+    (*if (String.equal (Path.name ref_path) (Path.name cur_path)) then Same ref_path*)
+    if Path.same ref_path cur_path then Same ref_path
     else Changed { reference = ref_path; current = cur_path }
   in
   let args =
@@ -698,35 +703,48 @@ and module_type ~typing_env ~name ~ref_module_type ~current_module_type
     ~reference_location =
   match (ref_module_type, current_module_type) with
   | Mty_signature ref_submod, Mty_signature curr_submod ->
-      signatures ~reference:ref_submod ~current:curr_submod
+      signatures ~typing_env ~reference:ref_submod ~current:curr_submod
       |> Option.map (fun mdiff -> Module { mname = name; mdiff })
   | ref_modtype, curr_modtype ->
       module_type_fallback ~loc:reference_location ~typing_env ~name
         ~reference:ref_modtype ~current:curr_modtype
 
-and signatures ~reference ~current =
+and signatures ~typing_env ~reference ~current =
   let initialized_env = Typing_env.initialized_env () in
-  let modified_reference, modified_current, typing_env =
-    Typing_env.for_diff ~reference ~current
+  let current =
+    Typing_env.set_type_equalities ~reference ~current
   in
+  let initialized_env = Env.add_signature reference initialized_env in
+  let _initialized_env = Env.add_signature current initialized_env in
+  (* open reference & current signatures! *)
+  let typing_env = Env.add_signature reference typing_env in
+  let typing_env = Env.add_signature current typing_env in
+  (*Typing_env.pp Format.std_formatter typing_env;*)
   match
-    items ~reference:modified_reference ~current:modified_current ~typing_env
+    items ~reference ~current ~typing_env
   with
-  | [] -> (
+  | [] -> None (*(
       let coercion1 () =
-        Includemod.signatures initialized_env ~mark:Mark_both reference current
+        Includemod.signatures _initialized_env ~mark:Mark_both reference current
       in
       let coercion2 () =
-        Includemod.signatures initialized_env ~mark:Mark_both current reference
+        Includemod.signatures _initialized_env ~mark:Mark_both current reference
       in
       match (coercion1 (), coercion2 ()) with
       | Tcoerce_none, Tcoerce_none -> None
       | _, _ -> Some (Modified Unsupported)
-      | exception Includemod.Error _ -> Some (Modified Unsupported))
+      | exception Includemod.Error _ -> Some (Modified Unsupported))*)
   | item_changes -> Some (Modified (Supported item_changes))
 
 let interface ~module_name ~reference ~current =
-  let sig_out = signatures ~reference ~current in
+  let modified_reference, modified_current, typing_env =
+    Typing_env.for_diff ~module_name ~reference ~current
+  in
+  (*Typing_env.pp Format.std_formatter typing_env;*)
+  let sig_out =
+    signatures ~typing_env ~reference:modified_reference
+      ~current:modified_current
+  in
   Option.map (fun mdiff -> { mname = module_name; mdiff }) sig_out
 
 let library ~reference ~current =
