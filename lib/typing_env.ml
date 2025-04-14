@@ -1,7 +1,7 @@
 open Types
 
 type t = Env.t
-type subst_kind = Type [@@deriving ord]
+type subst_kind = Type | Module | Modtype [@@deriving ord]
 
 module Subst_item_map = Map.Make (struct
   type t = subst_kind * string [@@deriving ord]
@@ -47,7 +47,10 @@ let _replace_matching_ids ~reference ~current =
         | Sig_module (id, mp, md, r, v) as sig_mod_decl -> (
             match Env.find_module_index id ref_env with
             | Some _ ->
-                let new_id = Ident.rename id in
+               let new_id = Ident.rename id in
+              let subst = Subst.add_module_path (Path.Pident id)
+                  (Path.Pident new_id) subst
+              in
                 ( Subst.add_module id (Path.Pident new_id) subst,
                   Sig_module (new_id, mp, md, r, v) :: lst )
             | None -> (subst, sig_mod_decl :: lst))
@@ -102,14 +105,14 @@ let extract_subst_items signature =
       match item with
       | Sig_type (id, { type_manifest = None; _ }, _, _) ->
           Subst_item_map.add (Type, Ident.name id) id acc
-      (*| Sig_module (id, _, _, _, _) ->
+      | Sig_module (id, _, _, _, _) ->
           Subst_item_map.add (Module, Ident.name id) id acc
       | Sig_modtype (id, _, _) ->
-          Subst_item_map.add (Modtype, Ident.name id) id acc*)
+          Subst_item_map.add (Modtype, Ident.name id) id acc
       | _ -> acc)
     Subst_item_map.empty signature
 
-let _pair_items ~reference ~current =
+let pair_items ~reference ~current =
   let subst_items = extract_subst_items reference in
   List.fold_left
     (fun subst item ->
@@ -118,7 +121,7 @@ let _pair_items ~reference ~current =
           match Subst_item_map.find_opt (Type, Ident.name id) subst_items with
           | None -> subst
           | Some ref_id -> Subst.add_type id (Path.Pident ref_id) subst)
-      (*| Sig_module (id, _, _, _, _) -> (
+      | Sig_module (id, _, _, _, _) -> (
           match Subst_item_map.find_opt (Module, Ident.name id) subst_items with
           | None -> subst
           | Some ref_id -> Subst.add_module id (Path.Pident ref_id) subst)
@@ -128,16 +131,20 @@ let _pair_items ~reference ~current =
           with
           | None -> subst
           | Some ref_id ->
-              Subst.add_modtype id (Mty_ident (Path.Pident ref_id)) subst)*)
+              Subst.add_modtype id (Mty_ident (Path.Pident ref_id)) subst)
       | _ -> subst)
     Subst.identity current
+
+let set_type_equalities ~reference ~current =
+  let subst = pair_items ~reference ~current in
+  apply_subst subst current
 
 let initialized_env =
   Compmisc.init_path ();
   let env = Compmisc.initial_env () in
   fun () -> env
 
-let wrap_signature id signature =
+let _wrap_signature id signature =
   let md =
     {
       md_type = Mty_signature signature;
@@ -172,53 +179,50 @@ let wrap_signature id signature =
       | x -> x :: lst)
     sig_ []*)
 
-let full_path path id =
+let _full_path path id =
   Path.Pdot (path, Ident.name id)
 
-let extract_subst_items ~module_path signature =
-  let rec aux ~module_path map signature =
+let _extract_subst_items signature =
+  let rec aux map signature =
   List.fold_left
-    (fun acc item ->
+    (fun map item ->
       match item with
       | Sig_type (id, { type_manifest = None; _ }, _, _) ->
-        String_map.add (Path.name (Path.Pdot (module_path, Ident.name id)))
-          (Path.Pdot (module_path, Ident.name id)) acc
-      | Sig_module (id, _, md, _, _) -> (
+        String_map.add (Ident.name id) (Path.Pident id) map
+      | Sig_module (_, _, md, _, _) -> (
             match md.md_type with
             | Mty_signature sign ->
-                aux ~module_path:(full_path module_path id) acc sign
-            | _ -> acc)
-      | _ -> acc)
+                aux map sign
+            | _ -> map)
+      | _ -> map)
     map signature
   in
-  aux ~module_path String_map.empty signature
+  aux String_map.empty signature
 
-let set_type_equalities ~ref_module_path ~cur_module_path ~reference ~current =
-  let subst_items = extract_subst_items ~module_path:ref_module_path reference in
-  let rec aux ~module_path ~subst signature =
+(*let _set_type_equalities ~reference ~current =
+  let subst_items = extract_subst_items reference in
+  let rec aux ~subst signature =
     List.fold_left
       (fun subst item ->
          match item with
          | Sig_type (id, { type_manifest = None; _ }, _, _) -> (
            match
-             String_map.find_opt (Path.name (Path.Pdot (module_path, Ident.name id)))
-               subst_items
+             String_map.find_opt (Ident.name id) subst_items
            with
            | None -> subst
-           | Some ref_path -> Subst.add_type_path (full_path module_path id)
-                                ref_path subst)
-         | Sig_module (id, _, md, _, _) -> (
+           | Some ref_path -> Subst.add_type id ref_path subst)
+         | Sig_module (_, _, md, _, _) -> (
              match md.md_type with
              | Mty_signature sign ->
-               aux ~module_path:(full_path module_path id) ~subst sign
+               aux ~subst sign
              | _ -> subst)
          | _ -> subst)
       subst signature
   in
-  let subst = aux ~module_path:cur_module_path ~subst:Subst.identity current in
-  apply_subst subst current
+  let subst = aux ~subst:Subst.identity current in
+  apply_subst subst current*)
 
-let rec fully_qualifiy_names ~module_path ~subst signature =
+(*let rec fully_qualifiy_names ~module_path ~subst signature =
   List.fold_left
     (fun (subst, lst) item ->
       match item with
@@ -293,9 +297,35 @@ let _fully_qualifiy_names ~module_path ~reference ~current =
     aux ~module_path ~subst:Subst.identity(*ref_subst*) ~signature:current in
   let qualifed_reference = apply_subst ref_subst reference in
   let qualified_current = apply_subst cur_subst current in
-  (qualifed_reference, qualified_current)
+  (qualifed_reference, qualified_current)*)
 
-let for_diff ~module_name ~reference ~current =
+
+
+let for_diff ~module_name:_ ~reference ~current =
+  (*let mod_id = Ident.create_persistent module_name in
+  let ref_id = Ident.create_local module_name in
+  let cur_id = Ident.create_local module_name in
+  let ref_mod_subst =
+    Subst.add_module_path (Path.Pident mod_id) (Path.Pident ref_id)
+      Subst.identity
+  in
+  let cur_mod_subst =
+    Subst.add_module_path (Path.Pident mod_id) (Path.Pident cur_id)
+      Subst.identity
+  in
+  let reference = apply_subst ref_mod_subst reference in
+  let current = apply_subst cur_mod_subst current in*)
+  let current = _replace_matching_ids ~reference ~current in
+  (*let wreference = wrap_signature ref_id reference in
+  let wcurrent = wrap_signature cur_id current in*)
+  let env =
+    Env.add_signature reference (Env.in_signature true (initialized_env ()))
+  in
+  let env = Env.add_signature current env in
+  let current = set_type_equalities ~reference ~current in
+  (reference, current, env)
+
+(*let for_diff ~module_name ~reference ~current =
   let mod_id = Ident.create_persistent module_name in
   let ref_unique_id = Ident.create_local module_name in
   let cur_unique_id = Ident.create_local module_name in
@@ -326,7 +356,7 @@ let for_diff ~module_name ~reference ~current =
   let env = Env.add_signature (wrap_signature ref_unique_id modified_reference)
       (Env.in_signature true initial_env) in
   let env = Env.add_signature (wrap_signature cur_unique_id modified_current) env in
-  (modified_reference, modified_current, env)
+  (modified_reference, modified_current, env)*)
 
 let expand_tconstr ~typing_env ~path ~args =
   let type_decl =
@@ -340,6 +370,21 @@ let expand_tconstr ~typing_env ~path ~args =
       | Some type_expr ->
           Some (Ctype.apply typing_env td.Types.type_params type_expr args))
 
+(*let pp_opt x =
+  match x with
+   | None -> Printf.printf "None"
+   | Some y -> Printtyp.type_expr Format.std_formatter y
+
+let _print_path x path =
+  match path with
+  | Path.Pdot ((Path.Pident id), s) ->
+       if (Ident.name id = "Group") && s = "t"
+       then
+         (pp_opt x; Format.print_string "Hey?\n";
+         Path.print Format.std_formatter path)
+       else ()
+  | _ -> ()*)
+
 let fully_expand_tconstr ~typing_env ~path ~args =
     let rec aux last path args =
       match expand_tconstr ~typing_env ~path ~args with
@@ -349,7 +394,9 @@ let fully_expand_tconstr ~typing_env ~path ~args =
           | Tconstr (path, args, _) -> aux (Some expr) path args
           | _ -> Some expr)
     in
-    aux None path args
+    let x = aux None path args in
+    (*_print_path x path;*)
+    x
 
 let pp fmt t =
   let summary = Env.summary t in

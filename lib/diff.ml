@@ -711,23 +711,29 @@ and module_type ~typing_env ~name ~ref_module_type ~current_module_type
 
 and signatures ~typing_env ~reference ~current =
   let initialized_env = Typing_env.initialized_env () in
-  (*let modified_reference, modified_current =
+  let current =
     Typing_env.set_type_equalities ~reference ~current
-  in*)
+  in
+  let initialized_env = Env.add_signature reference initialized_env in
+  let _initialized_env = Env.add_signature current initialized_env in
+  (* open reference & current signatures! *)
+  let typing_env = Env.add_signature reference typing_env in
+  let typing_env = Env.add_signature current typing_env in
+  (*Typing_env.pp Format.std_formatter typing_env;*)
   match
     items ~reference ~current ~typing_env
   with
-  | [] -> (
+  | [] -> None (*(
       let coercion1 () =
-        Includemod.signatures initialized_env ~mark:Mark_both reference current
+        Includemod.signatures _initialized_env ~mark:Mark_both reference current
       in
       let coercion2 () =
-        Includemod.signatures initialized_env ~mark:Mark_both current reference
+        Includemod.signatures _initialized_env ~mark:Mark_both current reference
       in
       match (coercion1 (), coercion2 ()) with
       | Tcoerce_none, Tcoerce_none -> None
       | _, _ -> Some (Modified Unsupported)
-      | exception Includemod.Error _ -> Some (Modified Unsupported))
+      | exception Includemod.Error _ -> Some (Modified Unsupported))*)
   | item_changes -> Some (Modified (Supported item_changes))
 
 let interface ~module_name ~reference ~current =
